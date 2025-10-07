@@ -16,7 +16,10 @@ import pik.domain.thprinter.StatusMonitorService;
 import pik.domain.vfd.VFDController;
 import pik.domain.vfd.VFDService;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -66,7 +69,7 @@ public class IntegratedControllerApp {
         this.printerService = new PrinterService(printerConfig, this::broadcastStatusUpdate);
         this.printerStatusMonitor = new StatusMonitorService(printerService, this::broadcastStatusUpdate, serverConfig.getStatusCheckInterval());
         this.vfdService = new VFDService(vfdConfig, this::broadcastStatusUpdate);
-        this.executorService = Executors.newScheduledThreadPool(3);
+        this.executorService = Executors.newScheduledThreadPool(serverConfig.getThreadPoolSize());
 
         logger.info("IntegratedControllerApp initialized");
     }
@@ -237,137 +240,13 @@ public class IntegratedControllerApp {
      * Generate combined API documentation
      */
     private String generateCombinedDocs() {
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Integrated Printer & VFD Controller API</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-                    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-                    h1 { color: #333; border-bottom: 3px solid #007acc; padding-bottom: 10px; }
-                    h2 { color: #007acc; margin-top: 30px; }
-                    .endpoint { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc; }
-                    .method { font-weight: bold; color: #007acc; margin-right: 10px; }
-                    .path { font-family: monospace; background: #e8e8e8; padding: 3px 8px; border-radius: 3px; }
-                    pre { background: #f0f0f0; padding: 15px; border-radius: 5px; overflow-x: auto; }
-                    .section { margin: 30px 0; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>🖨️ Integrated Printer & VFD Controller API</h1>
-                    <p>Unified REST API for Epson TM-T20III Printer and FV-2030B VFD Display control</p>
-                    
-                    <div class="section">
-                        <h2>Printer Endpoints</h2>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/printer/status</span>
-                            <p>Get current printer status</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/printer/health</span>
-                            <p>Printer health check</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/printer/print</span>
-                            <p>Print structured content (JSON)</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/printer/print/text</span>
-                            <p>Print plain text</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/printer/cut</span>
-                            <p>Cut paper</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/printer/test</span>
-                            <p>Test print</p>
-                        </div>
-                    </div>
-                    
-                    <div class="section">
-                        <h2>VFD Display Endpoints</h2>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/vfd/status</span>
-                            <p>Get current VFD status</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/vfd/health</span>
-                            <p>VFD health check</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/vfd/display</span>
-                            <p>Display text on VFD</p>
-                            <pre>{"text": "Hello World"}</pre>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/vfd/clear</span>
-                            <p>Clear VFD display</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/vfd/brightness</span>
-                            <p>Set brightness (0-100)</p>
-                            <pre>{"brightness": 80}</pre>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">POST</span> <span class="path">/api/vfd/reconnect</span>
-                            <p>Attempt to reconnect to physical display</p>
-                        </div>
-                    </div>
-                    
-                    <div class="section">
-                        <h2>Real-time Monitoring</h2>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/events/status</span>
-                            <p>Server-Sent Events for printer status updates</p>
-                        </div>
-                        
-                        <div class="endpoint">
-                            <span class="method">GET</span> <span class="path">/api/vfd/events/status</span>
-                            <p>Server-Sent Events for VFD status updates</p>
-                        </div>
-                    </div>
-                    
-                    <div class="section">
-                        <h2>Example Usage</h2>
-                        <pre>
-# Print receipt and display total
-curl -X POST -d "Receipt Content" http://localhost:8080/api/printer/print/text
-curl -X POST -H "Content-Type: application/json" \\
-  -d '{"text":"Total: $25.00"}' \\
-  http://localhost:8080/api/vfd/display
-
-# Check health
-curl http://localhost:8080/api/printer/health
-curl http://localhost:8080/api/vfd/health
-
-# Monitor status (JavaScript)
-const printerEvents = new EventSource('/api/events/status');
-printerEvents.onmessage = (e) => console.log('Printer:', JSON.parse(e.data));
-
-const vfdEvents = new EventSource('/api/vfd/events/status');
-vfdEvents.onmessage = (e) => console.log('VFD:', JSON.parse(e.data));
-                        </pre>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """;
+        try (InputStream is = getClass()
+                .getResourceAsStream("/html/api_docs.html")) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.error("Failed to load documentation", e);
+            return "<h1>API documentation not available</h1>";
+        }
     }
 
     /**

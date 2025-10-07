@@ -40,7 +40,7 @@ public class StatusMonitorService {
         logger.info("Starting printer status monitoring");
         monitoring = true;
 
-        // Schedule periodic status checks every 5 seconds
+        // Schedule periodic status checks
         monitoringTask = executor.scheduleWithFixedDelay(
                 this::checkStatus,
                 0,

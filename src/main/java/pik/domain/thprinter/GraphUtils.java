@@ -28,17 +28,13 @@ public class GraphUtils {
     /**
      * Load and process image file
      */
-    public static BufferedImage loadAndProcessImage(String imagePath) {
-        try {
+    public static BufferedImage loadAndProcessImage(String imagePath) throws IOException {
             BufferedImage originalImage = ImageIO.read(new File(imagePath));
-
+            if (originalImage == null) {
+                throw new IOException("Failed to load image: " + imagePath);
+            }
             // Convert to monochrome for thermal printer
             return convertToMonochrome(originalImage);
-
-        } catch (IOException e) {
-            logger.error("Error loading image: {}", e.getMessage());
-            return null;
-        }
     }
 
     /**

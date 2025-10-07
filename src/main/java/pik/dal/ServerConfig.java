@@ -10,18 +10,35 @@ public class ServerConfig {
     private final String host;
     private final int statusCheckInterval;
     private final boolean monitoringEnabled;
+    private final int threadPoolSize;
 
-    public ServerConfig(int port, String host, int statusCheckInterval, boolean monitoringEnabled) {
+    public ServerConfig(int port, String host, int statusCheckInterval, boolean monitoringEnabled, int threadPoolSize) {
         this.port = port;
         this.host = host;
         this.statusCheckInterval = statusCheckInterval;
         this.monitoringEnabled = monitoringEnabled;
+        this.threadPoolSize = threadPoolSize;
     }
 
-    public int getPort() { return port; }
-    public String getHost() { return host; }
-    public int getStatusCheckInterval() { return statusCheckInterval; }
-    public boolean isMonitoringEnabled() { return monitoringEnabled; }
+    public int getPort() {
+        return port;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public int getStatusCheckInterval() {
+        return statusCheckInterval;
+    }
+
+    public boolean isMonitoringEnabled() {
+        return monitoringEnabled;
+    }
+
+    public int getThreadPoolSize() {
+        return threadPoolSize;
+    }
 
     @Override
     public String toString() {

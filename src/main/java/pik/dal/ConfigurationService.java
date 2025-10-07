@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.PrinterConstants;
+import pik.common.ServerConstants;
 
 /**
  * ain configuration service - entry point for all configuration needs
@@ -18,13 +19,15 @@ public class ConfigurationService {
     private VFDConfig vfdConfig;
     private ServerConfig serverConfig;
 
-    public ConfigurationService() {
+    public ConfigurationService() throws ConfigurationException {
         this(new ConfigurationLoader());
     }
 
-    public ConfigurationService(ConfigurationLoader loader) {
+    public ConfigurationService(ConfigurationLoader loader) throws ConfigurationException {
         this.loader = loader;
-        loadAllConfigurations();
+        this.printerConfig = loadPrinterConfiguration();
+        this.vfdConfig = loadVFDConfiguration();
+        this.serverConfig = loadServerConfiguration();
     }
 
     /**
@@ -86,12 +89,13 @@ public class ConfigurationService {
      * Load server configuration
      */
     private ServerConfig loadServerConfiguration() throws ConfigurationException {
-        int port = loader.getInt("server.port", 8080);
-        String host = loader.getString("server.host", "0.0.0.0");
+        int port = loader.getInt("server.port", ServerConstants.SERVER_PORT);
+        String host = loader.getString("server.host", ServerConstants.SERVER_IP);
         int interval = loader.getInt("monitor.status.interval", PrinterConstants.STATUS_CHECK_INTERVAL);
         boolean enabled = loader.getBoolean("monitor.enabled", true);
+        int threadPoolSize = loader.getInt("server.thread.pool", ServerConstants.THREAD_POOL_SIZE);
 
-        ServerConfig config = new ServerConfig(port, host, interval, enabled);
+        ServerConfig config = new ServerConfig(port, host, interval, enabled, threadPoolSize);
         config.validate();
         return config;
     }

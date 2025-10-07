@@ -2,7 +2,6 @@ package pik.domain.vfd;
 
 import com.google.gson.Gson;
 import io.javalin.http.Context;
-import io.javalin.http.Handler;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import org.slf4j.Logger;

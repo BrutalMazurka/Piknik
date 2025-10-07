@@ -7,6 +7,9 @@ import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -248,172 +251,13 @@ public class PrinterController {
      * Generate simple API documentation HTML
      */
     private String generateApiDocs() {
-        return """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Epson Printer Controller API</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-                    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-                    h1, h2 { color: #333; }
-                    h1 { border-bottom: 3px solid #007acc; padding-bottom: 10px; }
-                    h2 { color: #007acc; margin-top: 30px; }
-                    .endpoint { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc; }
-                    .method { font-weight: bold; color: #007acc; margin-right: 10px; }
-                    .path { font-family: monospace; background: #e8e8e8; padding: 3px 8px; border-radius: 3px; }
-                    pre { background: #f0f0f0; padding: 15px; border-radius: 5px; overflow-x: auto; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>🖨️ Epson Printer Controller API</h1>
-                    <p>REST API for Epson TM-T20III thermal printer control</p>
-                    
-                    <h2>Endpoints</h2>
-                    
-                    <div class="endpoint">
-                        <span class="method">GET</span> <span class="path">/api/printer/status</span>
-                        <p>Get current printer status including paper level, cover state, and errors</p>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">GET</span> <span class="path">/api/printer/health</span>
-                        <p>Health check endpoint - returns 200 if printer is ready, 503 if not</p>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">POST</span> <span class="path">/api/printer/print</span>
-                        <p>Print structured content with formatting options (JSON)</p>
-                        <pre>{
-  "text": "Hello World",
-  "items": [
-    {
-      "type": "TEXT",
-      "content": "Sample text",
-      "options": {
-        "bold": true,
-        "alignment": "CENTER",
-        "fontSize": 2
-      }
-    },
-    {
-      "type": "IMAGE",
-      "content": "base64_or_file_path",
-      "options": {
-        "width": 200
-      }
-    },
-    {
-      "type": "BARCODE",
-      "content": "123456789"
-    },
-    {
-      "type": "LINE",
-      "content": "================================"
-    }
-  ],
-  "cutPaper": true,
-  "copies": 1
-}</pre>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">POST</span> <span class="path">/api/printer/print/text</span>
-                        <p>Print plain text (send text as raw body)</p>
-                        <pre>curl -X POST -d "Hello World!" http://localhost:8080/api/printer/print/text</pre>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">POST</span> <span class="path">/api/printer/cut</span>
-                        <p>Cut paper (if printer supports paper cutting)</p>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">POST</span> <span class="path">/api/printer/test</span>
-                        <p>Test print functionality - prints a test page</p>
-                    </div>
-                    
-                    <div class="endpoint">
-                        <span class="method">GET</span> <span class="path">/api/events/status</span>
-                        <p>Server-Sent Events for real-time printer status updates</p>
-                    </div>
-                    
-                    <h2>Status Monitoring</h2>
-                    <p>Connect to <code>/api/events/status</code> to receive real-time printer status updates via Server-Sent Events.</p>
-                    <p>Status updates include:</p>
-                    <ul>
-                        <li>Online/offline state</li>
-                        <li>Paper empty/near end warnings</li>
-                        <li>Cover open detection</li>
-                        <li>Error conditions</li>
-                    </ul>
-                    
-                    <h2>Example Usage</h2>
-                    <pre>
-// Get status
-curl http://localhost:8080/api/printer/status
-
-// Print text
-curl -X POST -d "Hello World!" http://localhost:8080/api/printer/print/text
-
-// Print structured content
-curl -X POST -H "Content-Type: application/json" \\
-  -d '{"items":[{"type":"TEXT","content":"Test","options":{"bold":true}}],"cutPaper":true}' \\
-  http://localhost:8080/api/printer/print
-
-// Test print
-curl -X POST http://localhost:8080/api/printer/test
-
-// Health check
-curl http://localhost:8080/api/printer/health
-
-// Listen to status updates (JavaScript)
-const eventSource = new EventSource('/api/events/status');
-eventSource.onmessage = function(event) {
-    const status = JSON.parse(event.data);
-    console.log('Printer status:', status);
-    
-    if (status.paperEmpty) {
-        alert('Paper is empty!');
-    }
-    if (status.coverOpen) {
-        alert('Cover is open!');
-    }
-};
-
-// Close SSE connection when done
-eventSource.close();
-                    </pre>
-                    
-                    <h2>Response Format</h2>
-                    <p>All endpoints return JSON responses with the following structure:</p>
-                    <pre>{
-  "success": true,
-  "message": "Operation completed successfully",
-  "data": { /* response data */ },
-  "timestamp": 1234567890
-}</pre>
-                    
-                    <h2>Error Handling</h2>
-                    <p>Errors return appropriate HTTP status codes:</p>
-                    <ul>
-                        <li><strong>400</strong> - Bad request (invalid input)</li>
-                        <li><strong>500</strong> - Internal server error (printer error)</li>
-                        <li><strong>503</strong> - Service unavailable (printer offline)</li>
-                    </ul>
-                    
-                    <p>Error response format:</p>
-                    <pre>{
-  "success": false,
-  "message": "Error description",
-  "data": null,
-  "timestamp": 1234567890
-}</pre>
-                </div>
-            </body>
-            </html>
-            """;
+        try (InputStream is = getClass()
+                .getResourceAsStream("/html/printer_docs.html")) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.error("Failed to load documentation", e);
+            return "<h1>Printer API documentation not available</h1>";
+        }
     }
 
     /**

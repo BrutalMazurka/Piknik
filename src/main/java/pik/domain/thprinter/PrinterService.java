@@ -512,12 +512,15 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
      * Utility class for image processing
      */
     private static class ImageProcessor {
+        /**
+         * Convert image to monochrome bitmap.
+         * Each row is padded to the nearest byte boundary.
+         */
         public static byte[] convertToMonochrome(BufferedImage image) {
             int width = image.getWidth();
             int height = image.getHeight();
 
             // Convert to monochrome bitmap format expected by printer
-            //byte[] bitmapData = new byte[(width * height) / 8 + height];
             int bytesPerRow = (width + 7) / 8;  // Round up to nearest byte
             byte[] bitmapData = new byte[bytesPerRow * height];
             int byteIndex = 0;
