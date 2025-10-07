@@ -1,0 +1,52 @@
+package pik.domain.thprinter;
+
+/**
+ * @author Martin Sustik <sustik@herman.cz>
+ * @since 28/08/2025
+ */
+public class PrintUtils {
+    /**
+     * ESC/POS formatting commands
+     */
+    public static final String ESC = "\u001b";
+    public static final String BOLD_ON = ESC + "|bC";
+    public static final String BOLD_OFF = ESC + "|bC";
+    public static final String CENTER_ON = ESC + "|cA";
+    public static final String CENTER_OFF = ESC + "|lA";
+    public static final String DOUBLE_HEIGHT = ESC + "|2C";
+    public static final String NORMAL_HEIGHT = ESC + "|1C";
+
+    /**
+     * Format price for printing
+     */
+    public static String formatPrice(double price) {
+        return String.format("%.2f Kč", price);
+    }
+
+    /**
+     * Create separator line
+     */
+    public static String createSeparator(int length, char character) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(character);
+        }
+        sb.append("\n");
+        return sb.toString();
+    }
+
+    /**
+     * Format item line with price alignment
+     */
+    public static String formatItemLine(String item, double price, int lineWidth) {
+        String priceStr = formatPrice(price);
+        int spaces = lineWidth - item.length() - priceStr.length();
+        StringBuilder sb = new StringBuilder();
+        sb.append(item);
+        for (int i = 0; i < spaces; i++) {
+            sb.append(" ");
+        }
+        sb.append(priceStr);
+        return sb.toString();
+    }
+}
