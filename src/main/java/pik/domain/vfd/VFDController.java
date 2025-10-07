@@ -37,29 +37,29 @@ public class VFDController {
      */
     public void registerRoutes() {
         path("/api/vfd", () -> {
-            get("/status", getStatus);
-            get("/health", healthCheck);
-            get("/info", getInfo);
-            post("/display", displayText);
-            post("/clear", clearDisplay);
-            post("/cursor/position", setCursorPosition);
-            post("/cursor/home", homeCursor);
-            post("/cursor/show", showCursor);
-            post("/brightness", setBrightness);
-            post("/command", sendCustomCommand);
-            post("/demo", runDemo);
-            post("/reconnect", reconnectDisplay);
+            get("/status", this::getStatus);
+            get("/health", this::healthCheck);
+            get("/info", this::getInfo);
+            post("/display", this::displayText);
+            post("/clear", this::clearDisplay);
+            post("/cursor/position", this::setCursorPosition);
+            post("/cursor/home", this::homeCursor);
+            post("/cursor/show", this::showCursor);
+            post("/brightness", this::setBrightness);
+            post("/command", this::sendCustomCommand);
+            post("/demo", this::runDemo);
+            post("/reconnect", this::reconnectDisplay);
         });
 
         path("/api/vfd/events", () -> {
-            get("/status", sseStatusUpdates);
+            get("/status", this::sseStatusUpdates);
         });
     }
 
     /**
      * Get current VFD status
      */
-    private final Handler getStatus = ctx -> {
+    private void getStatus(Context ctx) {
         try {
             VFDStatus status = vfdService.getStatus();
             ctx.json(ApiResponse.success(status));
@@ -67,12 +67,12 @@ public class VFDController {
             logger.error("Error getting VFD status", e);
             ctx.status(500).json(ApiResponse.error("Failed to get VFD status: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Health check endpoint
      */
-    private final Handler healthCheck = ctx -> {
+    private void healthCheck(Context ctx) {
         boolean isHealthy = vfdService.isReady();
         VFDStatus status = vfdService.getStatus();
 
@@ -86,12 +86,12 @@ public class VFDController {
             );
             ctx.status(503).json(response);
         }
-    };
+    }
 
     /**
      * Get display information
      */
-    private final Handler getInfo = ctx -> {
+    private void getInfo(Context ctx) {
         try {
             String info = vfdService.getDisplayInfo();
             ctx.json(ApiResponse.success(info));
@@ -99,12 +99,12 @@ public class VFDController {
             logger.error("Error getting display info", e);
             ctx.status(500).json(ApiResponse.error("Failed to get display info: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Display text on VFD
      */
-    private final Handler displayText = ctx -> {
+    private void displayText(Context ctx) {
         try {
             VFDDisplayRequest request = ctx.bodyAsClass(VFDDisplayRequest.class);
 
@@ -122,12 +122,12 @@ public class VFDController {
             logger.error("Error displaying text on VFD", e);
             ctx.status(500).json(ApiResponse.error("Display failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Clear display
      */
-    private final Handler clearDisplay = ctx -> {
+    private void clearDisplay(Context ctx) {
         try {
             vfdService.clearDisplay();
             ctx.json(ApiResponse.success("Display cleared successfully"));
@@ -135,12 +135,12 @@ public class VFDController {
             logger.error("Error clearing VFD display", e);
             ctx.status(500).json(ApiResponse.error("Clear failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Set cursor position
      */
-    private final Handler setCursorPosition = ctx -> {
+    private void setCursorPosition(Context ctx) {
         try {
             VFDDisplayRequest request = ctx.bodyAsClass(VFDDisplayRequest.class);
 
@@ -156,12 +156,12 @@ public class VFDController {
             logger.error("Error setting cursor position", e);
             ctx.status(500).json(ApiResponse.error("Set cursor position failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Home cursor
      */
-    private final Handler homeCursor = ctx -> {
+    private void homeCursor(Context ctx) {
         try {
             vfdService.homeCursor();
             ctx.json(ApiResponse.success("Cursor homed successfully"));
@@ -169,12 +169,12 @@ public class VFDController {
             logger.error("Error homing cursor", e);
             ctx.status(500).json(ApiResponse.error("Home cursor failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Show or hide cursor
      */
-    private final Handler showCursor = ctx -> {
+    private void showCursor(Context ctx) {
         try {
             VFDDisplayRequest request = ctx.bodyAsClass(VFDDisplayRequest.class);
 
@@ -190,12 +190,12 @@ public class VFDController {
             logger.error("Error setting cursor visibility", e);
             ctx.status(500).json(ApiResponse.error("Show cursor failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Set brightness
      */
-    private final Handler setBrightness = ctx -> {
+    private void setBrightness(Context ctx) {
         try {
             VFDDisplayRequest request = ctx.bodyAsClass(VFDDisplayRequest.class);
 
@@ -213,12 +213,12 @@ public class VFDController {
             logger.error("Error setting brightness", e);
             ctx.status(500).json(ApiResponse.error("Set brightness failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Send custom command
      */
-    private final Handler sendCustomCommand = ctx -> {
+    private void sendCustomCommand(Context ctx) {
         try {
             VFDDisplayRequest request = ctx.bodyAsClass(VFDDisplayRequest.class);
 
@@ -234,12 +234,12 @@ public class VFDController {
             logger.error("Error sending custom command", e);
             ctx.status(500).json(ApiResponse.error("Custom command failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Run demo
      */
-    private final Handler runDemo = ctx -> {
+    private void runDemo(Context ctx) {
         try {
             vfdService.runDemo();
             ctx.json(ApiResponse.success("Demo completed successfully"));
@@ -247,12 +247,12 @@ public class VFDController {
             logger.error("Error running VFD demo", e);
             ctx.status(500).json(ApiResponse.error("Demo failed: " + e.getMessage()));
         }
-    };
+    }
 
     /**
      * Server-Sent Events for real-time VFD status updates
      */
-    private final Handler sseStatusUpdates = ctx -> {
+    private void sseStatusUpdates(Context ctx) {
         String clientId = "vfd_" + UUID.randomUUID().toString();
 
         logger.info("New VFD SSE client connected: {}", clientId);
@@ -263,7 +263,7 @@ public class VFDController {
                 .header("Access-Control-Allow-Origin", "*");
 
         sseClients.put(clientId, ctx);
-        // Disconnect handler
+
         ctx.req().getAsyncContext().addListener(new AsyncListener() {
             @Override
             public void onComplete(AsyncEvent event) {
@@ -289,12 +289,12 @@ public class VFDController {
             logger.error("Error sending initial VFD status to SSE client {}", clientId, e);
             sseClients.remove(clientId);
         }
-    };
+    }
 
     /**
      * Reconnect the display
      */
-    private final Handler reconnectDisplay = ctx -> {
+    private void reconnectDisplay(Context ctx) {
         try {
             boolean success = vfdService.attemptReconnect();
             if (success) {
@@ -306,5 +306,5 @@ public class VFDController {
             logger.error("Error reconnecting to VFD", e);
             ctx.status(500).json(ApiResponse.error("Reconnection failed: " + e.getMessage()));
         }
-    };
+    }
 }
