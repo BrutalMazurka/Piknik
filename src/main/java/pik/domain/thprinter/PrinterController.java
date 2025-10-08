@@ -98,10 +98,27 @@ public class PrinterController {
         }
     }
 
+    private boolean printerServiceReady(Context ctx) {
+        if (!printerService.isInitialized()) {
+            ctx.status(503).json(ApiResponse.error("Printer service not initialized"));
+            return false;
+        }
+
+        if (!printerService.isReady()) {
+            ctx.status(503).json(ApiResponse.error("Printer not ready: " + printerService.getStatus().getErrorMessage()));
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Print structured content
      */
     private void printContent(Context ctx) {
+        if (!printerServiceReady(ctx))
+            return;
+
         try {
             PrintRequest printRequest = ctx.bodyAsClass(PrintRequest.class);
 
@@ -130,6 +147,9 @@ public class PrinterController {
      * Print simple text
      */
     private void printText(Context ctx) {
+        if (!printerServiceReady(ctx))
+            return;
+
         try {
             String text = ctx.body();
 
@@ -158,6 +178,9 @@ public class PrinterController {
      * Cut paper
      */
     private void cutPaper(Context ctx) {
+        if (!printerServiceReady(ctx))
+            return;
+
         try {
             printerService.cutPaper();
             ctx.json(ApiResponse.success("Paper cut successfully"));
@@ -176,6 +199,9 @@ public class PrinterController {
      * Test print functionality
      */
     private void testPrint(Context ctx) {
+        if (!printerServiceReady(ctx))
+            return;
+
         try {
             String testContent = "=== PRINTER TEST ===\n" +
                     "Date: " + new java.util.Date() + "\n" +

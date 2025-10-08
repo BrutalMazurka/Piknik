@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 25/09/2025
  */
-public class PrinterService implements StatusUpdateListener, ErrorListener, DirectIOListener {
+public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener, DirectIOListener {
     private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
 
     private final PrinterConfig config;
@@ -47,6 +47,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Initialize the printer connection and setup
      */
+    @Override
     public void initialize() throws JposException {
         printerLock.lock();
         try {
@@ -88,6 +89,13 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     }
 
     /**
+     * Check if service is initialized (regardless of current errors)
+     */
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
      * Configure printer-specific settings
      */
     private void configurePrinter() throws JposException {
@@ -116,6 +124,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Print text content
      */
+    @Override
     public void printText(String text) throws JposException {
         if (!isReady()) {
             throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
@@ -137,6 +146,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Print structured content from PrintRequest
      */
+    @Override
     public void print(PrintRequest request) throws JposException {
         if (!isReady()) {
             throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
@@ -316,7 +326,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
             }
 
             // Convert to byte array and print
-            byte[] bitmapData = ImageProcessor.convertToMonochrome(image);
+            byte[] bitmapData = GraphUtils.convertToMonochromeBitmap(image);
             printer.printMemoryBitmap(POSPrinterConst.PTR_S_RECEIPT, bitmapData,
                     POSPrinterConst.PTR_BMT_BMP, image.getWidth(),
                     POSPrinterConst.PTR_BM_ASIS);
@@ -365,6 +375,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Cut paper
      */
+    @Override
     public void cutPaper() throws JposException {
         if (!isReady()) {
             throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
@@ -432,7 +443,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     }
 
     /**
-     * Check if printer is ready for operations
+     * Check if printer is ready for operations (initialized + online + no errors)
      */
     public boolean isReady() {
         return initialized && currentStatus.isOnline() && !currentStatus.hasErrors();
@@ -441,6 +452,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Get current printer status
      */
+    @Override
     public PrinterStatus getStatus() {
         printerLock.lock();
         try {
@@ -454,6 +466,7 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
     /**
      * Close printer connection
      */
+    @Override
     public void close() {
         printerLock.lock();
         try {
@@ -508,41 +521,4 @@ public class PrinterService implements StatusUpdateListener, ErrorListener, Dire
                 e.getEventNumber(), e.getData(), e.getObject());
     }
 
-    /**
-     * Utility class for image processing
-     */
-    private static class ImageProcessor {
-        /**
-         * Convert image to monochrome bitmap.
-         * Each row is padded to the nearest byte boundary.
-         */
-        public static byte[] convertToMonochrome(BufferedImage image) {
-            int width = image.getWidth();
-            int height = image.getHeight();
-
-            // Convert to monochrome bitmap format expected by printer
-            int bytesPerRow = (width + 7) / 8;  // Round up to nearest byte
-            byte[] bitmapData = new byte[bytesPerRow * height];
-            int byteIndex = 0;
-
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x += 8) {
-                    byte pixelByte = 0;
-                    for (int bit = 0; bit < 8 && (x + bit) < width; bit++) {
-                        int rgb = image.getRGB(x + bit, y);
-                        int gray = (int) (0.299 * ((rgb >> 16) & 0xFF) +
-                                0.587 * ((rgb >> 8) & 0xFF) +
-                                0.114 * (rgb & 0xFF));
-
-                        if (gray < PrinterConstants.GRAYSCALE_THRESHOLD) { // Black pixel
-                            pixelByte |= (0x80 >> bit);
-                        }
-                    }
-                    bitmapData[byteIndex++] = pixelByte;
-                }
-            }
-
-            return bitmapData;
-        }
-    }
 }

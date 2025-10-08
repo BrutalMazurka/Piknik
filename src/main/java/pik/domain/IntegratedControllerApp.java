@@ -48,6 +48,8 @@ public class IntegratedControllerApp {
 
     private final ScheduledExecutorService executorService;
     private final ConcurrentHashMap<String, Context> sseClients = new ConcurrentHashMap<>();
+    private volatile boolean shutdownHookRegistered = false;
+    private volatile boolean printerInitialized = false;
 
     /**
      * Constructor accepting configurations (no circular dependency)
@@ -83,9 +85,11 @@ public class IntegratedControllerApp {
         // Initialize printer service
         try {
             printerService.initialize();
+            printerInitialized = true;
             logger.info("Printer service initialized successfully");
         } catch (Exception e) {
             logger.error("Failed to initialize printer service", e);
+            printerInitialized = false;
         }
 
         // Initialize VFD service
@@ -109,7 +113,10 @@ public class IntegratedControllerApp {
         Javalin app = createJavalinApp();
 
         // Setup graceful shutdown
-        Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+        if (!shutdownHookRegistered) {
+            Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+            shutdownHookRegistered = true;
+        }
 
         logger.info("Integrated Controller started on port {}", serverPort);
     }

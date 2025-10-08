@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
  */
-public class VFDService {
+public class VFDService implements IVFDService {
     private static final Logger logger = LoggerFactory.getLogger(VFDService.class);
 
     private final VFDConfig config;
@@ -37,6 +37,7 @@ public class VFDService {
     /**
      * Initialize VFD display connection
      */
+    @Override
     public void initialize() {
         displayLock.lock();
         try {
@@ -96,6 +97,7 @@ public class VFDService {
     /**
      * Display text on VFD
      */
+    @Override
     public void displayText(String text) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -114,6 +116,7 @@ public class VFDService {
     /**
      * Clear display
      */
+    @Override
     public void clearDisplay() throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -132,6 +135,7 @@ public class VFDService {
     /**
      * Set cursor position
      */
+    @Override
     public void setCursorPosition(int row, int col) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -149,6 +153,7 @@ public class VFDService {
     /**
      * Set brightness
      */
+    @Override
     public void setBrightness(int brightness) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -171,6 +176,7 @@ public class VFDService {
     /**
      * Show or hide cursor
      */
+    @Override
     public void showCursor(boolean show) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -188,6 +194,7 @@ public class VFDService {
     /**
      * Home cursor
      */
+    @Override
     public void homeCursor() throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -205,6 +212,7 @@ public class VFDService {
     /**
      * Send custom command
      */
+    @Override
     public void sendCustomCommand(String command) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -222,6 +230,7 @@ public class VFDService {
     /**
      * Run demo
      */
+    @Override
     public void runDemo() throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
@@ -246,6 +255,7 @@ public class VFDService {
     /**
      * Get current status
      */
+    @Override
     public VFDStatus getStatus() {
         return currentStatus;
     }
@@ -279,8 +289,14 @@ public class VFDService {
             logger.info("Attempting to reconnect to VFD display...");
 
             // Disconnect current display
-            if (display != null && display.isConnected()) {
-                display.disconnect();
+            if (display != null) {
+                try {
+                    if (display.isConnected()) {
+                        display.disconnect();
+                    }
+                } catch (Exception e) {
+                    logger.warn("Error disconnecting old display: ", e);
+                }
             }
 
             // Try to create and connect to real display
@@ -318,6 +334,7 @@ public class VFDService {
     /**
      * Close display connection
      */
+    @Override
     public void close() {
         displayLock.lock();
         try {

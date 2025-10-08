@@ -34,13 +34,13 @@ public class GraphUtils {
                 throw new IOException("Failed to load image: " + imagePath);
             }
             // Convert to monochrome for thermal printer
-            return convertToMonochrome(originalImage);
+            return convertToMonochromeImage(originalImage);
     }
 
     /**
      * Convert image to monochrome (black and white)
      */
-    public static BufferedImage convertToMonochrome(BufferedImage originalImage) {
+    public static BufferedImage convertToMonochromeImage(BufferedImage originalImage) {
         BufferedImage monoImage = new BufferedImage(
                 originalImage.getWidth(),
                 originalImage.getHeight(),
@@ -51,6 +51,39 @@ public class GraphUtils {
         g2d.dispose();
 
         return monoImage;
+    }
+
+    /**
+     * Convert image to monochrome bitmap.
+     * Each row is padded to the nearest byte boundary.
+     */
+    public static byte[] convertToMonochromeBitmap(BufferedImage originalImage) {
+        int width = originalImage.getWidth();
+        int height = originalImage.getHeight();
+
+        // Convert to monochrome bitmap format expected by printer
+        int bytesPerRow = (width + 7) / 8;  // Round up to nearest byte
+        byte[] bitmapData = new byte[bytesPerRow * height];
+        int byteIndex = 0;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x += 8) {
+                byte pixelByte = 0;
+                for (int bit = 0; bit < 8 && (x + bit) < width; bit++) {
+                    int rgb = originalImage.getRGB(x + bit, y);
+                    int gray = (int) (0.299 * ((rgb >> 16) & 0xFF) +
+                            0.587 * ((rgb >> 8) & 0xFF) +
+                            0.114 * (rgb & 0xFF));
+
+                    if (gray < PrinterConstants.GRAYSCALE_THRESHOLD) { // Black pixel
+                        pixelByte |= (0x80 >> bit);
+                    }
+                }
+                bitmapData[byteIndex++] = pixelByte;
+            }
+        }
+
+        return bitmapData;
     }
 
     /**

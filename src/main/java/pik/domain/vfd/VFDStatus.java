@@ -16,21 +16,61 @@ public class VFDStatus {
         this.lastUpdate = System.currentTimeMillis();
     }
 
-    public boolean isConnected() { return connected; }
-    public void setConnected(boolean connected) { this.connected = connected; }
+    public VFDStatus(VFDStatus other) {
+        this.connected = other.connected;
+        this.error = other.error;
+        this.errorMessage = other.errorMessage;
+        this.displayModel = other.displayModel;
+        this.lastUpdate = other.lastUpdate;
+        this.isDummyMode = other.isDummyMode;
+    }
 
-    public boolean isError() { return error; }
-    public void setError(boolean error) { this.error = error; }
+    // Connectivity
+    public boolean isConnected() {
+        return connected;
+    }
+    public void setConnected(boolean connected) {
+        this.connected = connected;
+    }
 
-    public String getErrorMessage() { return errorMessage; }
-    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    // Error
+    public boolean isError() {
+        return error;
+    }
+    public void setError(boolean error) {
+        this.error = error;
+    }
 
-    public String getDisplayModel() { return displayModel; }
-    public void setDisplayModel(String displayModel) { this.displayModel = displayModel; }
+    // Error message
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
 
-    public long getLastUpdate() { return lastUpdate; }
-    public void setLastUpdate(long lastUpdate) { this.lastUpdate = lastUpdate; }
+    // Display model
+    public String getDisplayModel() {
+        return displayModel;
+    }
+    public void setDisplayModel(String displayModel) {
+        this.displayModel = displayModel;
+    }
 
-    public boolean isDummyMode() { return isDummyMode; }
-    public void setDummyMode(boolean dummyMode) { this.isDummyMode = dummyMode; }
+    // Display update
+    public long getLastUpdate() {
+        return lastUpdate;
+    }
+    public void setLastUpdate(long lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
+
+    // Dummy mode - no display connected
+    public boolean isDummyMode() {
+        return isDummyMode;
+    }
+    public void setDummyMode(boolean dummyMode) {
+        this.isDummyMode = dummyMode;
+    }
+
 }
