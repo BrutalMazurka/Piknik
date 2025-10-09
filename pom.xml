@@ -21,24 +21,28 @@
             <artifactId>logback-classic</artifactId>
             <version>[1.4.11,)</version>
         </dependency>
+
         <!-- Serial port support -->
         <dependency>
             <groupId>com.fazecast</groupId>
             <artifactId>jSerialComm</artifactId>
             <version>[2.10.4,)</version>
         </dependency>
+
         <!-- Javalin Web Framework -->
         <dependency>
             <groupId>io.javalin</groupId>
             <artifactId>javalin</artifactId>
             <version>[6.7.0,)</version>
         </dependency>
+
         <!-- Gson for JSON processing -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>[2.10.1,)</version>
         </dependency>
+
         <!-- For QR Code generation -->
         <dependency>
             <groupId>com.google.zxing</groupId>
@@ -52,6 +56,7 @@
             <version>[3.5.1,)</version>
             <scope>provided</scope>
         </dependency>
+
         <!-- JavaPOS - Epson JavaPOS manually installed library -->
         <dependency>
             <groupId>org.javapos</groupId>
@@ -62,6 +67,32 @@
             <groupId>com.epson</groupId>
             <artifactId>epsonjpos</artifactId>
             <version>1.14.1</version>
+        </dependency>
+
+        <!-- Testing Dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.14.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.27.6</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.20.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.20.0</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
