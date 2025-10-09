@@ -63,7 +63,7 @@ public class IntegratedController {
         // Initialize services
         this.printerService = new PrinterService(printerConfig);
         this.vfdService = new VFDService(vfdConfig);
-        this.printerStatusMonitor = new StatusMonitorService(printerService, this::broadcastStatusUpdate, serverConfig.getStatusCheckInterval());
+        this.printerStatusMonitor = new StatusMonitorService(printerService, this::broadcastToSSE, serverConfig.getStatusCheckInterval());
         this.executorService = Executors.newScheduledThreadPool(serverConfig.getThreadPoolSize());
 
         // Register observers AFTER construction
@@ -95,18 +95,20 @@ public class IntegratedController {
 
         sseClients.entrySet().removeIf(entry -> {
             try {
-                Context ctx = entry.getValue();
-                ctx.result(message);
+                entry.getValue().result(message);
                 return false;
             } catch (Exception e) {
                 logger.debug("Removing disconnected SSE client: {}", entry.getKey());
-                try {
-                    entry.getValue().req().getAsyncContext().complete();
-                } catch (Exception ignored) {
-                }
+                closeAsyncContext(entry.getValue());
                 return true;
             }
         });
+    }
+
+    private void closeAsyncContext(Context ctx) {
+        try {
+            ctx.req().getAsyncContext().complete();
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -115,43 +117,56 @@ public class IntegratedController {
     public void start() {
         logger.info("Starting Integrated Printer & VFD Controller Application...");
 
-        // Initialize printer service
-        try {
-            printerService.initialize();
-            printerInitialized = true;
-            logger.info("Printer service initialized successfully");
-        } catch (Exception e) {
-            logger.error("Failed to initialize printer service", e);
-            printerInitialized = false;
-        }
+        boolean printerReady = false;
+        boolean vfdReady = false;
 
-        // Initialize VFD service
         try {
-            vfdService.initialize();
-            if (vfdService.isDummyMode()) {
-                logger.warn("VFD service running in dummy mode - physical display not available");
-            } else {
-                logger.info("VFD service initialized successfully");
+            // Initialize printer
+            try {
+                printerService.initialize();
+                printerInitialized = true;
+                printerReady = true;
+                logger.info("Printer service initialized successfully");
+            } catch (Exception e) {
+                logger.error("Failed to initialize printer service", e);
             }
+
+            // Initialize VFD
+            try {
+                vfdService.initialize();
+                vfdReady = true;
+                if (vfdService.isDummyMode()) {
+                    logger.warn("VFD running in dummy mode");
+                } else {
+                    logger.info("VFD service initialized successfully");
+                }
+            } catch (Exception e) {
+                logger.error("Failed to initialize VFD service", e);
+            }
+
+            // Start monitoring only if printer is ready
+            if (printerReady && printerStatusMonitor != null) {
+                printerStatusMonitor.startMonitoring(executorService);
+            }
+
+            // Create web server
+            javalinApp = createJavalinApp();
+
+            // Setup shutdown hook
+            registerShutdownHook();
+
         } catch (Exception e) {
-            logger.error("Failed to initialize VFD service", e);
+            logger.error("Fatal error during startup", e);
+            shutdown();  // Cleanup on failure
+            throw e;
         }
+    }
 
-        // Start monitoring
-        if (printerStatusMonitor != null) {
-            printerStatusMonitor.startMonitoring(executorService);
-        }
-
-        // Create and start web server
-        Javalin app = createJavalinApp();
-
-        // Setup graceful shutdown
+    private void registerShutdownHook() {
         if (!shutdownHookRegistered) {
             Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
             shutdownHookRegistered = true;
         }
-
-        logger.info("Integrated Controller started on port {}", serverPort);
     }
 
     /**
@@ -224,7 +239,7 @@ public class IntegratedController {
     /**
      * Broadcast status updates to all SSE clients
      */
-    private void broadcastStatusUpdate(String message) {
+    /*private void broadcastStatusUpdate(String message) {
         logger.debug("Broadcasting status update: {}", message);
 
         sseClients.entrySet().removeIf(entry -> {
@@ -242,7 +257,7 @@ public class IntegratedController {
                 return true;    // Remove client
             }
         });
-    }
+    }*/
 
     /**
      * Graceful shutdown

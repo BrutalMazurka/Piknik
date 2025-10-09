@@ -54,7 +54,7 @@ public class StatusMonitorService {
     /**
      * Stop status monitoring
      */
-    public void stopMonitoring() {
+    public synchronized void stopMonitoring() {
         if (!monitoring) {
             return;
         }

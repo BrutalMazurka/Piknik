@@ -1,5 +1,9 @@
 package pik.domain.vfd;
 
+import pik.domain.thprinter.PrinterStatus;
+
+import java.util.Objects;
+
 /**
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
@@ -73,4 +77,26 @@ public class VFDStatus {
         this.isDummyMode = dummyMode;
     }
 
+    @Override
+    public String toString() {
+        return String.format("VFDStatus{connected=%s, displayModel=%s, isDummyMode=%s, error=%s}",
+                connected, displayModel, isDummyMode, error);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        VFDStatus that = (VFDStatus) o;
+        return connected == that.connected &&
+                error == that.error &&
+                isDummyMode == that.isDummyMode &&
+                Objects.equals(displayModel, that.displayModel) &&
+                Objects.equals(errorMessage, that.errorMessage);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(connected, error, errorMessage, displayModel, isDummyMode);
+    }
 }

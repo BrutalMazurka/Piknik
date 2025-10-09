@@ -1,5 +1,7 @@
 package pik.domain.thprinter;
 
+import java.util.Objects;
+
 /** Printer status information
  * @author Martin Sustik <sustik@herman.cz>
  * @since 25/09/2025
@@ -99,4 +101,24 @@ public class PrinterStatus {
         return String.format("PrinterStatus{online=%s, coverOpen=%s, paperEmpty=%s, paperNearEnd=%s, error=%s}",
                 online, coverOpen, paperEmpty, paperNearEnd, error);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PrinterStatus that = (PrinterStatus) o;
+        return online == that.online &&
+                coverOpen == that.coverOpen &&
+                paperEmpty == that.paperEmpty &&
+                paperNearEnd == that.paperNearEnd &&
+                error == that.error &&
+                powerState == that.powerState &&
+                Objects.equals(errorMessage, that.errorMessage);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(online, coverOpen, paperEmpty, paperNearEnd, error, errorMessage, powerState);
+    }
+
 }

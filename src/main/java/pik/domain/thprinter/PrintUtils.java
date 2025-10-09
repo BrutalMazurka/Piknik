@@ -4,7 +4,11 @@ package pik.domain.thprinter;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 28/08/2025
  */
-public class PrintUtils {
+public final class PrintUtils {
+    private PrintUtils() {
+        throw new AssertionError("Utility class cannot be instantiated");
+    }
+
     /**
      * ESC/POS formatting commands
      */

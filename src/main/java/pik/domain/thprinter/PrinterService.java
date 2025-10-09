@@ -85,30 +85,47 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             // Open the device
             String logicalName = config.getLogicalName();
             printer.open(logicalName);
+            boolean claimed = false;
             logger.debug("Printer opened with logical name: {}", logicalName);
 
-            // Claim the device
-            printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
-            logger.debug("Printer claimed successfully");
+            try {
+                // Claim the device
+                printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+                claimed = true;
+                logger.debug("Printer claimed successfully");
 
-            // Enable the device
-            printer.setDeviceEnabled(true);
-            logger.debug("Printer enabled");
+                // Enable the device
+                printer.setDeviceEnabled(true);
+                logger.debug("Printer enabled");
 
-            // Setup event listeners
-            printer.addStatusUpdateListener(this);
-            printer.addErrorListener(this);
-            printer.addDirectIOListener(this);
+                // Setup event listeners
+                printer.addStatusUpdateListener(this);
+                printer.addErrorListener(this);
+                printer.addDirectIOListener(this);
 
-            // Configure printer settings
-            configurePrinter();
+                // Configure printer settings
+                configurePrinter();
 
-            // Update status
-            updatePrinterStatus();
+                // Update status
+                updatePrinterStatus();
 
-            initialized = true;
-            logger.info("Printer service initialized successfully");
-
+                initialized = true;
+                logger.info("Printer service initialized successfully");
+            } catch (JposException e) {
+                if (claimed) {
+                    try {
+                        printer.release();
+                    } catch (Exception releaseEx) {
+                        logger.error("Failed to release printer after error", releaseEx);
+                    }
+                }
+                try {
+                    printer.close();
+                } catch (Exception closeEx) {
+                    logger.error("Failed to close printer after error", closeEx);
+                }
+                throw e;
+            }
         } catch (JposException e) {
             initialized = false;
             logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
