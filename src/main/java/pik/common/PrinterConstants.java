@@ -14,4 +14,6 @@ public class PrinterConstants {
     public static final int FULL_CUT_PERCENTAGE = 100;
     public static final int CONNECTION_STABILIZATION_DELAY_MS = 500;
     public static final int DEMO_STEP_DELAY_MS = 500;
+    public static final int MIN_FONT_SIZE = 1;
+    public static final int MAX_FONT_SIZE = 8;
 }

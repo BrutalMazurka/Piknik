@@ -8,6 +8,8 @@ import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
@@ -20,18 +22,56 @@ public class VFDService implements IVFDService {
     private static final Logger logger = LoggerFactory.getLogger(VFDService.class);
 
     private final VFDConfig config;
-    private final Consumer<String> statusUpdateCallback;
     private final ReentrantLock displayLock = new ReentrantLock();
     private final Gson gson = new Gson();
+    private final List<IVFDStatusListener> statusListeners = new CopyOnWriteArrayList<>();
 
     private IVFDDisplay display;
     private VFDStatus currentStatus;
     private volatile boolean initialized = false;
 
-    public VFDService(VFDConfig config, Consumer<String> statusUpdateCallback) {
+    public VFDService(VFDConfig config) {
         this.config = config;
-        this.statusUpdateCallback = statusUpdateCallback;
         this.currentStatus = new VFDStatus();
+    }
+
+    public void addStatusListener(IVFDStatusListener listener) {
+        if (listener != null && !statusListeners.contains(listener)) {
+            statusListeners.add(listener);
+        }
+    }
+
+    public void removeStatusListener(IVFDStatusListener listener) {
+        statusListeners.remove(listener);
+    }
+
+    private void notifyStatusChanged() {
+        VFDStatusEvent event = new VFDStatusEvent(new VFDStatus(currentStatus), "status_update");
+
+        for (IVFDStatusListener listener : statusListeners) {
+            try {
+                listener.onStatusChanged(event);
+            } catch (Exception e) {
+                logger.error("Error notifying VFD listener: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Update status and notify listeners
+     */
+    private void updateStatus(boolean connected, String errorMessage) {
+        currentStatus.setConnected(connected);
+        currentStatus.setError(errorMessage != null && !errorMessage.startsWith("Using dummy"));
+        currentStatus.setErrorMessage(errorMessage);
+        currentStatus.setLastUpdate(System.currentTimeMillis());
+
+        if (display != null) {
+            currentStatus.setDisplayModel(display.getDisplayModel());
+            currentStatus.setDummyMode(display instanceof DummyDisplay);
+        }
+
+        notifyStatusChanged();
     }
 
     /**
@@ -141,6 +181,17 @@ public class VFDService implements IVFDService {
     public void setCursorPosition(int row, int col) throws Exception {
         if (!isReady()) {
             throw new Exception("VFD display is not ready");
+        }
+
+        // Boundary check
+        IVFDCommandSet commandSet = ((AbstractVFDDisplay) display).getCommandSet();
+        if (row < 0 || row >= commandSet.getMaxRows()) {
+            throw new IllegalArgumentException(
+                    "Row must be between 0 and " + (commandSet.getMaxRows() - 1));
+        }
+        if (col < 0 || col >= commandSet.getMaxColumns()) {
+            throw new IllegalArgumentException(
+                    "Column must be between 0 and " + (commandSet.getMaxColumns() - 1));
         }
 
         displayLock.lock();
@@ -261,25 +312,6 @@ public class VFDService implements IVFDService {
     @Override
     public VFDStatus getStatus() {
         return currentStatus;
-    }
-
-    /**
-     * Update status and notify listeners
-     */
-    private void updateStatus(boolean connected, String errorMessage) {
-        currentStatus.setConnected(connected);
-        currentStatus.setError(errorMessage != null && !errorMessage.startsWith("Using dummy"));
-        currentStatus.setErrorMessage(errorMessage);
-        currentStatus.setLastUpdate(System.currentTimeMillis());
-
-        if (display != null) {
-            currentStatus.setDisplayModel(display.getDisplayModel());
-            currentStatus.setDummyMode(display instanceof pik.domain.vfd.DummyDisplay);
-        }
-
-        // Notify via SSE
-        String statusJson = gson.toJson(currentStatus);
-        statusUpdateCallback.accept("data: " + statusJson + "\n\n");
     }
 
     /**

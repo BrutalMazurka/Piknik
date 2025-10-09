@@ -17,8 +17,9 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 
 /**
  * Core printer service for managing JavaPOS POSPrinter operations
@@ -29,7 +30,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
 
     private final PrinterConfig config;
-    private final Consumer<String> statusUpdateCallback;
+    private final List<IPrinterStatusListener> statusListeners = new CopyOnWriteArrayList<>();
     private final ReentrantLock printerLock = new ReentrantLock();
     private final Gson gson = new Gson();
 
@@ -37,11 +38,39 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     private PrinterStatus currentStatus;
     private volatile boolean initialized = false;
 
-    public PrinterService(PrinterConfig config, Consumer<String> statusUpdateCallback) {
+    public PrinterService(PrinterConfig config) {
         this.config = config;
-        this.statusUpdateCallback = statusUpdateCallback;
         this.currentStatus = new PrinterStatus();
         this.printer = new POSPrinter();
+    }
+
+    // Observer registration methods
+    public void addStatusListener(IPrinterStatusListener listener) {
+        if (listener != null && !statusListeners.contains(listener)) {
+            statusListeners.add(listener);
+            logger.debug("Added status listener: {}", listener.getClass().getSimpleName());
+        }
+    }
+    public void removeStatusListener(IPrinterStatusListener listener) {
+        statusListeners.remove(listener);
+        logger.debug("Removed status listener: {}", listener.getClass().getSimpleName());
+    }
+
+    // Notify all observers
+    private void notifyStatusChanged(String source) {
+        if (statusListeners.isEmpty()) {
+            return;
+        }
+
+        PrinterStatusEvent event = new PrinterStatusEvent(new PrinterStatus(currentStatus), source);
+
+        for (IPrinterStatusListener listener : statusListeners) {
+            try {
+                listener.onStatusChanged(event);
+            } catch (Exception e) {
+                logger.error("Error notifying listener {}: {}", listener.getClass().getSimpleName(), e.getMessage());
+            }
+        }
     }
 
     /**
@@ -260,8 +289,8 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             }
 
             // Apply font size
-            if (opts.getFontSize() > 1) {
-                int size = Math.min(opts.getFontSize(), 8) - 1;
+            if (opts.getFontSize() > PrinterConstants.MIN_FONT_SIZE) {
+                int size = Math.min(opts.getFontSize(), PrinterConstants.MAX_FONT_SIZE) - 1;
                 formattedText.append((char)0x1D).append("!").append((char)size);
             }
         }
@@ -406,40 +435,34 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     public void updatePrinterStatus() {
         printerLock.lock();
         try {
-            PrinterStatus status = new PrinterStatus();
+            PrinterStatus newStatus = new PrinterStatus();
 
             if (initialized && printer != null) {
                 try {
-                    status.setOnline(printer.getDeviceEnabled());
-                    status.setCoverOpen(printer.getCoverOpen());
-                    status.setPaperEmpty(printer.getRecEmpty());
-                    status.setPaperNearEnd(printer.getRecNearEnd());
-                    status.setPowerState(printer.getPowerState());
-                    status.setError(false);
-                    status.setErrorMessage(null);
-
+                    newStatus.setOnline(printer.getDeviceEnabled());
+                    newStatus.setCoverOpen(printer.getCoverOpen());
+                    newStatus.setPaperEmpty(printer.getRecEmpty());
+                    newStatus.setPaperNearEnd(printer.getRecNearEnd());
+                    newStatus.setPowerState(printer.getPowerState());
+                    newStatus.setError(false);
+                    newStatus.setErrorMessage(null);
                 } catch (JposException e) {
-                    status.setOnline(false);
-                    status.setError(true);
-                    status.setErrorMessage(e.getMessage());
-                    logger.debug("Error reading printer status: {}", e.getMessage());
+                    newStatus.setOnline(false);
+                    newStatus.setError(true);
+                    newStatus.setErrorMessage(e.getMessage());
                 }
             } else {
-                status.setOnline(false);
-                status.setError(true);
-                status.setErrorMessage("Printer not initialized");
+                newStatus.setOnline(false);
+                newStatus.setError(true);
+                newStatus.setErrorMessage("Printer not initialized");
             }
 
-            status.setLastUpdate(System.currentTimeMillis());
+            newStatus.setLastUpdate(System.currentTimeMillis());
 
-            // Check if status changed
-            if (!status.toString().equals(currentStatus.toString())) {
-                currentStatus = status;
-
-                // Notify via SSE
-                String statusJson = gson.toJson(currentStatus);
-                statusUpdateCallback.accept("data: " + statusJson + "\n\n");
-
+            // ✅ Check if status actually changed
+            if (!newStatus.equals(currentStatus)) {
+                currentStatus = newStatus;
+                notifyStatusChanged("periodic_check");
                 logger.debug("Status updated: {}", currentStatus);
             }
 
@@ -502,30 +525,26 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     }
 
     // Event listener implementations
-
     @Override
     public void statusUpdateOccurred(StatusUpdateEvent e) {
         logger.debug("Status update event: {}", e.getStatus());
         updatePrinterStatus();
     }
 
+
     @Override
     public void errorOccurred(ErrorEvent e) {
         logger.error("Printer error occurred: {} - {}", e.getErrorCode(), e.getErrorCodeExtended());
 
         currentStatus.setError(true);
-        currentStatus.setErrorMessage(String.format("Error %d: %s",
-                e.getErrorCode(), e.getErrorCodeExtended()));
+        currentStatus.setErrorMessage(String.format("Error %d: %s", e.getErrorCode(), e.getErrorCodeExtended()));
 
-        // Notify via SSE
-        String errorJson = gson.toJson(currentStatus);
-        statusUpdateCallback.accept("data: " + errorJson + "\n\n");
+        notifyStatusChanged("error_event");
     }
 
     @Override
     public void directIOOccurred(DirectIOEvent e) {
-        logger.debug("DirectIO event: eventNumber={}, data={}, object={}",
-                e.getEventNumber(), e.getData(), e.getObject());
+        logger.debug("DirectIO event: eventNumber={}, data={}, object={}", e.getEventNumber(), e.getData(), e.getObject());
     }
 
 }

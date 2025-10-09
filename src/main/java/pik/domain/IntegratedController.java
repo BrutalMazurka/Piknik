@@ -54,23 +54,59 @@ public class IntegratedController {
      * @param vfdConfig VFD configuration
      * @param serverConfig Server configuration
      */
-    public IntegratedController(PrinterConfig printerConfig,
-                                VFDConfig vfdConfig,
-                                ServerConfig serverConfig) {
+    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, ServerConfig serverConfig) {
         this.serverPort = serverConfig.getPort();
 
         // Initialize Gson
-        this.gson = new GsonBuilder()
-                .setPrettyPrinting()
-                .create();
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
 
         // Initialize services
-        this.printerService = new PrinterService(printerConfig, this::broadcastStatusUpdate);
+        this.printerService = new PrinterService(printerConfig);
+        this.vfdService = new VFDService(vfdConfig);
         this.printerStatusMonitor = new StatusMonitorService(printerService, this::broadcastStatusUpdate, serverConfig.getStatusCheckInterval());
-        this.vfdService = new VFDService(vfdConfig, this::broadcastStatusUpdate);
         this.executorService = Executors.newScheduledThreadPool(serverConfig.getThreadPoolSize());
 
+        // Register observers AFTER construction
+        setupStatusListeners();
+
         logger.info("IntegratedControllerApp initialized");
+    }
+
+    // Setup observers
+    private void setupStatusListeners() {
+        // Printer status observer for SSE
+        printerService.addStatusListener(event -> {
+            String statusJson = gson.toJson(event.getStatus());
+            broadcastToSSE("data: " + statusJson + "\n\n");
+        });
+
+        // VFD status observer for SSE
+        vfdService.addStatusListener(event -> {
+            String statusJson = gson.toJson(event.getStatus());
+            broadcastToSSE("data: " + statusJson + "\n\n");
+        });
+
+        // A place for more observers here:
+        // Metrics collector, Alert system, Audit log, ...
+    }
+
+    private void broadcastToSSE(String message) {
+        logger.debug("Broadcasting to {} SSE clients", sseClients.size());
+
+        sseClients.entrySet().removeIf(entry -> {
+            try {
+                Context ctx = entry.getValue();
+                ctx.result(message);
+                return false;
+            } catch (Exception e) {
+                logger.debug("Removing disconnected SSE client: {}", entry.getKey());
+                try {
+                    entry.getValue().req().getAsyncContext().complete();
+                } catch (Exception ignored) {
+                }
+                return true;
+            }
+        });
     }
 
     /**

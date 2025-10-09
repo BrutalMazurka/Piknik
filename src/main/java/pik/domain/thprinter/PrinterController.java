@@ -127,12 +127,11 @@ public class PrinterController {
                 return;
             }
 
+            validatePrintRequest(printRequest);
+
             logger.info("Received print request for {} copies", printRequest.getCopies());
-
             printerService.print(printRequest);
-
             ctx.json(ApiResponse.success("Print job completed successfully"));
-
         } catch (JposException e) {
             logger.error("JavaPOS error during printing: {} - {}", e.getErrorCode(), e.getMessage());
             ctx.status(500).json(ApiResponse.error("Print failed: " + e.getMessage()));
@@ -140,6 +139,22 @@ public class PrinterController {
         } catch (Exception e) {
             logger.error("Unexpected error during printing", e);
             ctx.status(500).json(ApiResponse.error("Print failed: " + e.getMessage()));
+        }
+    }
+
+    private void validatePrintRequest(PrintRequest request) {
+        if (request.getCopies() < 1 || request.getCopies() > 10) {
+            throw new IllegalArgumentException("Copies must be between 1 and 10");
+        }
+        if (request.getItems() != null) {
+            for (PrintRequest.PrintItem item : request.getItems()) {
+                if (item.getType() == null || item.getType().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Item type cannot be empty");
+                }
+                if (item.getContent() == null || item.getContent().trim().isEmpty()) {
+                    throw new IllegalArgumentException("Item content cannot be empty");
+                }
+            }
         }
     }
 
