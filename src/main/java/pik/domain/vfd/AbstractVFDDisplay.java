@@ -3,6 +3,7 @@ package pik.domain.vfd;
 import com.fazecast.jSerialComm.SerialPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.common.PrinterConstants;
 
 /**
  * Abstract Base Class - Common functionality for all VFD displays
@@ -35,7 +36,7 @@ abstract class AbstractVFDDisplay implements IVFDDisplay {
                 logger.info("Connected to {} at {} ({} baud)", displayModel, portName, baudRate);
 
                 // Wait for connection to stabilize
-                Thread.sleep(500);
+                Thread.sleep(PrinterConstants.CONNECTION_STABILIZATION_DELAY_MS);
 
                 // Initialize display with model-specific commands
                 initializeDisplay();

@@ -20,7 +20,7 @@ public class StatusMonitorService {
     private final PrinterService printerService;
     private final Consumer<String> statusUpdateCallback;
     private ScheduledFuture<?> monitoringTask;
-    private volatile boolean monitoring = false;
+    private boolean monitoring = false;     // No need to be volatile beacause startMonitoring() is synchronized
     private final int checkIntervalMs;
 
     public StatusMonitorService(PrinterService printerService, Consumer<String> statusUpdateCallback, int checkIntervalMs) {

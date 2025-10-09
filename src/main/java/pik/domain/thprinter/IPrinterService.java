@@ -8,6 +8,8 @@ import jpos.JposException;
  */
 public interface IPrinterService {
     void initialize() throws JposException;
+    boolean isInitialized();
+    boolean isReady();
     void printText(String text) throws JposException;
     void print(PrintRequest request) throws JposException;
     void cutPaper() throws JposException;

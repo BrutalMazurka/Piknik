@@ -35,7 +35,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
     private POSPrinter printer;
     private PrinterStatus currentStatus;
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     public PrinterService(PrinterConfig config, Consumer<String> statusUpdateCallback) {
         this.config = config;
@@ -81,6 +81,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             logger.info("Printer service initialized successfully");
 
         } catch (JposException e) {
+            initialized = false;
             logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
             throw e;
         } finally {
@@ -91,6 +92,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     /**
      * Check if service is initialized (regardless of current errors)
      */
+    @Override
     public boolean isInitialized() {
         return initialized;
     }
@@ -207,6 +209,10 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
      * Print individual item based on type
      */
     private void printItem(PrintRequest.PrintItem item) throws JposException {
+        if (item == null || item.getType() == null) {
+            throw new IllegalArgumentException("Print item and type cannot be null");
+        }
+
         switch (item.getType().toUpperCase()) {
             case "TEXT":
                 printFormattedItem(item);
@@ -384,7 +390,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         printerLock.lock();
         try {
             if (printer.getCapRecPapercut()) {
-                printer.cutPaper(100); // 100% cut
+                printer.cutPaper(PrinterConstants.FULL_CUT_PERCENTAGE); // 100% cut
                 logger.debug("Paper cut executed");
             } else {
                 logger.warn("Printer does not support paper cutting");
@@ -445,6 +451,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     /**
      * Check if printer is ready for operations (initialized + online + no errors)
      */
+    @Override
     public boolean isReady() {
         return initialized && currentStatus.isOnline() && !currentStatus.hasErrors();
     }

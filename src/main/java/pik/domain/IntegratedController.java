@@ -20,10 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static io.javalin.apibuilder.ApiBuilder.get;
 
@@ -32,8 +29,8 @@ import static io.javalin.apibuilder.ApiBuilder.get;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
  */
-public class IntegratedControllerApp {
-    private static final Logger logger = LoggerFactory.getLogger(IntegratedControllerApp.class);
+public class IntegratedController {
+    private static final Logger logger = LoggerFactory.getLogger(IntegratedController.class);
 
     private final Gson gson;
     private final int serverPort;
@@ -57,9 +54,9 @@ public class IntegratedControllerApp {
      * @param vfdConfig VFD configuration
      * @param serverConfig Server configuration
      */
-    public IntegratedControllerApp(PrinterConfig printerConfig,
-                                   VFDConfig vfdConfig,
-                                   ServerConfig serverConfig) {
+    public IntegratedController(PrinterConfig printerConfig,
+                                VFDConfig vfdConfig,
+                                ServerConfig serverConfig) {
         this.serverPort = serverConfig.getPort();
 
         // Initialize Gson
@@ -198,10 +195,15 @@ public class IntegratedControllerApp {
             try {
                 Context ctx = entry.getValue();
                 ctx.result(message);
-                return false; // Keep client
+                return false;   // Keep client
             } catch (Exception e) {
                 logger.debug("Removing disconnected SSE client: {}", entry.getKey());
-                return true; // Remove client
+                // Explicitly close the async context
+                try {
+                    entry.getValue().req().getAsyncContext().complete();
+                } catch (Exception ignored) {
+                }
+                return true;    // Remove client
             }
         });
     }

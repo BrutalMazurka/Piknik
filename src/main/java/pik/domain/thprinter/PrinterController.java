@@ -23,7 +23,7 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 public class PrinterController {
     private static final Logger logger = LoggerFactory.getLogger(PrinterController.class);
 
-    private final PrinterService printerService;
+    private final IPrinterService printerService;
     private final ConcurrentHashMap<String, Context> sseClients;
 
     public PrinterController(PrinterService printerService, ConcurrentHashMap<String, Context> sseClients) {

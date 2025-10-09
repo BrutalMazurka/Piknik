@@ -23,8 +23,13 @@ import pik.common.PrinterConstants;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 28/08/2025
  */
-public class GraphUtils {
+public final class GraphUtils {
     private static final Logger logger = LoggerFactory.getLogger(GraphUtils.class);
+
+    private GraphUtils() {
+        throw new AssertionError("Utility class cannot be instantiated.");
+    }
+
     /**
      * Load and process image file
      */

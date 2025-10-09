@@ -6,7 +6,7 @@ import pik.dal.ConfigurationService;
 import pik.dal.PrinterConfig;
 import pik.dal.VFDConfig;
 import pik.dal.ServerConfig;
-import pik.domain.IntegratedControllerApp;
+import pik.domain.IntegratedController;
 
 /**
  * Main entry point for Piknik POS Controller Application
@@ -33,7 +33,7 @@ public class Piknik {
             logger.debug("Server: {}", serverConf);
 
             // Create and start integrated application
-            IntegratedControllerApp app = new IntegratedControllerApp(
+            IntegratedController app = new IntegratedController(
                     printerConfig,
                     vfdConfig,
                     serverConf

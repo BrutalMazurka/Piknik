@@ -102,7 +102,7 @@ public class FV2030BDisplay extends AbstractVFDDisplay {
             logger.debug("\n--- {} Demo ---", displayModel);
 
             clearDisplay();
-            Thread.sleep(500);
+            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
             displayText("FV-2030B Ready");
             Thread.sleep(2000);
 

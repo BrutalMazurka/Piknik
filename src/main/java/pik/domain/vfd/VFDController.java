@@ -21,7 +21,7 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 public class VFDController {
     private static final Logger logger = LoggerFactory.getLogger(VFDController.class);
 
-    private final VFDService vfdService;
+    private final IVFDService vfdService;
     private final ConcurrentHashMap<String, Context> sseClients;
     private final Gson gson;
 

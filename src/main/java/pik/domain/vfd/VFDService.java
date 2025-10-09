@@ -26,7 +26,7 @@ public class VFDService implements IVFDService {
 
     private IVFDDisplay display;
     private VFDStatus currentStatus;
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     public VFDService(VFDConfig config, Consumer<String> statusUpdateCallback) {
         this.config = config;
@@ -55,11 +55,13 @@ public class VFDService implements IVFDService {
                 updateStatus(true, null);
                 logger.info("VFD display initialized successfully");
             } else {
+                initialized = false;
                 logger.warn("Failed to connect to VFD display, falling back to DummyDisplay");
                 fallbackToDummyDisplay("Connection failed - port may not be available");
             }
 
         } catch (Exception e) {
+            initialized = false;
             logger.error("Error during VFD display initialization, falling back to DummyDisplay", e);
             fallbackToDummyDisplay(e.getMessage());
         } finally {
@@ -248,6 +250,7 @@ public class VFDService implements IVFDService {
     /**
      * Check if display is ready
      */
+    @Override
     public boolean isReady() {
         return initialized && display != null && display.isConnected();
     }
@@ -283,6 +286,7 @@ public class VFDService implements IVFDService {
      * Attempt to reconnect to real VFD display
      * Can be called when running in dummy mode to try connecting to hardware
      */
+    @Override
     public boolean attemptReconnect() {
         displayLock.lock();
         try {
@@ -353,6 +357,7 @@ public class VFDService implements IVFDService {
     /**
      * Get display information
      */
+    @Override
     public String getDisplayInfo() {
         if (display == null) {
             return "No display connected";

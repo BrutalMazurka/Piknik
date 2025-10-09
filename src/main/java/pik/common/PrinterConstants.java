@@ -11,4 +11,7 @@ public class PrinterConstants {
     public static final int BRIGHTNESS_MIN = 0;
     public static final int BRIGHTNESS_MAX = 100;
     public static final int GRAYSCALE_THRESHOLD = 128;
+    public static final int FULL_CUT_PERCENTAGE = 100;
+    public static final int CONNECTION_STABILIZATION_DELAY_MS = 500;
+    public static final int DEMO_STEP_DELAY_MS = 500;
 }
