@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Tests for StatusMonitorService
@@ -54,8 +55,8 @@ class StatusMonitorServiceTest {
         // or making it package-private for testing
 
         // Given
-        doNothing().when(mockPrinterService).updatePrinterStatus();
-
+        //doNothing().when(mockPrinterService).updatePrinterStatus();
+        lenient().doNothing().when(mockPrinterService).updatePrinterStatus();
         // When - would call checkStatus()
 
         // Then

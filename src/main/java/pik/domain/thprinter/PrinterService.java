@@ -209,7 +209,10 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 if (options == null) {
                     options = new PrintRequest.PrintOptions();  // Use defaults
                 }
-                printFormattedText(request.getText(), options);
+
+                if (request.getText() != null && !request.getText().isEmpty()) {
+                    printFormattedText(request.getText(), options);
+                }
 
                 if (request.getItems() != null) {
                     for (PrintRequest.PrintItem item : request.getItems()) {

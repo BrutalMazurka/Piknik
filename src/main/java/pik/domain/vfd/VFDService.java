@@ -184,14 +184,11 @@ public class VFDService implements IVFDService {
         }
 
         // Boundary check
-        IVFDCommandSet commandSet = ((AbstractVFDDisplay) display).getCommandSet();
-        if (row < 0 || row >= commandSet.getMaxRows()) {
-            throw new IllegalArgumentException(
-                    "Row must be between 0 and " + (commandSet.getMaxRows() - 1));
+        if (row < 0 || row >= display.getMaxRows()) {
+            throw new IllegalArgumentException("Row must be between 0 and " + (display.getMaxRows() - 1));
         }
-        if (col < 0 || col >= commandSet.getMaxColumns()) {
-            throw new IllegalArgumentException(
-                    "Column must be between 0 and " + (commandSet.getMaxColumns() - 1));
+        if (col < 0 || col >= display.getMaxColumns()) {
+            throw new IllegalArgumentException("Column must be between 0 and " + (display.getMaxColumns() - 1));
         }
 
         displayLock.lock();

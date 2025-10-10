@@ -18,10 +18,10 @@ public interface IVFDDisplay {
     void sendCustomCommand(String command);
     String getDisplayModel();
     void runDemo();
-    /**
-     * Check if this is a dummy/simulated display
-     */
+    // Check if this is a dummy/simulated display
     default boolean isDummy() {
         return false;
     }
+    int getMaxRows();
+    int getMaxColumns();
 }

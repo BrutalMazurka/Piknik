@@ -95,6 +95,16 @@ abstract class AbstractVFDDisplay implements IVFDDisplay {
      */
     protected abstract void initializeDisplay();
 
+    @Override
+    public int getMaxRows() {
+        return getCommandSet().getMaxRows();
+    }
+
+    @Override
+    public int getMaxColumns() {
+        return getCommandSet().getMaxColumns();
+    }
+
     /**
      * Get model-specific command set
      */

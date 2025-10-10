@@ -52,4 +52,19 @@ class VFDDisplayFactoryTest {
         // Then
         assertThat(types).contains(EDisplayType.NONE, EDisplayType.FV_2030B);
     }
+
+    @Test
+    @DisplayName("Should provide display dimensions through interface")
+    void shouldProvideDisplayDimensions() {
+        // Given
+        IVFDDisplay fvDisplay = VFDDisplayFactory.createDisplay(EDisplayType.FV_2030B);
+        IVFDDisplay dummyDisplay = VFDDisplayFactory.createDisplay(EDisplayType.NONE);
+
+        // When & Then
+        assertThat(fvDisplay.getMaxRows()).isEqualTo(2);
+        assertThat(fvDisplay.getMaxColumns()).isEqualTo(30);
+
+        assertThat(dummyDisplay.getMaxRows()).isEqualTo(2);
+        assertThat(dummyDisplay.getMaxColumns()).isEqualTo(30);
+    }
 }

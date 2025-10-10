@@ -97,4 +97,5 @@ public class DummyDisplay extends AbstractVFDDisplay {
     public boolean isDummy() {
         return true;
     }
+
 }

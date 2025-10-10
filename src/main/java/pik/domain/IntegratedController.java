@@ -237,29 +237,6 @@ public class IntegratedController {
     }
 
     /**
-     * Broadcast status updates to all SSE clients
-     */
-    /*private void broadcastStatusUpdate(String message) {
-        logger.debug("Broadcasting status update: {}", message);
-
-        sseClients.entrySet().removeIf(entry -> {
-            try {
-                Context ctx = entry.getValue();
-                ctx.result(message);
-                return false;   // Keep client
-            } catch (Exception e) {
-                logger.debug("Removing disconnected SSE client: {}", entry.getKey());
-                // Explicitly close the async context
-                try {
-                    entry.getValue().req().getAsyncContext().complete();
-                } catch (Exception ignored) {
-                }
-                return true;    // Remove client
-            }
-        });
-    }*/
-
-    /**
      * Graceful shutdown
      */
     private void shutdown() {
