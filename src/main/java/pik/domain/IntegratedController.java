@@ -7,6 +7,7 @@ import io.javalin.http.Context;
 import io.javalin.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.common.ServerConstants;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
@@ -44,9 +45,13 @@ public class IntegratedController {
     private final VFDService vfdService;
 
     private final ScheduledExecutorService executorService;
-    private final ConcurrentHashMap<String, Context> sseClients = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, SSEClient> sseClients = new ConcurrentHashMap<>();
     private volatile boolean shutdownHookRegistered = false;
     private volatile boolean printerInitialized = false;
+
+    // SSE management
+    private ScheduledFuture<?> sseCleanupTask;
+    private ScheduledFuture<?> sseHeartbeatTask;
 
     /**
      * Constructor accepting configurations (no circular dependency)
@@ -90,25 +95,130 @@ public class IntegratedController {
         // Metrics collector, Alert system, Audit log, ...
     }
 
+    /**
+     * Broadcast message to all SSE clients
+     * @param message The message to broadcast
+     */
     private void broadcastToSSE(String message) {
-        logger.debug("Broadcasting to {} SSE clients", sseClients.size());
+        int clientCount = sseClients.size();
+        if (clientCount == 0) {
+            return;
+        }
 
-        sseClients.entrySet().removeIf(entry -> {
-            try {
-                entry.getValue().result(message);
-                return false;
-            } catch (Exception e) {
-                logger.debug("Removing disconnected SSE client: {}", entry.getKey());
-                closeAsyncContext(entry.getValue());
-                return true;
+        logger.debug("Broadcasting to {} SSE clients", clientCount);
+
+        int successCount = 0;
+        int failureCount = 0;
+
+        // Send to all clients and track failures
+        for (var entry : sseClients.entrySet()) {
+            SSEClient client = entry.getValue();
+            if (client.sendMessage(message)) {
+                successCount++;
+            } else {
+                failureCount++;
+                // Will be cleaned up by the periodic cleanup task
+                logger.debug("Failed to send to client: {}", client);
             }
-        });
+        }
+
+        if (failureCount > 0) {
+            logger.debug("Broadcast complete: {} successful, {} failed", successCount, failureCount);
+        }
     }
 
-    private void closeAsyncContext(Context ctx) {
-        try {
-            ctx.req().getAsyncContext().complete();
-        } catch (Exception ignored) {}
+    /**
+     * Send heartbeat to all SSE clients to keep connections alive
+     */
+    private void sendHeartbeatToAllClients() {
+        if (sseClients.isEmpty()) {
+            return;
+        }
+
+        logger.trace("Sending heartbeat to {} SSE clients", sseClients.size());
+
+        for (SSEClient client : sseClients.values()) {
+            if (client.needsHeartbeat(ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                if (!client.sendHeartbeat()) {
+                    logger.debug("Heartbeat failed for client: {}", client);
+                }
+            }
+        }
+    }
+
+    /**
+     * Clean up stale SSE clients
+     */
+    private void cleanupStaleSSEClients() {
+        if (sseClients.isEmpty()) {
+            return;
+        }
+
+        logger.debug("Running SSE client cleanup check ({} active clients)", sseClients.size());
+
+        int removedCount = 0;
+        long now = System.currentTimeMillis();
+
+        for (var entry : sseClients.entrySet()) {
+            SSEClient client = entry.getValue();
+
+            // Remove if inactive or stale
+            if (!client.isActive() || client.isStale(ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+                String reason = !client.isActive() ? "inactive" : "stale";
+                logger.info("Removing {} SSE client: {} (connected for {}ms, {} messages sent)",
+                        reason, client.getClientId(), client.getConnectionDuration(), client.getMessagesSent());
+
+                client.close();
+                sseClients.remove(entry.getKey());
+                removedCount++;
+            }
+        }
+
+        if (removedCount > 0) {
+            logger.info("Cleaned up {} stale SSE clients, {} remaining", removedCount, sseClients.size());
+        }
+    }
+
+    /**
+     * Register a new SSE client
+     * @param clientId Unique client ID
+     * @param ctx Javalin context
+     * @return true if client was registered, false if rejected (too many clients)
+     */
+    public boolean registerSSEClient(String clientId, Context ctx) {
+        // Check if we've reached max clients
+        if (sseClients.size() >= ServerConstants.SSE_MAX_CLIENTS) {
+            logger.warn("Maximum SSE client limit reached ({}), rejecting new connection from {}",
+                    ServerConstants.SSE_MAX_CLIENTS, ctx.ip());
+            return false;
+        }
+
+        SSEClient client = new SSEClient(clientId, ctx);
+        sseClients.put(clientId, client);
+
+        logger.info("SSE client registered: {} (total clients: {})", client, sseClients.size());
+
+        return true;
+    }
+
+    /**
+     * Unregister an SSE client
+     * @param clientId Client ID to unregister
+     */
+    public void unregisterSSEClient(String clientId) {
+        SSEClient client = sseClients.remove(clientId);
+        if (client != null) {
+            client.close();
+            logger.info("SSE client unregistered: {} (total clients: {})", client, sseClients.size());
+        }
+    }
+
+    /**
+     * Get SSE clients map (for controllers)
+     * @return Map of SSE clients
+     */
+    public ConcurrentHashMap<String, SSEClient> getSSEClients() {
+        return sseClients;
     }
 
     /**
@@ -149,6 +259,9 @@ public class IntegratedController {
                 printerStatusMonitor.startMonitoring(executorService);
             }
 
+            // Start SSE management tasks
+            startSSEManagementTasks();
+
             // Create web server
             javalinApp = createJavalinApp();
 
@@ -160,6 +273,29 @@ public class IntegratedController {
             shutdown();  // Cleanup on failure
             throw e;
         }
+    }
+
+    /**
+     * Start SSE management background tasks
+     */
+    private void startSSEManagementTasks() {
+        // Cleanup task - remove stale clients periodically
+        sseCleanupTask = executorService.scheduleWithFixedDelay(
+                this::cleanupStaleSSEClients,
+                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                TimeUnit.MILLISECONDS
+        );
+        logger.info("SSE cleanup task started (interval: {}ms)", ServerConstants.SSE_CLEANUP_INTERVAL_MS);
+
+        // Heartbeat task - keep connections alive
+        sseHeartbeatTask = executorService.scheduleWithFixedDelay(
+                this::sendHeartbeatToAllClients,
+                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                TimeUnit.MILLISECONDS
+        );
+        logger.info("SSE heartbeat task started (interval: {}ms)", ServerConstants.SSE_HEARTBEAT_INTERVAL_MS);
     }
 
     private void registerShutdownHook() {
@@ -197,11 +333,11 @@ public class IntegratedController {
                 get("/docs", ctx -> ctx.html(generateCombinedDocs()));
 
                 // Printer routes
-                PrinterController printerController = new PrinterController(printerService, sseClients);
+                PrinterController printerController = new PrinterController(printerService, this);
                 printerController.registerRoutes();
 
                 // VFD routes
-                VFDController vfdController = new VFDController(vfdService, sseClients);
+                VFDController vfdController = new VFDController(vfdService, this);
                 vfdController.registerRoutes();
             });
         });
@@ -243,6 +379,21 @@ public class IntegratedController {
         logger.info("Shutting down Integrated Controller...");
 
         try {
+            // Stop SSE management tasks
+            if (sseCleanupTask != null) {
+                sseCleanupTask.cancel(false);
+            }
+            if (sseHeartbeatTask != null) {
+                sseHeartbeatTask.cancel(false);
+            }
+
+            // Close all SSE clients
+            logger.info("Closing {} SSE clients", sseClients.size());
+            for (SSEClient client : sseClients.values()) {
+                client.close();
+            }
+            sseClients.clear();
+
             if (javalinApp != null) {
                 javalinApp.stop();
             }
@@ -312,5 +463,4 @@ public class IntegratedController {
             return timestamp;
         }
     }
-
 }

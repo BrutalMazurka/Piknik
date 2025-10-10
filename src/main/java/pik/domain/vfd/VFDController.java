@@ -6,6 +6,8 @@ import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.domain.IntegratedController;
+import pik.domain.SSEClient;
 import pik.domain.thprinter.ApiResponse;
 
 import java.util.UUID;
@@ -22,12 +24,12 @@ public class VFDController {
     private static final Logger logger = LoggerFactory.getLogger(VFDController.class);
 
     private final IVFDService vfdService;
-    private final ConcurrentHashMap<String, Context> sseClients;
+    private final IntegratedController integratedController;
     private final Gson gson;
 
-    public VFDController(VFDService vfdService, ConcurrentHashMap<String, Context> sseClients) {
+    public VFDController(VFDService vfdService, IntegratedController integratedController) {
         this.vfdService = vfdService;
-        this.sseClients = sseClients;
+        this.integratedController = integratedController;
         this.gson = new Gson();
     }
 
@@ -254,39 +256,51 @@ public class VFDController {
     private void sseStatusUpdates(Context ctx) {
         String clientId = "vfd_" + UUID.randomUUID().toString();
 
-        logger.info("New VFD SSE client connected: {}", clientId);
+        logger.info("New VFD SSE client connecting: {} from {}", clientId, ctx.ip());
 
         ctx.contentType("text/event-stream")
                 .header("Cache-Control", "no-cache")
                 .header("Connection", "keep-alive")
                 .header("Access-Control-Allow-Origin", "*");
 
-        sseClients.put(clientId, ctx);
+        // Register the client
+        if (!integratedController.registerSSEClient(clientId, ctx)) {
+            ctx.status(503).result("Maximum number of SSE clients reached\n");
+            return;
+        }
 
+        // Setup disconnect handler
         ctx.req().getAsyncContext().addListener(new AsyncListener() {
             @Override
             public void onComplete(AsyncEvent event) {
-                sseClients.remove(clientId);
-                logger.info("SSE client disconnected: {}", clientId);
+                integratedController.unregisterSSEClient(clientId);
             }
             @Override
             public void onStartAsync(AsyncEvent event) {}
             @Override
-            public void onError(AsyncEvent event) {}
+            public void onError(AsyncEvent event) {
+                integratedController.unregisterSSEClient(clientId);
+            }
             @Override
-            public void onTimeout(AsyncEvent event) {}
+            public void onTimeout(AsyncEvent event) {
+                integratedController.unregisterSSEClient(clientId);
+            }
         });
 
+        // Send initial status
         try {
             VFDStatus status = vfdService.getStatus();
             String statusJson = gson.toJson(status);
-            ctx.result("data: " + statusJson + "\n\n");
 
-            logger.debug("VFD SSE client {} initialized with current status", clientId);
+            SSEClient client = integratedController.getSSEClients().get(clientId);
+            if (client != null) {
+                client.sendMessage("data: " + statusJson + "\n\n");
+                logger.debug("VFD SSE client {} initialized with current status", clientId);
+            }
 
         } catch (Exception e) {
             logger.error("Error sending initial VFD status to SSE client {}", clientId, e);
-            sseClients.remove(clientId);
+            integratedController.unregisterSSEClient(clientId);
         }
     }
 

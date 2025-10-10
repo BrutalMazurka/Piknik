@@ -6,12 +6,13 @@ import jakarta.servlet.AsyncListener;
 import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.domain.IntegratedController;
+import pik.domain.SSEClient;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static io.javalin.apibuilder.ApiBuilder.*;
 
@@ -24,11 +25,11 @@ public class PrinterController {
     private static final Logger logger = LoggerFactory.getLogger(PrinterController.class);
 
     private final IPrinterService printerService;
-    private final ConcurrentHashMap<String, Context> sseClients;
+    private final IntegratedController integratedController;
 
-    public PrinterController(PrinterService printerService, ConcurrentHashMap<String, Context> sseClients) {
+    public PrinterController(PrinterService printerService, IntegratedController integratedController) {
         this.printerService = printerService;
-        this.sseClients = sseClients;
+        this.integratedController = integratedController;
     }
 
     /**
@@ -238,46 +239,53 @@ public class PrinterController {
      * Server-Sent Events for real-time status updates
      */
     private void sseStatusUpdates(Context ctx) {
-        String clientId = UUID.randomUUID().toString();
+        String clientId = "printer_" + UUID.randomUUID().toString();
 
-        logger.info("New SSE client connected: {}", clientId);
+        logger.info("New printer SSE client connecting: {} from {}", clientId, ctx.ip());
 
         ctx.contentType("text/event-stream")
                 .header("Cache-Control", "no-cache")
                 .header("Connection", "keep-alive")
                 .header("Access-Control-Allow-Origin", "*");
 
-        // Add client to SSE clients map
-        sseClients.put(clientId, ctx);
+        // Register the client
+        if (!integratedController.registerSSEClient(clientId, ctx)) {
+            ctx.status(503).result("Maximum number of SSE clients reached\n");
+            return;
+        }
 
-        // Disconnect handler
+        // Setup disconnect handler
         ctx.req().getAsyncContext().addListener(new AsyncListener() {
             @Override
             public void onComplete(AsyncEvent event) {
-                sseClients.remove(clientId);
-                logger.info("SSE client disconnected: {}", clientId);
+                integratedController.unregisterSSEClient(clientId);
             }
             @Override
             public void onStartAsync(AsyncEvent event) {}
             @Override
-            public void onError(AsyncEvent event) {}
+            public void onError(AsyncEvent event) {
+                integratedController.unregisterSSEClient(clientId);
+            }
             @Override
-            public void onTimeout(AsyncEvent event) {}
+            public void onTimeout(AsyncEvent event) {
+                integratedController.unregisterSSEClient(clientId);
+            }
         });
 
         // Send initial status
         try {
             PrinterStatus status = printerService.getStatus();
             String statusJson = ctx.jsonMapper().toJsonString(status, PrinterStatus.class);
-            ctx.result("data: " + statusJson + "\n\n");
 
-            // Keep connection alive - this handler will remain active
-            // Clients will be removed from map when broadcast fails
-            logger.debug("SSE client {} initialized with current status", clientId);
+            SSEClient client = integratedController.getSSEClients().get(clientId);
+            if (client != null) {
+                client.sendMessage("data: " + statusJson + "\n\n");
+                logger.info("Printer SSE client {} initialized with current status", clientId);
+            }
 
         } catch (Exception e) {
             logger.error("Error sending initial status to SSE client {}", clientId, e);
-            sseClients.remove(clientId);
+            integratedController.unregisterSSEClient(clientId);
         }
     }
 
