@@ -10,7 +10,7 @@ public interface IPrinterService {
     void initialize() throws JposException;
     boolean isInitialized();
     boolean isReady();
-    void printText(String text) throws JposException;
+    void printText(String text) throws JposException, InterruptedException;
     void print(PrintRequest request) throws JposException;
     void cutPaper() throws JposException;
     PrinterStatus getStatus();

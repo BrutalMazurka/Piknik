@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -244,12 +245,15 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
      * Print text content
      */
     @Override
-    public void printText(String text) throws JposException {
+    public void printText(String text) throws JposException, InterruptedException {
         if (!isReady()) {
             throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
         }
 
-        printerLock.lock();
+        if (!printerLock.tryLock(config.getConnectionTimeout(), TimeUnit.MILLISECONDS)) {
+            throw new JposException(JposConst.JPOS_E_TIMEOUT, "Could not acquire printer lock within timeout");
+        }
+
         try {
             logger.debug("Printing text: {}", text.substring(0, Math.min(50, text.length())));
             printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, text);
