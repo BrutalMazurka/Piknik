@@ -36,7 +36,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
     private POSPrinter printer;
     private PrinterStatus currentStatus;
-    private volatile boolean initialized = false;
+    private volatile PrinterState state = PrinterState.UNINITIALIZED;
 
     public PrinterService(PrinterConfig config) {
         this.config = config;
@@ -51,6 +51,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             logger.debug("Added status listener: {}", listener.getClass().getSimpleName());
         }
     }
+
     public void removeStatusListener(IPrinterStatusListener listener) {
         statusListeners.remove(listener);
         logger.debug("Removed status listener: {}", listener.getClass().getSimpleName());
@@ -82,52 +83,41 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             logger.info("Initializing printer service with config: {}", config);
 
-            // Open the device
+            transitionTo(PrinterState.OPENING);
             String logicalName = config.getLogicalName();
             printer.open(logicalName);
-            boolean claimed = false;
             logger.debug("Printer opened with logical name: {}", logicalName);
+            transitionTo(PrinterState.OPENED);
 
-            try {
-                // Claim the device
-                printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
-                claimed = true;
-                logger.debug("Printer claimed successfully");
+            transitionTo(PrinterState.CLAIMING);
+            printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+            logger.debug("Printer claimed successfully");
+            transitionTo(PrinterState.CLAIMED);
 
-                // Enable the device
-                printer.setDeviceEnabled(true);
-                logger.debug("Printer enabled");
+            transitionTo(PrinterState.ENABLING);
+            printer.setDeviceEnabled(true);
+            logger.debug("Printer enabled");
+            transitionTo(PrinterState.ENABLED);
 
-                // Setup event listeners
-                printer.addStatusUpdateListener(this);
-                printer.addErrorListener(this);
-                printer.addDirectIOListener(this);
+            // Setup event listeners
+            printer.addStatusUpdateListener(this);
+            printer.addErrorListener(this);
+            printer.addDirectIOListener(this);
+            logger.debug("Event listeners registered");
 
-                // Configure printer settings
-                configurePrinter();
+            // Configure printer settings
+            transitionTo(PrinterState.CONFIGURING);
+            configurePrinter();
 
-                // Update status
-                updatePrinterStatus();
+            // Update status
+            updatePrinterStatus();
 
-                initialized = true;
-                logger.info("Printer service initialized successfully");
-            } catch (JposException e) {
-                if (claimed) {
-                    try {
-                        printer.release();
-                    } catch (Exception releaseEx) {
-                        logger.error("Failed to release printer after error", releaseEx);
-                    }
-                }
-                try {
-                    printer.close();
-                } catch (Exception closeEx) {
-                    logger.error("Failed to close printer after error", closeEx);
-                }
-                throw e;
-            }
+            transitionTo(PrinterState.READY);
+            logger.info("Printer service initialized successfully");
+
         } catch (JposException e) {
-            initialized = false;
+            transitionTo(PrinterState.ERROR);
+            cleanup();
             logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
             throw e;
         } finally {
@@ -136,11 +126,92 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     }
 
     /**
+     * Transition to a new printer state
+     */
+    private void transitionTo(PrinterState newState) {
+        logger.debug("Printer state transition: {} -> {}", state, newState);
+        this.state = newState;
+    }
+
+    /**
+     * Get current printer state
+     */
+    public PrinterState getPrinterState() {
+        return state;
+    }
+
+    /**
+     * Cleanup printer resources based on current state
+     */
+    private void cleanup() {
+        try {
+            logger.debug("Cleaning up printer in state: {}", state);
+
+            if (printer == null) {
+                return;
+            }
+
+            // Remove listeners if they were added (after ENABLED state)
+            if (state.ordinal() >= PrinterState.ENABLED.ordinal()) {
+                try {
+                    printer.removeStatusUpdateListener(this);
+                    printer.removeErrorListener(this);
+                    printer.removeDirectIOListener(this);
+                    logger.debug("Event listeners removed");
+                } catch (Exception e) {
+                    logger.debug("Error removing listeners: {}", e.getMessage());
+                }
+            }
+
+            // Disable if enabled
+            if (state.ordinal() >= PrinterState.ENABLED.ordinal()) {
+                try {
+                    if (printer.getDeviceEnabled()) {
+                        printer.setDeviceEnabled(false);
+                        logger.debug("Device disabled");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error disabling device: {}", e.getMessage());
+                }
+            }
+
+            // Release if claimed
+            if (state.ordinal() >= PrinterState.CLAIMED.ordinal()) {
+                try {
+                    if (printer.getClaimed()) {
+                        printer.release();
+                        logger.debug("Device released");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error releasing device: {}", e.getMessage());
+                }
+            }
+
+            // Close if opened
+            if (state.ordinal() >= PrinterState.OPENED.ordinal()) {
+                try {
+                    if (printer.getState() != JposConst.JPOS_S_CLOSED) {
+                        printer.close();
+                        logger.debug("Device closed");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error closing device: {}", e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Unexpected error during cleanup", e);
+        } finally {
+            transitionTo(PrinterState.UNINITIALIZED);
+        }
+    }
+
+    /**
      * Check if service is initialized (regardless of current errors)
      */
     @Override
     public boolean isInitialized() {
-        return initialized;
+        return state == PrinterState.READY;
     }
 
     /**
@@ -181,11 +252,8 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         printerLock.lock();
         try {
             logger.debug("Printing text: {}", text.substring(0, Math.min(50, text.length())));
-
             printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, text);
-
             logger.debug("Text printed successfully");
-
         } finally {
             printerLock.unlock();
         }
@@ -226,7 +294,6 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             }
 
             logger.info("Print request completed successfully");
-
         } finally {
             printerLock.unlock();
         }
@@ -457,7 +524,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             PrinterStatus newStatus = new PrinterStatus();
 
-            if (initialized && printer != null) {
+            if (state == PrinterState.READY && printer != null) {
                 try {
                     newStatus.setOnline(printer.getDeviceEnabled());
                     newStatus.setCoverOpen(printer.getCoverOpen());
@@ -474,7 +541,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             } else {
                 newStatus.setOnline(false);
                 newStatus.setError(true);
-                newStatus.setErrorMessage("Printer not initialized");
+                newStatus.setErrorMessage("Printer not in READY state: " + state);
             }
 
             newStatus.setLastUpdate(System.currentTimeMillis());
@@ -496,7 +563,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
      */
     @Override
     public boolean isReady() {
-        return initialized && currentStatus.isOnline() && !currentStatus.hasErrors();
+        return state == PrinterState.READY && currentStatus.isOnline() && !currentStatus.hasErrors();
     }
 
     /**
@@ -520,23 +587,11 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     public void close() {
         printerLock.lock();
         try {
-            if (printer != null && initialized) {
-                try {
-                    printer.removeStatusUpdateListener(this);
-                    printer.removeErrorListener(this);
-                    printer.removeDirectIOListener(this);
-
-                    printer.setDeviceEnabled(false);
-                    printer.release();
-                    printer.close();
-
-                    logger.info("Printer closed successfully");
-                } catch (JposException e) {
-                    logger.error("Error closing printer: {}", e.getMessage());
-                }
+            if (printer != null && state == PrinterState.READY) {
+                cleanup();
+                logger.info("Printer closed successfully");
             }
 
-            initialized = false;
             currentStatus.setOnline(false);
 
         } finally {
@@ -550,7 +605,6 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         logger.debug("Status update event: {}", e.getStatus());
         updatePrinterStatus();
     }
-
 
     @Override
     public void errorOccurred(ErrorEvent e) {
@@ -566,5 +620,4 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     public void directIOOccurred(DirectIOEvent e) {
         logger.debug("DirectIO event: eventNumber={}, data={}, object={}", e.getEventNumber(), e.getData(), e.getObject());
     }
-
 }
