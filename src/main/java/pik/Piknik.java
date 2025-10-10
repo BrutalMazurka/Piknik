@@ -7,6 +7,7 @@ import pik.dal.PrinterConfig;
 import pik.dal.VFDConfig;
 import pik.dal.ServerConfig;
 import pik.domain.IntegratedController;
+import pik.domain.StartupException;
 
 /**
  * Main entry point for Piknik POS Controller Application
@@ -39,11 +40,22 @@ public class Piknik {
                     serverConf
             );
 
+            // Start with configured startup mode
             app.start();
+
+        } catch (StartupException e) {
+            logger.error("Application startup failed:");
+            logger.error("  Mode: {}", e.getMode());
+            logger.error("  Failed services: {}", e.getFailedServices().size());
+            for (var result : e.getFailedServices()) {
+                logger.error("    - {}", result);
+            }
+            System.exit(1);
 
         } catch (Exception e) {
             logger.error("Failed to start application", e);
             System.exit(1);
         }
     }
+
 }

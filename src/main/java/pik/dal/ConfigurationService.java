@@ -5,9 +5,10 @@ import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.PrinterConstants;
 import pik.common.ServerConstants;
+import pik.domain.StartupMode;
 
 /**
- * ain configuration service - entry point for all configuration needs
+ * Main configuration service - entry point for all configuration needs
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
  */
@@ -28,26 +29,6 @@ public class ConfigurationService {
         this.printerConfig = loadPrinterConfiguration();
         this.vfdConfig = loadVFDConfiguration();
         this.serverConfig = loadServerConfiguration();
-    }
-
-    /**
-     * Load all configurations
-     */
-    private void loadAllConfigurations() {
-        try {
-            this.printerConfig = loadPrinterConfiguration();
-            this.vfdConfig = loadVFDConfiguration();
-            this.serverConfig = loadServerConfiguration();
-
-            logger.info("Configuration loaded successfully");
-            logger.info("Printer: {}", printerConfig);
-            logger.info("VFD: {}", vfdConfig);
-            logger.info("Server: {}", serverConfig);
-
-        } catch (ConfigurationException e) {
-            logger.error("Configuration error: {}", e.getMessage());
-            throw new RuntimeException("Failed to load configuration", e);
-        }
     }
 
     /**
@@ -95,7 +76,17 @@ public class ConfigurationService {
         boolean enabled = loader.getBoolean("monitor.enabled", true);
         int threadPoolSize = loader.getInt("server.thread.pool", ServerConstants.THREAD_POOL_SIZE);
 
-        ServerConfig config = new ServerConfig(port, host, interval, enabled, threadPoolSize);
+        // Load startup mode
+        String modeStr = loader.getString("server.startup.mode", "LENIENT");
+        StartupMode startupMode;
+        try {
+            startupMode = StartupMode.valueOf(modeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid startup mode '{}', using LENIENT", modeStr);
+            startupMode = StartupMode.LENIENT;
+        }
+
+        ServerConfig config = new ServerConfig(port, host, interval, enabled, threadPoolSize, startupMode);
         config.validate();
         return config;
     }
@@ -124,8 +115,16 @@ public class ConfigurationService {
     /**
      * Reload configuration
      */
-    public void reload() {
+    public void reload() throws ConfigurationException {
         logger.info("Reloading configuration...");
-        loadAllConfigurations();
+        this.printerConfig = loadPrinterConfiguration();
+        this.vfdConfig = loadVFDConfiguration();
+        this.serverConfig = loadServerConfiguration();
+
+        logger.info("Configuration reloaded successfully");
+        logger.info("Printer: {}", printerConfig);
+        logger.info("VFD: {}", vfdConfig);
+        logger.info("Server: {}", serverConfig);
     }
+
 }

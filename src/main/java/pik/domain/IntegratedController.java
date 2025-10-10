@@ -7,7 +7,6 @@ import io.javalin.http.Context;
 import io.javalin.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pik.common.ServerConstants;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.concurrent.*;
 
 import static io.javalin.apibuilder.ApiBuilder.get;
@@ -34,7 +34,7 @@ public class IntegratedController {
     private static final Logger logger = LoggerFactory.getLogger(IntegratedController.class);
 
     private final Gson gson;
-    private final int serverPort;
+    private final ServerConfig serverConfig;
     private Javalin javalinApp;
 
     // Printer components
@@ -47,7 +47,9 @@ public class IntegratedController {
     private final ScheduledExecutorService executorService;
     private final ConcurrentHashMap<String, SSEClient> sseClients = new ConcurrentHashMap<>();
     private volatile boolean shutdownHookRegistered = false;
-    private volatile boolean printerInitialized = false;
+
+    // Initialization results
+    private final Map<String, ServiceInitializationResult> initializationResults = new LinkedHashMap<>();
 
     // SSE management
     private ScheduledFuture<?> sseCleanupTask;
@@ -60,7 +62,7 @@ public class IntegratedController {
      * @param serverConfig Server configuration
      */
     public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, ServerConfig serverConfig) {
-        this.serverPort = serverConfig.getPort();
+        this.serverConfig = serverConfig;
 
         // Initialize Gson
         this.gson = new GsonBuilder().setPrettyPrinting().create();
@@ -68,13 +70,17 @@ public class IntegratedController {
         // Initialize services
         this.printerService = new PrinterService(printerConfig);
         this.vfdService = new VFDService(vfdConfig);
-        this.printerStatusMonitor = new StatusMonitorService(printerService, this::broadcastToSSE, serverConfig.getStatusCheckInterval());
+        this.printerStatusMonitor = new StatusMonitorService(
+                printerService,
+                this::broadcastToSSE,
+                serverConfig.getStatusCheckInterval()
+        );
         this.executorService = Executors.newScheduledThreadPool(serverConfig.getThreadPoolSize());
 
         // Register observers AFTER construction
         setupStatusListeners();
 
-        logger.info("IntegratedControllerApp initialized");
+        logger.info("IntegratedController initialized with startup mode: {}", serverConfig.getStartupMode());
     }
 
     // Setup observers
@@ -90,14 +96,246 @@ public class IntegratedController {
             String statusJson = gson.toJson(event.getStatus());
             broadcastToSSE("data: " + statusJson + "\n\n");
         });
+    }
 
-        // A place for more observers here:
-        // Metrics collector, Alert system, Audit log, ...
+    /**
+     * Start the integrated application with default startup mode from configuration
+     * @throws StartupException if startup requirements are not met
+     */
+    public void start() throws StartupException {
+        start(serverConfig.getStartupMode());
+    }
+
+    /**
+     * Start the integrated application with specified startup mode
+     * @param mode Startup mode to use
+     * @throws StartupException if startup requirements are not met
+     */
+    public void start(StartupMode mode) throws StartupException {
+        logger.info("========================================");
+        logger.info("Starting Integrated Printer & VFD Controller");
+        logger.info("Startup Mode: {}", mode);
+        logger.info("========================================");
+
+        try {
+            // Step 1: Initialize all services
+            List<ServiceInitializationResult> results = initializeAllServices();
+
+            // Step 2: Evaluate startup success based on mode
+            evaluateStartupRequirements(mode, results);
+
+            // Step 3: Start monitoring for successfully initialized services
+            startMonitoring();
+
+            // Step 4: Start SSE management
+            startSSEManagementTasks();
+
+            // Step 5: Start web server
+            startWebServer();
+
+            // Step 6: Register shutdown hook
+            registerShutdownHook();
+
+            // Step 7: Log final status
+            logStartupSummary(results);
+
+        } catch (StartupException e) {
+            logger.error("Startup failed: {}", e.getMessage());
+            shutdown();  // Cleanup on failure
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error during startup", e);
+            shutdown();
+            throw new StartupException("Unexpected startup failure", mode, new ArrayList<>(initializationResults.values()));
+        }
+    }
+
+    /**
+     * Initialize all services and track results
+     * @return List of initialization results
+     */
+    private List<ServiceInitializationResult> initializeAllServices() {
+        List<ServiceInitializationResult> results = new ArrayList<>();
+
+        // Initialize printer service
+        ServiceInitializationResult printerResult = initializePrinterService();
+        results.add(printerResult);
+        initializationResults.put("printer", printerResult);
+
+        // Initialize VFD service
+        ServiceInitializationResult vfdResult = initializeVFDService();
+        results.add(vfdResult);
+        initializationResults.put("vfd", vfdResult);
+
+        return results;
+    }
+
+    /**
+     * Initialize printer service
+     * @return Initialization result
+     */
+    private ServiceInitializationResult initializePrinterService() {
+        logger.info("Initializing Printer service...");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            printerService.initialize();
+            long duration = System.currentTimeMillis() - startTime;
+
+            logger.info("✓ Printer service initialized successfully in {}ms", duration);
+            return ServiceInitializationResult.success("Printer", duration);
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+
+            logger.error("✗ Printer service initialization failed after {}ms: {}",
+                    duration, e.getMessage());
+            logger.debug("Printer initialization error details", e);
+
+            return ServiceInitializationResult.failure("Printer", e, duration);
+        }
+    }
+
+    /**
+     * Initialize VFD service
+     * @return Initialization result
+     */
+    private ServiceInitializationResult initializeVFDService() {
+        logger.info("Initializing VFD service...");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            vfdService.initialize();
+            long duration = System.currentTimeMillis() - startTime;
+
+            if (vfdService.isDummyMode()) {
+                logger.warn("⚠ VFD service initialized in DUMMY mode in {}ms (no physical hardware)", duration);
+                return ServiceInitializationResult.success("VFD (Dummy Mode)", duration);
+            } else {
+                logger.info("✓ VFD service initialized successfully in {}ms", duration);
+                return ServiceInitializationResult.success("VFD", duration);
+            }
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+
+            logger.error("✗ VFD service initialization failed after {}ms: {}",
+                    duration, e.getMessage());
+            logger.debug("VFD initialization error details", e);
+
+            return ServiceInitializationResult.failure("VFD", e, duration);
+        }
+    }
+
+    /**
+     * Evaluate if startup requirements are met based on mode
+     * @param mode Startup mode
+     * @param results Initialization results
+     * @throws StartupException if requirements not met
+     */
+    private void evaluateStartupRequirements(StartupMode mode, List<ServiceInitializationResult> results)
+            throws StartupException {
+
+        long successfulServices = results.stream()
+                .filter(ServiceInitializationResult::isSuccess)
+                .count();
+
+        long totalServices = results.size();
+
+        logger.info("Service initialization complete: {}/{} services successful",
+                successfulServices, totalServices);
+
+        switch (mode) {
+            case STRICT:
+                if (successfulServices != totalServices) {
+                    String message = String.format(
+                            "STRICT mode requires all services to initialize. " +
+                                    "Only %d/%d services initialized successfully.",
+                            successfulServices, totalServices
+                    );
+                    throw new StartupException(message, mode, results);
+                }
+                logger.info("✓ STRICT mode requirement met: all services initialized");
+                break;
+
+            case LENIENT:
+                if (successfulServices == 0) {
+                    String message = "LENIENT mode requires at least one service to initialize. " +
+                            "All services failed to initialize.";
+                    throw new StartupException(message, mode, results);
+                }
+                if (successfulServices < totalServices) {
+                    logger.warn("⚠ LENIENT mode: {}/{} services initialized (some services unavailable)",
+                            successfulServices, totalServices);
+                } else {
+                    logger.info("✓ LENIENT mode requirement met: all services initialized");
+                }
+                break;
+
+            case PERMISSIVE:
+                if (successfulServices == 0) {
+                    logger.warn("⚠ PERMISSIVE mode: No services initialized - running in degraded mode");
+                } else if (successfulServices < totalServices) {
+                    logger.info("⚠ PERMISSIVE mode: {}/{} services initialized",
+                            successfulServices, totalServices);
+                } else {
+                    logger.info("✓ PERMISSIVE mode: all services initialized");
+                }
+                break;
+        }
+    }
+
+    /**
+     * Start monitoring for initialized services
+     */
+    private void startMonitoring() {
+        // Start printer monitoring if printer initialized
+        ServiceInitializationResult printerResult = initializationResults.get("printer");
+        if (printerResult != null && printerResult.isSuccess()) {
+            logger.info("Starting printer status monitoring...");
+            printerStatusMonitor.startMonitoring(executorService);
+        } else {
+            logger.info("Printer monitoring skipped (printer not initialized)");
+        }
+    }
+
+    /**
+     * Start web server
+     */
+    private void startWebServer() {
+        logger.info("Starting web server on port {}...", serverConfig.getPort());
+        javalinApp = createJavalinApp();
+        logger.info("✓ Web server started successfully");
+    }
+
+    /**
+     * Log startup summary
+     */
+    private void logStartupSummary(List<ServiceInitializationResult> results) {
+        logger.info("========================================");
+        logger.info("Startup Complete - Application Status:");
+        logger.info("========================================");
+
+        for (ServiceInitializationResult result : results) {
+            logger.info(result.toString());
+        }
+
+        logger.info("Web Server: RUNNING on port {}", serverConfig.getPort());
+        logger.info("API Documentation: http://{}:{}/docs",
+                serverConfig.getHost(), serverConfig.getPort());
+        logger.info("========================================");
+    }
+
+    /**
+     * Get initialization results (for testing or status endpoints)
+     * @return Map of service name to initialization result
+     */
+    public Map<String, ServiceInitializationResult> getInitializationResults() {
+        return Collections.unmodifiableMap(initializationResults);
     }
 
     /**
      * Broadcast message to all SSE clients
-     * @param message The message to broadcast
      */
     private void broadcastToSSE(String message) {
         int clientCount = sseClients.size();
@@ -110,14 +348,12 @@ public class IntegratedController {
         int successCount = 0;
         int failureCount = 0;
 
-        // Send to all clients and track failures
         for (var entry : sseClients.entrySet()) {
             SSEClient client = entry.getValue();
             if (client.sendMessage(message)) {
                 successCount++;
             } else {
                 failureCount++;
-                // Will be cleaned up by the periodic cleanup task
                 logger.debug("Failed to send to client: {}", client);
             }
         }
@@ -138,7 +374,7 @@ public class IntegratedController {
         logger.trace("Sending heartbeat to {} SSE clients", sseClients.size());
 
         for (SSEClient client : sseClients.values()) {
-            if (client.needsHeartbeat(ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+            if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
                 if (!client.sendHeartbeat()) {
                     logger.debug("Heartbeat failed for client: {}", client);
                 }
@@ -157,13 +393,11 @@ public class IntegratedController {
         logger.debug("Running SSE client cleanup check ({} active clients)", sseClients.size());
 
         int removedCount = 0;
-        long now = System.currentTimeMillis();
 
         for (var entry : sseClients.entrySet()) {
             SSEClient client = entry.getValue();
 
-            // Remove if inactive or stale
-            if (!client.isActive() || client.isStale(ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+            if (!client.isActive() || client.isStale(pik.common.ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
                 String reason = !client.isActive() ? "inactive" : "stale";
                 logger.info("Removing {} SSE client: {} (connected for {}ms, {} messages sent)",
                         reason, client.getClientId(), client.getConnectionDuration(), client.getMessagesSent());
@@ -181,15 +415,11 @@ public class IntegratedController {
 
     /**
      * Register a new SSE client
-     * @param clientId Unique client ID
-     * @param ctx Javalin context
-     * @return true if client was registered, false if rejected (too many clients)
      */
     public boolean registerSSEClient(String clientId, Context ctx) {
-        // Check if we've reached max clients
-        if (sseClients.size() >= ServerConstants.SSE_MAX_CLIENTS) {
+        if (sseClients.size() >= pik.common.ServerConstants.SSE_MAX_CLIENTS) {
             logger.warn("Maximum SSE client limit reached ({}), rejecting new connection from {}",
-                    ServerConstants.SSE_MAX_CLIENTS, ctx.ip());
+                    pik.common.ServerConstants.SSE_MAX_CLIENTS, ctx.ip());
             return false;
         }
 
@@ -203,7 +433,6 @@ public class IntegratedController {
 
     /**
      * Unregister an SSE client
-     * @param clientId Client ID to unregister
      */
     public void unregisterSSEClient(String clientId) {
         SSEClient client = sseClients.remove(clientId);
@@ -214,88 +443,31 @@ public class IntegratedController {
     }
 
     /**
-     * Get SSE clients map (for controllers)
-     * @return Map of SSE clients
+     * Get SSE clients map
      */
     public ConcurrentHashMap<String, SSEClient> getSSEClients() {
         return sseClients;
     }
 
     /**
-     * Start the integrated application
-     */
-    public void start() {
-        logger.info("Starting Integrated Printer & VFD Controller Application...");
-
-        boolean printerReady = false;
-        boolean vfdReady = false;
-
-        try {
-            // Initialize printer
-            try {
-                printerService.initialize();
-                printerInitialized = true;
-                printerReady = true;
-                logger.info("Printer service initialized successfully");
-            } catch (Exception e) {
-                logger.error("Failed to initialize printer service", e);
-            }
-
-            // Initialize VFD
-            try {
-                vfdService.initialize();
-                vfdReady = true;
-                if (vfdService.isDummyMode()) {
-                    logger.warn("VFD running in dummy mode");
-                } else {
-                    logger.info("VFD service initialized successfully");
-                }
-            } catch (Exception e) {
-                logger.error("Failed to initialize VFD service", e);
-            }
-
-            // Start monitoring only if printer is ready
-            if (printerReady && printerStatusMonitor != null) {
-                printerStatusMonitor.startMonitoring(executorService);
-            }
-
-            // Start SSE management tasks
-            startSSEManagementTasks();
-
-            // Create web server
-            javalinApp = createJavalinApp();
-
-            // Setup shutdown hook
-            registerShutdownHook();
-
-        } catch (Exception e) {
-            logger.error("Fatal error during startup", e);
-            shutdown();  // Cleanup on failure
-            throw e;
-        }
-    }
-
-    /**
      * Start SSE management background tasks
      */
     private void startSSEManagementTasks() {
-        // Cleanup task - remove stale clients periodically
         sseCleanupTask = executorService.scheduleWithFixedDelay(
                 this::cleanupStaleSSEClients,
-                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
-                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                pik.common.ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                pik.common.ServerConstants.SSE_CLEANUP_INTERVAL_MS,
                 TimeUnit.MILLISECONDS
         );
-        logger.info("SSE cleanup task started (interval: {}ms)", ServerConstants.SSE_CLEANUP_INTERVAL_MS);
+        logger.info("SSE cleanup task started");
 
-        // Heartbeat task - keep connections alive
         sseHeartbeatTask = executorService.scheduleWithFixedDelay(
                 this::sendHeartbeatToAllClients,
-                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
-                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
                 TimeUnit.MILLISECONDS
         );
-        logger.info("SSE heartbeat task started (interval: {}ms)", ServerConstants.SSE_HEARTBEAT_INTERVAL_MS);
+        logger.info("SSE heartbeat task started");
     }
 
     private void registerShutdownHook() {
@@ -310,10 +482,8 @@ public class IntegratedController {
      */
     private Javalin createJavalinApp() {
         javalinApp = Javalin.create(config -> {
-            // Configure JSON mapper to use Gson
             config.jsonMapper(createGsonMapper());
 
-            // Enable CORS
             config.bundledPlugins.enableCors(cors -> {
                 cors.addRule(corsRule -> {
                     corsRule.anyHost();
@@ -321,28 +491,20 @@ public class IntegratedController {
                 });
             });
 
-            // Enable request logging
             config.bundledPlugins.enableDevLogging();
 
-            // Register routes
             config.router.apiBuilder(() -> {
-                // Root redirect
                 get("/", ctx -> ctx.redirect("/docs"));
-
-                // Combined documentation
                 get("/docs", ctx -> ctx.html(generateCombinedDocs()));
 
-                // Printer routes
                 PrinterController printerController = new PrinterController(printerService, this);
                 printerController.registerRoutes();
 
-                // VFD routes
                 VFDController vfdController = new VFDController(vfdService, this);
                 vfdController.registerRoutes();
             });
         });
 
-        // Global exception handler
         javalinApp.exception(Exception.class, (exception, ctx) -> {
             logger.error("Unhandled exception", exception);
             ErrorResponse errorResponse = new ErrorResponse(
@@ -352,7 +514,7 @@ public class IntegratedController {
             ctx.status(500).json(errorResponse);
         });
 
-        return javalinApp.start(serverPort);
+        return javalinApp.start(serverConfig.getPort());
     }
 
     /**
@@ -379,7 +541,6 @@ public class IntegratedController {
         logger.info("Shutting down Integrated Controller...");
 
         try {
-            // Stop SSE management tasks
             if (sseCleanupTask != null) {
                 sseCleanupTask.cancel(false);
             }
@@ -387,7 +548,6 @@ public class IntegratedController {
                 sseHeartbeatTask.cancel(false);
             }
 
-            // Close all SSE clients
             logger.info("Closing {} SSE clients", sseClients.size());
             for (SSEClient client : sseClients.values()) {
                 client.close();
@@ -402,7 +562,6 @@ public class IntegratedController {
             }
 
             executorService.shutdown();
-            // Wait for executor shutdown or force the shutdown
             try {
                 if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
                     logger.warn("Executor did not terminate in time, forcing shutdown");
@@ -463,4 +622,5 @@ public class IntegratedController {
             return timestamp;
         }
     }
+
 }

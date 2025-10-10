@@ -1,5 +1,7 @@
 package pik.dal;
 
+import pik.domain.StartupMode;
+
 /**
  * Type-safe configuration for server
  * @author Martin Sustik <sustik@herman.cz>
@@ -11,13 +13,21 @@ public class ServerConfig {
     private final int statusCheckInterval;
     private final boolean monitoringEnabled;
     private final int threadPoolSize;
+    private final StartupMode startupMode;
 
-    public ServerConfig(int port, String host, int statusCheckInterval, boolean monitoringEnabled, int threadPoolSize) {
+    public ServerConfig(int port, String host, int statusCheckInterval,
+                        boolean monitoringEnabled, int threadPoolSize) {
+        this(port, host, statusCheckInterval, monitoringEnabled, threadPoolSize, StartupMode.LENIENT);
+    }
+
+    public ServerConfig(int port, String host, int statusCheckInterval,
+                        boolean monitoringEnabled, int threadPoolSize, StartupMode startupMode) {
         this.port = port;
         this.host = host;
         this.statusCheckInterval = statusCheckInterval;
         this.monitoringEnabled = monitoringEnabled;
         this.threadPoolSize = threadPoolSize;
+        this.startupMode = startupMode;
     }
 
     public int getPort() {
@@ -40,10 +50,14 @@ public class ServerConfig {
         return threadPoolSize;
     }
 
+    public StartupMode getStartupMode() {
+        return startupMode;
+    }
+
     @Override
     public String toString() {
-        return String.format("ServerConfiguration{port=%d, host='%s', monitoring=%s}",
-                port, host, monitoringEnabled);
+        return String.format("ServerConfiguration{port=%d, host='%s', monitoring=%s, startupMode=%s}",
+                port, host, monitoringEnabled, startupMode);
     }
 
     /**
@@ -59,5 +73,9 @@ public class ServerConfig {
         if (statusCheckInterval < 1000) {
             throw new ConfigurationException("Status check interval must be at least 1000ms");
         }
+        if (startupMode == null) {
+            throw new ConfigurationException("Startup mode cannot be null");
+        }
     }
+
 }
