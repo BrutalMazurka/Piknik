@@ -142,7 +142,17 @@ public class VFDService implements IVFDService {
     @Override
     public void displayText(String text) throws Exception {
         if (!isReady()) {
-            throw new Exception("VFD display is not ready");
+            throw new IllegalStateException("VFD display is not ready");
+        }
+
+        if (text == null) {
+            throw new IllegalArgumentException("Text cannot be null");
+        }
+
+        int maxLength = display.getMaxRows() * display.getMaxColumns();
+        if (text.length() > maxLength) {
+            logger.warn("Text truncated from {} to {} characters", text.length(), maxLength);
+            text = text.substring(0, maxLength);
         }
 
         displayLock.lock();
