@@ -98,7 +98,7 @@
 
     <build>
         <plugins>
-            <!-- Compiler Plugin -->
+            <!-- Existing compiler plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -109,7 +109,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Create executable JAR -->
+            <!-- Create executable JAR with dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -121,7 +121,14 @@
                     <archive>
                         <manifest>
                             <mainClass>pik.Piknik</mainClass>
+                            <!-- Add classpath entry for external config -->
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>./</classpathPrefix>
                         </manifest>
+                        <manifestEntries>
+                            <!-- Add config directory to classpath -->
+                            <Class-Path>config/ resources/</Class-Path>
+                        </manifestEntries>
                     </archive>
                 </configuration>
                 <executions>
@@ -135,6 +142,74 @@
                 </executions>
             </plugin>
 
+            <!-- Copy resources to target for deployment -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <!-- Copy config files -->
+                    <execution>
+                        <id>copy-config</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/config</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources</directory>
+                                    <includes>
+                                        <include>application.properties</include>
+                                        <include>logback.xml</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                    <!-- Copy HTML resources -->
+                    <execution>
+                        <id>copy-html</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/resources/html</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources/html</directory>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Create distribution archive -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>create-distribution</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/distribution.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <finalName>piknik-${project.version}</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Surefire Plugin for tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -143,5 +218,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

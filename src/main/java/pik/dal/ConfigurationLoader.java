@@ -5,17 +5,32 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
- * Loads configuration from application.properties with support for overrides
- * Priority: System Properties > Environment Variables > application.properties
+ * Loads configuration with priority:
+ * 1. System Properties
+ * 2. Environment Variables
+ * 3. External config/application.properties (next to JAR)
+ * 4. Classpath config/application.properties
+ * 5. Classpath application.properties (embedded in JAR)
+ *
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
  */
 public class ConfigurationLoader {
     private static final Logger logger = LoggerFactory.getLogger(ConfigurationLoader.class);
     private static final String DEFAULT_CONFIG_FILE = "application.properties";
+
+    // External config locations (relative to JAR)
+    private static final String[] EXTERNAL_CONFIG_PATHS = {
+            "config/application.properties",
+            "application.properties",
+            "../config/application.properties"
+    };
 
     private final Properties properties;
 
@@ -28,26 +43,127 @@ public class ConfigurationLoader {
     }
 
     /**
-     * Load properties file from classpath
+     * Load properties with the following priority:
+     * 1. External file (next to JAR)
+     * 2. Classpath resource (in JAR)
      */
     private Properties loadProperties(String configFile) {
         Properties props = new Properties();
 
-        // Try to load from classpath
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream(configFile)) {
-            if (input == null) {
-                logger.warn("Configuration file '{}' not found on classpath, using defaults", configFile);
-                return props;
+        // Try to load from external locations first
+        Properties externalProps = loadFromExternalLocations();
+        if (!externalProps.isEmpty()) {
+            props.putAll(externalProps);
+            logger.info("Loaded configuration from external file");
+        }
+
+        // Try to load from classpath (fallback/defaults)
+        Properties classpathProps = loadFromClasspath(configFile);
+        if (!classpathProps.isEmpty()) {
+            // Add only properties not already loaded from external config
+            for (String key : classpathProps.stringPropertyNames()) {
+                if (!props.containsKey(key)) {
+                    props.put(key, classpathProps.get(key));
+                }
             }
+            if (externalProps.isEmpty()) {
+                logger.info("Loaded configuration from classpath '{}'", configFile);
+            } else {
+                logger.debug("Loaded default values from classpath '{}'", configFile);
+            }
+        }
 
-            props.load(input);
-            logger.info("Loaded configuration from '{}'", configFile);
-
-        } catch (IOException e) {
-            logger.error("Error loading configuration file '{}'", configFile, e);
+        if (props.isEmpty()) {
+            logger.warn("No configuration file found, using built-in defaults only");
         }
 
         return props;
+    }
+
+    /**
+     * Try to load properties from external file locations
+     */
+    private Properties loadFromExternalLocations() {
+        Properties props = new Properties();
+
+        // Get the directory where the JAR is running from
+        String jarDir = getJarDirectory();
+        logger.debug("Application running from directory: {}", jarDir);
+
+        for (String relativePath : EXTERNAL_CONFIG_PATHS) {
+            Path configPath = Paths.get(jarDir, relativePath).normalize();
+
+            if (Files.exists(configPath) && Files.isRegularFile(configPath)) {
+                try (InputStream input = Files.newInputStream(configPath)) {
+                    props.load(input);
+                    logger.info("Loaded external configuration from: {}", configPath.toAbsolutePath());
+                    return props; // Return first found
+                } catch (IOException e) {
+                    logger.warn("Failed to load external config from '{}': {}",
+                            configPath, e.getMessage());
+                }
+            } else {
+                logger.trace("External config not found at: {}", configPath.toAbsolutePath());
+            }
+        }
+
+        return props;
+    }
+
+    /**
+     * Load properties from classpath (embedded in JAR)
+     */
+    private Properties loadFromClasspath(String configFile) {
+        Properties props = new Properties();
+
+        // Try multiple classpath locations
+        String[] classpathLocations = {
+                configFile,                    // Root of classpath
+                "config/" + configFile,        // In config directory
+                "/" + configFile              // Absolute from root
+        };
+
+        for (String location : classpathLocations) {
+            try (InputStream input = getClass().getClassLoader().getResourceAsStream(location)) {
+                if (input != null) {
+                    props.load(input);
+                    logger.debug("Loaded classpath configuration from '{}'", location);
+                    return props;
+                }
+            } catch (IOException e) {
+                logger.debug("Error loading configuration from classpath '{}': {}",
+                        location, e.getMessage());
+            }
+        }
+
+        return props;
+    }
+
+    /**
+     * Get the directory where the JAR is running from
+     */
+    private String getJarDirectory() {
+        try {
+            String jarPath = getClass()
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI()
+                    .getPath();
+
+            Path path = Paths.get(jarPath);
+
+            // If it's a JAR file, get its parent directory
+            if (jarPath.endsWith(".jar")) {
+                return path.getParent().toString();
+            }
+
+            // If running from IDE (classes directory), use project root
+            return path.toString();
+        } catch (Exception e) {
+            logger.warn("Could not determine JAR directory: {}", e.getMessage());
+            return System.getProperty("user.dir"); // Fallback to working directory
+        }
     }
 
     /**
@@ -127,5 +243,15 @@ public class ConfigurationLoader {
      */
     public Properties getAllProperties() {
         return new Properties(properties);
+    }
+
+    /**
+     * Reload properties from external file
+     */
+    public void reload() {
+        Properties newProps = loadProperties(DEFAULT_CONFIG_FILE);
+        properties.clear();
+        properties.putAll(newProps);
+        logger.info("Configuration reloaded");
     }
 }

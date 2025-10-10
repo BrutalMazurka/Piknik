@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -587,13 +590,30 @@ public class IntegratedController {
      * Generate combined API documentation
      */
     private String generateCombinedDocs() {
-        try (InputStream is = getClass()
-                .getResourceAsStream("/html/api_docs.html")) {
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            logger.error("Failed to load documentation", e);
-            return "<h1>API documentation not available</h1>";
+        // Try external location first
+        Path externalHtml = Paths.get("resources/html/api_docs.html");
+        if (Files.exists(externalHtml)) {
+            try {
+                String content = Files.readString(externalHtml, StandardCharsets.UTF_8);
+                logger.debug("Loaded API docs from external file: {}", externalHtml);
+                return content;
+            } catch (IOException e) {
+                logger.warn("Failed to load external API docs: {}", e.getMessage());
+            }
         }
+
+        // Fallback to classpath (embedded in JAR)
+        try (InputStream is = getClass().getResourceAsStream("/html/api_docs.html")) {
+            if (is != null) {
+                String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                logger.debug("Loaded API docs from classpath");
+                return content;
+            }
+        } catch (IOException e) {
+            logger.error("Failed to load API documentation", e);
+        }
+
+        return "<h1>API documentation not available</h1>";
     }
 
     /**
