@@ -93,93 +93,93 @@
     </style>
 </head>
 <body>
-    <h1>🖨️ Tesovací stránka pro termotiskárnu a VFD 📟</h1>
+    <h1>🖨️ Test page for thermal printer and VFD 📟</h1>
 
     <div class="container">
         <!-- Printer Section -->
         <div class="section">
-            <h2>Termotiskárna Epson TM-T20III</h2>
+            <h2>Thermal printer Epson TM-T20III</h2>
             
             <div id="printer-status" class="status-panel offline">
-                <h3>Stav termotiskárny</h3>
-                <div id="printer-status-content">Připojuji se...</div>
+                <h3>Printer status</h3>
+                <div id="printer-status-content">Connecting...</div>
             </div>
 
             <div class="form-group">
-                <label for="print-text">Vytisknout text:</label>
+                <label for="print-text">Print text:</label>
                 <textarea id="print-text" rows="4" placeholder="Enter text to print...">Nazdar!
 Jestlivá ty nechceš vytisknout nějaké lupeň...?
                 TOTO JE PLATNÝ LUPEŇ</textarea>
                 <br><br>
-                <button onclick="printText()">Tisk textu</button>
+                <button onclick="printText()">Print text</button>
             </div>
 
             <div class="form-group">
-                <label for="image-file">Vytisknout obrázek:</label>
+                <label for="image-file">Print picture:</label>
                 <input type="file" id="image-file" accept="image/*">
                 <br><br>
-                <button onclick="printImage()">Tisk obrázku</button>
+                <button onclick="printImage()">Print picture</button>
             </div>
 
             <div class="form-group">
                 <div class="button-group">
-                    <button onclick="cutPaper()">Odstřihnout</button>
-                    <button onclick="testPrinter()">Test tisku</button>
-                    <button class="secondary" onclick="checkPrinterHealth()">Kontrola stavu</button>
+                    <button onclick="cutPaper()">Cut out</button>
+                    <button onclick="testPrinter()">Printing test:</button>
+                    <button class="secondary" onclick="checkPrinterHealth()">Status check</button>
                 </div>
             </div>
         </div>
 
         <!-- VFD Section -->
         <div class="section">
-            <h2>VFD Displej FV-2030B</h2>
+            <h2>VFD display FV-2030B</h2>
             
             <div id="vfd-status" class="status-panel offline">
                 <h3>Stav VFD</h3>
-                <div id="vfd-status-content">Připojuji se...</div>
+                <div id="vfd-status-content">Connecting...</div>
             </div>
 
             <div class="form-group">
-                <label for="vfd-text">Zobrazit test:</label>
+                <label for="vfd-text">Show text:</label>
                 <textarea id="vfd-text" rows="2" maxlength="60" placeholder="Enter text (max 60 chars)...">NAZDAR!</textarea>
-                <small>Řádek 1: 0-29 znaků, Řádek 2: 30-59 znaků</small>
+                <small>Row 1: 0-29 chars, Row 2: 30-59 chars</small>
                 <br><br>
-                <button onclick="displayVFDText()">Zobraz text</button>
-                <button class="secondary" onclick="clearVFD()">Smazat displej</button>
+                <button onclick="displayVFDText()">Show text</button>
+                <button class="secondary" onclick="clearVFD()">Clear display</button>
             </div>
 
             <div class="form-group">
-                <label>Pozice kurzoru:</label>
+                <label>Cursor position:</label>
                 <div class="inline-inputs">
                     <div>
-                        <label for="vfd-row">Řádek (0-1):</label>
+                        <label for="vfd-row">Row (0-1):</label>
                         <input type="number" id="vfd-row" value="0" min="0" max="1">
                     </div>
                     <div>
-                        <label for="vfd-col">Sloupec (0-29):</label>
+                        <label for="vfd-col">Column (0-29):</label>
                         <input type="number" id="vfd-col" value="0" min="0" max="29">
                     </div>
                 </div>
                 <br>
-                <button onclick="setCursorPosition()">Nastav pozici</button>
-                <button class="secondary" onclick="homeCursor()">Domů</button>
+                <button onclick="setCursorPosition()">Set position</button>
+                <button class="secondary" onclick="homeCursor()">Home</button>
             </div>
 
             <div class="form-group">
-                <label for="vfd-brightness">Jas (0-100):</label>
+                <label for="vfd-brightness">Brightness (1-4):</label>
                 <input type="range" id="vfd-brightness" value="80" min="0" max="100" 
                        oninput="document.getElementById('brightness-value').textContent = this.value">
                 <span id="brightness-value">80</span>%
                 <br><br>
-                <button onclick="setBrightness()">Nastav jas</button>
+                <button onclick="setBrightness()">Set brightness</button>
             </div>
 
             <div class="form-group">
                 <div class="button-group">
-                    <button onclick="showCursor(true)">Ukaž kurzor</button>
-                    <button onclick="showCursor(false)">Schovej kurzor</button>
-                    <button class="secondary" onclick="runVFDDemo()">Spustit demo</button>
-                    <button class="secondary" onclick="checkVFDHealth()">Kontrola stavu</button>
+                    <button onclick="showCursor(true)">Show cursor</button>
+                    <button onclick="showCursor(false)">Hide cursor</button>
+                    <button class="secondary" onclick="runVFDDemo()">Start demo</button>
+                    <button class="secondary" onclick="checkVFDHealth()">Status check</button>
                 </div>
             </div>
         </div>
@@ -188,20 +188,20 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
         <div class="section full-width">
             <h2>Kombinované akce</h2>
             <div class="button-group">
-                <button onclick="displayTotal()">Zobraz celkem na VFD</button>
-                <button onclick="printAndDisplay()">Vytisknout doklad a aktualizovat VFD</button>
-                <button onclick="welcomeMessage()">Uvítací zpráva</button>
-                <button class="danger" onclick="resetAll()">Celkový RESET</button>
+                <button onclick="displayTotal()">Show total on VFD</button>
+                <button onclick="printAndDisplay()">Print receipt and actualize VFD</button>
+                <button onclick="welcomeMessage()">Welcome message</button>
+                <button class="danger" onclick="resetAll()">Total RESET</button>
             </div>
         </div>
 
         <!-- Activity Log -->
         <div class="section full-width">
-            <h2>Záznam aktivit</h2>
+            <h2>Activity log</h2>
             <div id="logs" class="logs"></div>
             <br>
-            <button class="secondary" onclick="clearLogs()">Smazat logy</button>
-            <button class="secondary" onclick="exportLogs()">Exportovat logy</button>
+            <button class="secondary" onclick="clearLogs()">Clear logs</button>
+            <button class="secondary" onclick="exportLogs()">export logs</button>
         </div>
     </div>
 
