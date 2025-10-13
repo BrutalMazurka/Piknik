@@ -1,17 +1,15 @@
 package pik.domain.vfd;
 
+import com.google.gson.Gson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.PrinterConstants;
 import pik.dal.VFDConfig;
 
-import com.google.gson.Gson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 
 /**
  * VFD Service - manages VFD display operations

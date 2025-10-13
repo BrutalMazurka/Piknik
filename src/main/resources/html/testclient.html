@@ -90,6 +90,13 @@
             grid-template-columns: 1fr 1fr;
             gap: 10px;
         }
+        .brightness-values {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -167,10 +174,14 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
 
             <div class="form-group">
                 <label for="vfd-brightness">Brightness (1-4):</label>
-                <input type="range" id="vfd-brightness" value="80" min="0" max="100" 
+                <input type="range" id="vfd-brightness" value="3" min="1" max="4" step="1"
                        oninput="document.getElementById('brightness-value').textContent = this.value">
-                <span id="brightness-value">80</span>%
-                <br><br>
+                <div class="brightness-values">
+                    <span>1 (Dimmest)</span>
+                    <span id="brightness-value">3</span>
+                    <span>4 (Brightest)</span>
+                </div>
+                <br>
                 <button onclick="setBrightness()">Set brightness</button>
             </div>
 
@@ -222,12 +233,17 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
                     }
                 } catch (e) {
                     console.error('Error parsing printer status:', e);
+                    logMessage('Printer SSE parse error: ' + e.message, 'error');
                 }
             };
 
             printerEventSource.onerror = function() {
                 logMessage('Printer SSE connection error', 'error');
-                updatePrinterStatus({ connected: false });
+                updatePrinterStatus({ connected: false, online: false });
+            };
+
+            printerEventSource.onopen = function() {
+                logMessage('Printer SSE connection established', 'success');
             };
 
             // VFD SSE
@@ -235,18 +251,24 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
             
             vfdEventSource.onmessage = function(event) {
                 try {
+                    console.log('VFD SSE raw data:', event.data);
                     const status = JSON.parse(event.data);
-                    if (status.displayModel !== undefined) {
-                        updateVFDStatus(status);
-                    }
+                    console.log('VFD SSE parsed status:', status);
+                    updateVFDStatus(status);
                 } catch (e) {
                     console.error('Error parsing VFD status:', e);
+                    logMessage('VFD SSE parse error: ' + e.message, 'error');
                 }
             };
 
-            vfdEventSource.onerror = function() {
+            vfdEventSource.onerror = function(err) {
+                console.error('VFD SSE error:', err);
                 logMessage('VFD SSE connection error', 'error');
                 updateVFDStatus({ connected: false });
+            };
+
+            vfdEventSource.onopen = function() {
+                logMessage('VFD SSE connection established', 'success');
             };
         }
 
@@ -281,13 +303,14 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
         }
 
         function updateVFDStatus(status) {
+            console.log('Updating VFD status with:', status);
             const panel = document.getElementById('vfd-status');
             const content = document.getElementById('vfd-status-content');
 
             let statusClass = status.connected ? 'success' : 'offline';
             let statusText = status.connected ? 'VFD Connected' : 'VFD Disconnected';
 
-            if (status.isDummyMode) {
+            if (status.dummyMode) {
                 statusClass = 'warning';
                 statusText = 'VFD Dummy Mode';
             } else if (status.error) {
@@ -300,9 +323,9 @@ Jestlivá ty nechceš vytisknout nějaké lupeň...?
                 <strong>${statusText}</strong><br>
                 Model: ${status.displayModel || 'Unknown'}<br>
                 Connected: ${status.connected}<br>
-                ${status.isDummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical display)</span><br>' : ''}
+                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical display)</span><br>' : ''}
                 ${status.errorMessage ? 'Info: ' + status.errorMessage + '<br>' : ''}
-                ${status.isDummyMode ? '<button onclick="reconnectVFD()" style="margin-top: 10px;">Try Reconnect</button>' : ''}
+                ${status.dummyMode ? '<button onclick="reconnectVFD()" style="margin-top: 10px;">Try Reconnect</button>' : ''}
             `;
         }
 

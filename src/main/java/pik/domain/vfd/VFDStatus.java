@@ -14,7 +14,7 @@ public class VFDStatus {
     private String errorMessage;
     private String displayModel;
     private long lastUpdate;
-    private boolean isDummyMode;
+    private boolean dummyMode;
 
     public VFDStatus() {
         this.lastUpdate = System.currentTimeMillis();
@@ -26,7 +26,7 @@ public class VFDStatus {
         this.errorMessage = other.errorMessage;
         this.displayModel = other.displayModel;
         this.lastUpdate = other.lastUpdate;
-        this.isDummyMode = other.isDummyMode;
+        this.dummyMode = other.dummyMode;
     }
 
     // Connectivity
@@ -71,16 +71,16 @@ public class VFDStatus {
 
     // Dummy mode - no display connected
     public boolean isDummyMode() {
-        return isDummyMode;
+        return dummyMode;
     }
     public void setDummyMode(boolean dummyMode) {
-        this.isDummyMode = dummyMode;
+        this.dummyMode = dummyMode;
     }
 
     @Override
     public String toString() {
         return String.format("VFDStatus{connected=%s, displayModel=%s, isDummyMode=%s, error=%s}",
-                connected, displayModel, isDummyMode, error);
+                connected, displayModel, dummyMode, error);
     }
 
     @Override
@@ -90,13 +90,13 @@ public class VFDStatus {
         VFDStatus that = (VFDStatus) o;
         return connected == that.connected &&
                 error == that.error &&
-                isDummyMode == that.isDummyMode &&
+                dummyMode == that.dummyMode &&
                 Objects.equals(displayModel, that.displayModel) &&
                 Objects.equals(errorMessage, that.errorMessage);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(connected, error, errorMessage, displayModel, isDummyMode);
+        return Objects.hash(connected, error, errorMessage, displayModel, dummyMode);
     }
 }
