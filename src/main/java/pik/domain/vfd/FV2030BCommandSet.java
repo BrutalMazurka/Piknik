@@ -11,34 +11,34 @@ public class FV2030BCommandSet implements IVFDCommandSet {
 
     @Override
     public byte[] getClearCommand() {
-        return new byte[] {ESC, 'C'};
+        return new byte[] {0x0C};
     }
 
     @Override
     public byte[] getHomeCursorCommand() {
-        return new byte[] {ESC, 'H'};
+        return new byte[] {ESC, '[', 'H'};
     }
 
     @Override
     public byte[] getCursorOnCommand() {
-        return new byte[] {ESC, 'S'};
+        return new byte[] {ESC, '_', 0x01};
     }
 
     @Override
     public byte[] getCursorOffCommand() {
-        return new byte[] {ESC, 'T'};
+        return new byte[] {ESC, '_', 0x00};
     }
 
     @Override
     public byte[] getBrightnessCommand(int brightness) {
         if (brightness < PrinterConstants.BRIGHTNESS_MIN) brightness = PrinterConstants.BRIGHTNESS_MIN;
         if (brightness > PrinterConstants.BRIGHTNESS_MAX) brightness = PrinterConstants.BRIGHTNESS_MAX;
-        return new byte[] {ESC, 'L', (byte)brightness};
+        return new byte[] {ESC, '*', (byte)brightness};
     }
 
     @Override
     public byte[] getCursorPositionCommand(int row, int col) {
-        return new byte[] {ESC, 'P', (byte)col, (byte)row};
+        return new byte[] {ESC, 0x6C, (byte)col, (byte)row};
     }
 
     @Override

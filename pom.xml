@@ -62,11 +62,25 @@
             <groupId>org.javapos</groupId>
             <artifactId>jpos</artifactId>
             <version>1.14</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.epson</groupId>
             <artifactId>epsonjpos</artifactId>
             <version>1.14.1</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- Xerces XML Parser - Required by JavaPOS -->
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
+            <version>2.12.2</version>
+        </dependency>
+        <dependency>
+            <groupId>xml-apis</groupId>
+            <artifactId>xml-apis</artifactId>
+            <version>1.4.01</version>
         </dependency>
 
         <!-- Testing Dependencies -->

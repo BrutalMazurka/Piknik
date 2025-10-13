@@ -50,12 +50,6 @@ public class PrinterController {
                 get("/status", this::sseStatusUpdates);
             });
         });
-
-        // Static routes for documentation or web interface
-        path("/", () -> {
-            get("", ctx -> ctx.redirect("/docs"));
-            get("/docs", this::serveDocs);
-        });
     }
 
     /**
@@ -286,26 +280,6 @@ public class PrinterController {
         } catch (Exception e) {
             logger.error("Error sending initial status to SSE client {}", clientId, e);
             integratedController.unregisterSSEClient(clientId);
-        }
-    }
-
-    /**
-     * Serve API documentation
-     */
-    private void serveDocs(Context ctx) {
-        ctx.html(generateApiDocs());
-    }
-
-    /**
-     * Generate simple API documentation HTML
-     */
-    private String generateApiDocs() {
-        try (InputStream is = getClass()
-                .getResourceAsStream("/html/printer_docs.html")) {
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            logger.error("Failed to load documentation", e);
-            return "<h1>Printer API documentation not available</h1>";
         }
     }
 

@@ -8,6 +8,9 @@
       </list>
     </option>
   </component>
+  <component name="ProjectResources">
+    <resource url="http://maven.apache.org/ASSEMBLY/2.1.0" location="https://maven.apache.org/xsd/assembly-2.1.0.xsd" />
+  </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_25" default="true" project-jdk-name="temurin-25" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>

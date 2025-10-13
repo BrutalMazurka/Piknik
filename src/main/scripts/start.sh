@@ -6,15 +6,23 @@
 echo "Starting Piknik POS Controller..."
 echo ""
 
-# Set Java options
+# JavaPOS native libraries location
+JAVAPOS_BIN="./resources/bin"
+
+# Check and set native library path
+if [ -d "$JAVAPOS_BIN" ]; then
+  export LD_LIBRARY_PATH="$JAVAPOS_BIN:$LD_LIBRARY_PATH"
+  echo "Native libraries path: $JAVAPOS_BIN"
+else
+  echo "⚠ Warning: JavaPOS native libraries not found at $JAVAPOS_BIN"
+  echo "Printer functionality may not work properly"
+fi
+
+# Java options
 JAVA_OPTS="-Xms256m -Xmx512m"
 
-# Check if Java is available
-if ! command -v java &> /dev/null; then
-  echo "ERROR: Java is not installed or not in PATH"
-  echo "Please install Java 21 or higher"
-  exit 1
-fi
+# Set java.library.path for JNI
+JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
 
 # Find the JAR file
 JAR_FILE=$(ls piknik-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
@@ -30,3 +38,6 @@ echo ""
 
 # Start the application
 java $JAVA_OPTS -jar "$JAR_FILE"
+
+echo ""
+echo "Application stopped"
