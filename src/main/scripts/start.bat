@@ -6,8 +6,20 @@ REM ========================================
 echo Starting Piknik POS Controller...
 echo.
 
+REM JavaPOS native libraries location
+set JAVAPOS_BIN=C:\Program Files\Epson\JavaPOS\bin
+
+REM Check if native libraries exist
+if not exist "%JAVAPOS_BIN%" (
+    echo Warning: JavaPOS native libraries not found at %JAVAPOS_BIN%
+    echo Printer functionality may not work properly
+)
+
 REM Set Java options
 set JAVA_OPTS=-Xms256m -Xmx512m
+
+REM Set java.library.path for JNI
+set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%JAVAPOS_BIN%"
 
 REM Check if Java is available
 java -version >nul 2>&1
@@ -28,7 +40,7 @@ if "%JAR_FILE%"=="" (
 )
 
 echo Starting with JAR: %JAR_FILE%
-echo Configuration: config/application.properties
+echo Configuration: config\application.properties
 echo.
 
 REM Start the application
