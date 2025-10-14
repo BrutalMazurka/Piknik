@@ -19,6 +19,8 @@ fi
 # Java options with debug enabled
 JAVA_OPTS="-Xms256m -Xmx512m"
 JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+# Set JavaPOS configuration file (jpos.xml) location
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
 JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
 
 # Find the JAR file

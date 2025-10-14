@@ -18,7 +18,8 @@ if not exist "%JAVAPOS_BIN%" (
 
 REM Set Java options
 set JAVA_OPTS=-Xms256m -Xmx512m
-
+REM Set JavaPOS configuration file (jpos.xml) location
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:config\jpos.xml"
 REM Set java.library.path for JNI
 set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%JAVAPOS_BIN%"
 

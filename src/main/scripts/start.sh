@@ -20,7 +20,8 @@ fi
 
 # Java options
 JAVA_OPTS="-Xms256m -Xmx512m"
-
+# Set JavaPOS configuration file (jpos.xml) location
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
 # Set java.library.path for JNI
 JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
 
