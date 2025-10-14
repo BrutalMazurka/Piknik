@@ -24,7 +24,7 @@ public class PrinterConfig {
     public int getConnectionTimeout() { return connectionTimeout; }
 
     public String getLogicalName() {
-        return "EpsonPrinter_" + name.replaceAll("[^A-Za-z0-9]", "_");
+        return name.replaceAll("[^A-Za-z0-9]", "_");
     }
 
     public String getConnectionString() {
