@@ -1,8 +1,9 @@
 #!/bin/bash
-########################################
-# Piknik POS Controller - Startup Script
-########################################
+##########################################
+# Piknik POS Controller - Startup Script #
+##########################################
 
+echo ""
 echo "Starting Piknik POS Controller..."
 echo ""
 
@@ -18,12 +19,17 @@ else
   echo "Printer functionality may not work properly"
 fi
 
-# Java options
+# JRE binaries location
+JAVA_BIN=./jre/bin/java
+
+# Set Java memory limits
 JAVA_OPTS="-Xms256m -Xmx512m"
-# Set JavaPOS configuration file (jpos.xml) location
-JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
+
 # Set java.library.path for JNI
 JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
+
+# Set JavaPOS configuration file (jpos.xml) location
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
 
 # Find the JAR file
 JAR_FILE=$(ls piknik-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
@@ -38,7 +44,7 @@ echo "Configuration: config/application.properties"
 echo ""
 
 # Start the application
-java $JAVA_OPTS -jar "$JAR_FILE"
+$JAVA_BIN $JAVA_OPTS -jar "$JAR_FILE"
 
 echo ""
 echo "Application stopped"

@@ -1,6 +1,8 @@
 #!/bin/bash
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "Starting Piknik in DEBUG mode..."
 echo "Debug port: 5005"
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo ""
 
 # JavaPOS native libraries location
@@ -16,12 +18,23 @@ else
   echo "Printer functionality may not work properly"
 fi
 
-# Java options with debug enabled
+# JRE binaries location
+JAVA_BIN=./jre/bin/java
+
+# Set Java memory limits
 JAVA_OPTS="-Xms256m -Xmx512m"
-JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+
+# Set java.library.path for JNI
+JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
+
 # Set JavaPOS configuration file (jpos.xml) location
 JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
-JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
+
+# Connection transport for remote debugging
+JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+# JavaPOS debugging option
+JAVA_OPTS="$JAVA_OPTS -Djpos.tracing=ON"
+JAVA_OPTS="$JAVA_OPTS -Djpos.traceLevel=4"
 
 # Find the JAR file
 JAR_FILE=$(ls piknik-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
@@ -36,7 +49,7 @@ echo "Configuration: config/application.properties"
 echo ""
 
 # Start the application
-java $JAVA_OPTS -jar "$JAR_FILE"
+$JAVA_BIN $JAVA_OPTS -jar "$JAR_FILE"
 
 echo ""
 echo "Application stopped"

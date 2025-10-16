@@ -3,6 +3,7 @@ REM ========================================
 REM Piknik POS Controller - Startup Script
 REM ========================================
 
+echo
 echo Starting Piknik POS Controller...
 echo.
 
@@ -16,15 +17,20 @@ if not exist "%JAVAPOS_BIN%" (
     echo Printer functionality may not work properly
 )
 
-REM Set Java options
+REM JRE binaries location
+set JAVA_BIN=jre\bin\java
+
+REM Set Java memory limits
 set JAVA_OPTS=-Xms256m -Xmx512m
-REM Set JavaPOS configuration file (jpos.xml) location
-JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:config\jpos.xml"
+
 REM Set java.library.path for JNI
 set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%JAVAPOS_BIN%"
 
+REM Set JavaPOS configuration file (jpos.xml) location
+set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:./config/jpos.xml
+
 REM Check if Java is available
-java -version >nul 2>&1
+%JAVA_BIN% -version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Java is not installed or not in PATH
     echo Please install Java 21 or higher
@@ -46,6 +52,6 @@ echo Configuration: config\application.properties
 echo.
 
 REM Start the application
-java %JAVA_OPTS% -jar %JAR_FILE%
+%JAVA_BIN% %JAVA_OPTS% -jar %JAR_FILE%
 
 pause
