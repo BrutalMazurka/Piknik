@@ -5,9 +5,13 @@ echo Debug port: 5005
 echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 echo.
 
+REM Get the directory where this script is located
+set SCRIPT_DIR=%~dp0
+cd /d "%SCRIPT_DIR%"
+
 REM JavaPOS native libraries location
 REM set JAVAPOS_BIN=C:\Program Files\Epson\JavaPOS\bin
-set JAVAPOS_BIN=resources\bin
+set JAVAPOS_BIN=%SCRIPT_DIR%resources\bin
 
 REM Check if native libraries exist
 if not exist "%JAVAPOS_BIN%" (
@@ -16,7 +20,7 @@ if not exist "%JAVAPOS_BIN%" (
 )
 
 REM JRE binaries location
-set JAVA_BIN=jre\bin\java
+set JAVA_BIN=%SCRIPT_DIR%jre\bin\java
 
 REM Set Java memory limits
 set JAVA_OPTS=-Xms256m -Xmx512m
@@ -24,8 +28,12 @@ set JAVA_OPTS=-Xms256m -Xmx512m
 REM Set java.library.path for JNI
 set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%JAVAPOS_BIN%"
 
-REM Set JavaPOS configuration file (jpos.xml) location
-set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:./config/jpos.xml
+REM Set JavaPOS configuration file (jpos.xml) location - USE ABSOLUTE PATH
+REM set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:./config/jpos.xml
+set JPOS_CONFIG=%SCRIPT_DIR%config\jpos.xml
+set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:///%JPOS_CONFIG:\=/%
+
+echo JavaPOS config: %JPOS_CONFIG%
 
 REM Connection transport for remote debugging
 set JAVA_OPTS=%JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

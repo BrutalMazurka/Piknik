@@ -7,8 +7,12 @@ echo ""
 echo "Starting Piknik POS Controller..."
 echo ""
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 # JavaPOS native libraries location
-JAVAPOS_BIN="./resources/bin"
+JAVAPOS_BIN="$SCRIPT_DIR/resources/bin"
 
 # Check and set native library path
 if [ -d "$JAVAPOS_BIN" ]; then
@@ -20,7 +24,7 @@ else
 fi
 
 # JRE binaries location
-JAVA_BIN=./jre/bin/java
+JAVA_BIN=$SCRIPT_DIR/jre/bin/java
 
 # Set Java memory limits
 JAVA_OPTS="-Xms256m -Xmx512m"
@@ -29,7 +33,11 @@ JAVA_OPTS="-Xms256m -Xmx512m"
 JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
 
 # Set JavaPOS configuration file (jpos.xml) location
-JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
+#JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file:./config/jpos.xml"
+JPOS_CONFIG="$SCRIPT_DIR/config/jpos.xml"
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=file://$JPOS_CONFIG"
+
+echo "JavaPOS config: $JPOS_CONFIG"
 
 # Find the JAR file
 JAR_FILE=$(ls piknik-*-jar-with-dependencies.jar 2>/dev/null | head -n 1)
