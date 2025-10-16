@@ -41,6 +41,7 @@ JAVA_OPTS="$JAVA_OPTS -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,addr
 # JavaPOS debugging option
 JAVA_OPTS="$JAVA_OPTS -Djpos.tracing=ON"
 JAVA_OPTS="$JAVA_OPTS -Djpos.traceLevel=4"
+JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile.debug=true"
 
 echo "Using JavaPOS config: $JPOS_CONFIG"
 

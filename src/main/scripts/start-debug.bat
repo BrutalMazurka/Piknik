@@ -40,6 +40,7 @@ set JAVA_OPTS=%JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,
 REM JavaPOS debugging option
 set JAVA_OPTS=%AVA_OPTS% -Djpos.tracing=ON
 set JAVA_OPTS=%JAVA_OPTS% -Djpos.traceLevel=4
+set JAVA_OPTS=%$JAVA_OPTS% -Djpos.config.populatorFile.debug=true
 
 REM Check if Java is available
 %JAVA_BIN% -version >nul 2>&1
