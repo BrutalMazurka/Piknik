@@ -123,7 +123,6 @@
     </dependencies>
 
     <build>
-        <finalName>piknik_${project.version}</finalName>
         <plugins>
             <!-- Compiler Plugin -->
             <plugin>

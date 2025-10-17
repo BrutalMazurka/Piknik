@@ -10,7 +10,7 @@ set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
 REM Find application JAR
-for %%f in (piknik_*_jar_deps.jar) do set APP_JAR=%%f
+for %%f in (piknik-*-deps.jar) do set APP_JAR=%%f
 
 if "%APP_JAR%"=="" (
     echo ERROR: Application JAR not found

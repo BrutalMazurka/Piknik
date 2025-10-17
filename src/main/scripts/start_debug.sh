@@ -10,7 +10,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
 # Find application JAR (with dependencies)
-APP_JAR=$(ls piknik_*_deps.jar 2>/dev/null | head -n 1)
+APP_JAR=$(ls piknik-*-deps.jar 2>/dev/null | head -n 1)
 
 if [ -z "$APP_JAR" ]; then
   echo "ERROR: Application JAR not found"
