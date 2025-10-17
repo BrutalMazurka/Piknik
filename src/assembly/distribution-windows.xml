@@ -44,6 +44,15 @@
             </includes>
         </fileSet>
         
+        <!-- Include bundled Java runtime for WINDOWS -->
+        <fileSet>
+            <directory>${project.basedir}/../Java/win</directory>
+            <outputDirectory>jre</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+        
         <!-- Include html directory from resources -->
         <fileSet>
             <directory>${project.basedir}/src/main/resources/html</directory>

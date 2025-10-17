@@ -44,6 +44,17 @@
             <fileMode>0755</fileMode>
         </fileSet>
         
+        <!-- Include bundled Java runtime for LINUX -->
+        <fileSet>
+            <directory>${project.basedir}/../Java/linux</directory>
+            <outputDirectory>jre</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <directoryMode>0755</directoryMode>
+        </fileSet>
+        
         <!-- Include html directory from resources -->
         <fileSet>
             <directory>${project.basedir}/src/main/resources/html</directory>
