@@ -86,6 +86,16 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
             transitionTo(PrinterState.OPENING);
             String logicalName = config.getLogicalName();
+
+            // Temporary debug code
+            System.out.println("=== JavaPOS Configuration Debug ===");
+            System.out.println("jpos.config.populatorFile: " +
+                    System.getProperty("jpos.config.populatorFile"));
+            System.out.println("Current directory: " +
+                    System.getProperty("user.dir"));
+            System.out.println("Attempting to open: " + logicalName);
+            System.out.println("===================================");
+
             printer.open(logicalName);
             logger.debug("Printer opened with logical name: {}", logicalName);
             transitionTo(PrinterState.OPENED);

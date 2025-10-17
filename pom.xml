@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cz.herman.pik</groupId>
+    <groupId>pik</groupId>
     <artifactId>piknik</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
+    <packaging>jar</packaging>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -15,21 +17,38 @@
     </properties>
 
     <dependencies>
-        <!-- Logging -->
+        <!-- JavaPOS - provided scope (external classpath) -->
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>[1.4.11,)</version>
+            <groupId>org.javapos</groupId>
+            <artifactId>javapos</artifactId>
+            <version>1.14.1</version>
+            <scope>provided</scope>
         </dependency>
 
-        <!-- Serial port support -->
+        <!-- Epson JavaPOS - provided scope (external classpath) -->
         <dependency>
-            <groupId>com.fazecast</groupId>
-            <artifactId>jSerialComm</artifactId>
-            <version>[2.10.4,)</version>
+            <groupId>com.epson</groupId>
+            <artifactId>epsonjpos</artifactId>
+            <version>1.14.1</version>
+            <scope>provided</scope>
         </dependency>
 
-        <!-- Javalin Web Framework -->
+        <!-- XML Processing - provided scope (external classpath) -->
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
+            <version>2.12.2</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>xml-apis</groupId>
+            <artifactId>xml-apis</artifactId>
+            <version>1.4.01</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Web Framework -->
         <dependency>
             <groupId>io.javalin</groupId>
             <artifactId>javalin</artifactId>
@@ -41,6 +60,13 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>[2.10.1,)</version>
+        </dependency>
+
+        <!-- Serial Communication -->
+        <dependency>
+            <groupId>com.fazecast</groupId>
+            <artifactId>jSerialComm</artifactId>
+            <version>[2.10.4,)</version>
         </dependency>
 
         <!-- For QR Code generation -->
@@ -57,30 +83,16 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- JavaPOS - Epson JavaPOS manually installed library -->
+        <!-- Logging -->
         <dependency>
-            <groupId>org.javapos</groupId>
-            <artifactId>jpos</artifactId>
-            <version>1.14</version>
-            <scope>compile</scope>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.16</version>
         </dependency>
         <dependency>
-            <groupId>com.epson</groupId>
-            <artifactId>epsonjpos</artifactId>
-            <version>1.14.1</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- Xerces XML Parser - Required by JavaPOS -->
-        <dependency>
-            <groupId>xerces</groupId>
-            <artifactId>xercesImpl</artifactId>
-            <version>2.12.2</version>
-        </dependency>
-        <dependency>
-            <groupId>xml-apis</groupId>
-            <artifactId>xml-apis</artifactId>
-            <version>1.4.01</version>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.8</version>
         </dependency>
 
         <!-- Testing Dependencies -->
@@ -111,8 +123,9 @@
     </dependencies>
 
     <build>
+        <finalName>piknik_${project.version}</finalName>
         <plugins>
-            <!-- Existing compiler plugin -->
+            <!-- Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -123,113 +136,93 @@
                 </configuration>
             </plugin>
 
-            <!-- Create executable JAR with dependencies -->
+            <!-- JAR Plugin - Create executable JAR -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>3.6.0</version>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
                 <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
                     <archive>
                         <manifest>
                             <mainClass>pik.Piknik</mainClass>
-                            <!-- Add classpath entry for external config -->
                             <addClasspath>true</addClasspath>
-                            <classpathPrefix>./</classpathPrefix>
+                            <classpathPrefix>lib/</classpathPrefix>
                         </manifest>
-                        <manifestEntries>
-                            <!-- Add config directory to classpath -->
-                            <Class-Path>config/ resources/</Class-Path>
-                        </manifestEntries>
                     </archive>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
-            <!-- Copy resources to target for deployment -->
+            <!-- Shade Plugin - Create fat JAR with dependencies (excluding JavaPOS) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.3.1</version>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
                 <executions>
-                    <!-- Copy config files -->
                     <execution>
-                        <id>copy-config</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>copy-resources</goal>
+                            <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.build.directory}/config</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>src/main/resources</directory>
-                                    <includes>
-                                        <include>application.properties</include>
-                                        <include>logback.xml</include>
-                                        <include>jpos.xml</include>
-                                    </includes>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                    <!-- Copy HTML resources -->
-                    <execution>
-                        <id>copy-html</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/resources/html</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>src/main/resources/html</directory>
-                                </resource>
-                            </resources>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>deps</shadedClassifierName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>pik.Piknik</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- Create distribution archive -->
+            <!-- Assembly Plugin - Create distribution archives -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.6.0</version>
                 <executions>
+                    <!-- Linux distribution (tar.gz) -->
                     <execution>
-                        <id>create-distribution</id>
+                        <id>create-linux-distribution</id>
                         <phase>package</phase>
                         <goals>
                             <goal>single</goal>
                         </goals>
                         <configuration>
                             <descriptors>
-                                <descriptor>src/assembly/distribution.xml</descriptor>
+                                <descriptor>src/assembly/distribution-linux.xml</descriptor>
                             </descriptors>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <finalName>piknik-${project.version}</finalName>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                    <!-- Windows distribution (zip) -->
+                    <execution>
+                        <id>create-windows-distribution</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/distribution-windows.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <!-- Surefire Plugin for tests -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
             </plugin>
         </plugins>
     </build>
