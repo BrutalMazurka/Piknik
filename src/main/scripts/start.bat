@@ -11,8 +11,37 @@ REM Get the directory where this script is located
 set SCRIPT_DIR=%~dp0
 cd /d "%SCRIPT_DIR%"
 
+REM Find application JAR
+for %%f in (piknik_*_jar_deps.jar) do set APP_JAR=%%f
+
+if "%APP_JAR%"=="" (
+    echo ERROR: Application JAR not found
+    pause
+    exit /b 1
+)
+
+echo Application JAR: %APP_JAR%
+echo.
+
+REM Build classpath
+set CLASSPATH=%APP_JAR%
+
+REM Add all JARs from resources\lib\
+if exist "resources\lib" (
+    echo Adding external JavaPOS libraries...
+    for %%j in (resources\lib\*.jar) do (
+        set CLASSPATH=!CLASSPATH!;%%j
+        echo   + %%~nxj
+    )
+) else (
+    echo ERROR: resources\lib\ directory not found
+    pause
+    exit /b 1
+)
+
+echo.
+
 REM JavaPOS native libraries location
-REM set JAVAPOS_BIN=C:\Program Files\Epson\JavaPOS\bin
 set JAVAPOS_BIN=%SCRIPT_DIR%resources\bin
 
 REM Check if native libraries exist
@@ -30,12 +59,14 @@ set JAVA_OPTS=-Xms256m -Xmx512m
 REM Set java.library.path for JNI
 set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%JAVAPOS_BIN%"
 
-REM Set JavaPOS configuration file (jpos.xml) location - USE ABSOLUTE PATH
-REM set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:./config/jpos.xml
-set JPOS_CONFIG=%SCRIPT_DIR%config\jpos.xml
-set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:///%JPOS_CONFIG:\=/%
+REM Set JavaPOS configuration file (jpos.xml) location
+set JAVAPOS_CONFIG=%SCRIPT_DIR%config\jpos.xml
+set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=file:///%JAVAPOS_CONFIG:\=/%
 
 echo JavaPOS config: %JPOS_CONFIG%
+echo HTML resources: %SCRIPT_DIR%resources\html
+echo Native libraries: %JAVAPOS_BIN%
+echo.
 
 REM Check if Java is available
 %JAVA_BIN% -version >nul 2>&1
@@ -46,20 +77,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Find the JAR file
-for %%f in (piknik-*-jar-with-dependencies.jar) do set JAR_FILE=%%f
-
-if "%JAR_FILE%"=="" (
-    echo ERROR: Piknik JAR file not found
-    pause
-    exit /b 1
-)
-
 echo Starting with JAR: %JAR_FILE%
 echo Configuration: config\application.properties
 echo.
 
-REM Start the application
-%JAVA_BIN% %JAVA_OPTS% -jar %JAR_FILE%
+REM Start the application using external classpath
+REM CRITICAL: Use -cp and specify main class, NOT -jar
+java %JAVA_OPTS% -cp "%CLASSPATH%" pik.Piknik
 
 pause

@@ -11,8 +11,9 @@
     </formats>
     
     <includeBaseDirectory>true</includeBaseDirectory>
-    <baseDirectory>piknik-${project.version}</baseDirectory>
-    
+    <!--<baseDirectory>piknik-${project.version}</baseDirectory>-->
+    <baseDirectory>piknik</baseDirectory>
+
     <fileSets>
         <!-- Include the main JAR with dependencies -->
         <fileSet>
