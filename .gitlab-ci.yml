@@ -1,2 +1,29 @@
+image: ${IMAGE_MAVEN_JAVA25}
+
+stages:
+  - build
+  - deploy
+
+cache:
+  paths:
+    - .m2/repository/
+    - pom.xml
+
 variables:
+  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
   DOCKER_TLS_CERTDIR: ""
+
+build:
+  stage: build
+  script:
+    - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install
+    - rm -rf pom.xml
+
+deploy:
+  only:
+    - master
+  stage: deploy
+  script:
+    - mvn $MAVEN_CLI_OPTS clean deploy
+    - rm -rf pom.xml
