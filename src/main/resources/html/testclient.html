@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test page for thermal printer and VFD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            grid-column: 1 / -1;
+        }
+        h2 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .status-panel {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .error { background: #ffebee; border-left: 4px solid #f44336; }
+        .warning { background: #fff3e0; border-left: 4px solid #ff9800; }
+        .success { background: #e8f5e8; border-left: 4px solid #4caf50; }
+        .offline { background: #e0e0e0; border-left: 4px solid #757575; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button.secondary { background: #6c757d; }
+        button.secondary:hover { background: #5a6268; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        .logs {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            border: 1px solid #ddd;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .inline-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .brightness-values {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+<h1>🖨️ Test page for thermal printer and VFD 📟</h1>
+
+<div class="container">
+    <!-- Printer Section -->
+    <div class="section">
+        <h2>Thermal printer Epson TM-T20III</h2>
+
+        <div id="printer-status" class="status-panel offline">
+            <h3>Printer status</h3>
+            <div id="printer-status-content">Connecting...</div>
+        </div>
+
+        <div class="form-group">
+            <label for="print-text">Print text:</label>
+            <textarea id="print-text" rows="4" placeholder="Enter text to print...">Nazdar!
+Chceš vytisknout nějaké lupeň?
+                </textarea>
+            <br><br>
+            <button onclick="printText()">Print text</button>
+        </div>
+
+        <div class="form-group">
+            <label for="image-file">Print picture:</label>
+            <input type="file" id="image-file" accept="image/*">
+            <br><br>
+            <button onclick="printImage()">Print picture</button>
+        </div>
+
+        <div class="form-group">
+            <div class="button-group">
+                <button onclick="cutPaper()">Cut out</button>
+                <button onclick="testPrinter()">Printing test:</button>
+                <button class="secondary" onclick="checkPrinterHealth()">Status check</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VFD Section -->
+    <div class="section">
+        <h2>VFD display FV-2030B</h2>
+
+        <div id="vfd-status" class="status-panel offline">
+            <h3>VFD status</h3>
+            <div id="vfd-status-content">Connecting...</div>
+        </div>
+
+        <div class="form-group">
+            <label for="vfd-text">Show text:</label>
+            <textarea id="vfd-text" rows="2" maxlength="40" placeholder="Enter text (max 40 chars)...">NAZDAR!</textarea>
+            <small>Row 1: chars 1-20, Row 2: chars 21-40</small>
+            <br><br>
+            <button onclick="displayVFDText()">Show text</button>
+            <button class="secondary" onclick="clearVFD()">Clear display</button>
+        </div>
+
+        <div class="form-group">
+            <label>Cursor position (1-based indexing):</label>
+            <div class="inline-inputs">
+                <div>
+                    <label for="vfd-row">Row (1-2):</label>
+                    <input type="number" id="vfd-row" value="1" min="1" max="2">
+                </div>
+                <div>
+                    <label for="vfd-col">Column (1-20):</label>
+                    <input type="number" id="vfd-col" value="1" min="1" max="20">
+                </div>
+            </div>
+            <br>
+            <button onclick="setCursorPosition()">Set position</button>
+            <button class="secondary" onclick="homeCursor()">Home</button>
+        </div>
+
+        <div class="form-group">
+            <label for="vfd-brightness">Brightness (1-4):</label>
+            <input type="range" id="vfd-brightness" value="3" min="1" max="4" step="1"
+                   oninput="document.getElementById('brightness-value').textContent = this.value">
+            <div class="brightness-values">
+                <span>1 (Dimmest)</span>
+                <span id="brightness-value">3</span>
+                <span>4 (Brightest)</span>
+            </div>
+            <br>
+            <button onclick="setBrightness()">Set brightness</button>
+        </div>
+
+        <div class="form-group">
+            <div class="button-group">
+                <button onclick="showCursor(true)">Show cursor</button>
+                <button onclick="showCursor(false)">Hide cursor</button>
+                <button class="secondary" onclick="runVFDDemo()">Start demo</button>
+                <button class="secondary" onclick="checkVFDHealth()">Status check</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Combined Actions -->
+    <div class="section full-width">
+        <h2>Combined actions</h2>
+        <div class="button-group">
+            <button onclick="displayTotal()">Show total on VFD</button>
+            <button onclick="printAndDisplay()">Print receipt and actualize VFD</button>
+            <button onclick="welcomeMessage()">Welcome message</button>
+            <button class="danger" onclick="resetAll()">Total RESET</button>
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="section full-width">
+        <h2>Activity log</h2>
+        <div id="logs" class="logs"></div>
+        <br>
+        <button class="secondary" onclick="clearLogs()">Clear logs</button>
+        <button class="secondary" onclick="exportLogs()">export logs</button>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+    let printerEventSource, vfdEventSource;
+
+    // Initialize SSE connections
+    function initSSE() {
+        // Printer SSE
+        printerEventSource = new EventSource(`${API_BASE}/events/status`);
+
+        // Listen for 'status' events specifically
+        printerEventSource.addEventListener('status', function(event) {
+            try {
+                console.log('Printer status event received:', event.data);
+                const status = JSON.parse(event.data);
+                updatePrinterStatus(status);
+
+                if (status.coverOpen) {
+                    logMessage('⚠️ Printer cover opened', 'warning');
+                } else if (status.paperEmpty) {
+                    logMessage('❌ Printer paper empty', 'error');
+                } else if (status.paperNearEnd) {
+                    logMessage('⚠️ Printer paper near end', 'warning');
+                }
+            } catch (e) {
+                console.error('Error parsing printer status:', e);
+                logMessage('Printer SSE parse error: ' + e.message, 'error');
+            }
+        });
+
+        printerEventSource.onerror = function(err) {
+            console.error('Printer SSE error:', err);
+            logMessage('Printer SSE connection error', 'error');
+            updatePrinterStatus({ connected: false, online: false });
+        };
+
+        printerEventSource.onopen = function() {
+            console.log('Printer SSE connection opened');
+            logMessage('Printer SSE connection established', 'success');
+        };
+
+        // VFD SSE
+        vfdEventSource = new EventSource(`${API_BASE}/vfd/events/status`);
+
+        // Listen for 'status' events specifically
+        vfdEventSource.addEventListener('status', function(event) {
+            try {
+                console.log('VFD status event received:', event.data);
+                const status = JSON.parse(event.data);
+                updateVFDStatus(status);
+            } catch (e) {
+                console.error('Error parsing VFD status:', e);
+                logMessage('VFD SSE parse error: ' + e.message, 'error');
+            }
+        });
+
+        vfdEventSource.onerror = function(err) {
+            console.error('VFD SSE error:', err);
+            logMessage('VFD SSE connection error', 'error');
+            updateVFDStatus({ connected: false });
+        };
+
+        vfdEventSource.onopen = function() {
+            console.log('VFD SSE connection opened');
+            logMessage('VFD SSE connection established', 'success');
+        };
+    }
+
+    function updatePrinterStatus(status) {
+        const panel = document.getElementById('printer-status');
+        const content = document.getElementById('printer-status-content');
+
+        let statusClass = 'success';
+        let statusText = 'Printer Ready';
+
+        if (!status.online) {
+            statusClass = 'offline';
+            statusText = 'Printer Offline';
+        } else if (status.error || status.paperEmpty) {
+            statusClass = 'error';
+            statusText = 'Printer Error';
+            if (status.coverOpen) statusText += ' - Cover Open';
+            if (status.paperEmpty) statusText += ' - Paper Empty';
+        } else if (status.paperNearEnd) {
+            statusClass = 'warning';
+            statusText = 'Warning - Paper Near End';
+        }
+
+        panel.className = 'status-panel ' + statusClass;
+        content.innerHTML = `
+                <strong>${statusText}</strong><br>
+                Online: ${status.online}<br>
+                Cover Open: ${status.coverOpen || false}<br>
+                Paper Empty: ${status.paperEmpty || false}<br>
+                Paper Near End: ${status.paperNearEnd || false}
+            `;
+    }
+
+    function updateVFDStatus(status) {
+        console.log('Updating VFD status with:', status);
+        const panel = document.getElementById('vfd-status');
+        const content = document.getElementById('vfd-status-content');
+
+        let statusClass = status.connected ? 'success' : 'offline';
+        let statusText = status.connected ? 'VFD Connected' : 'VFD Disconnected';
+
+        if (status.dummyMode) {
+            statusClass = 'warning';
+            statusText = 'VFD Dummy Mode';
+        } else if (status.error) {
+            statusClass = 'error';
+            statusText = 'VFD Error';
+        }
+
+        panel.className = 'status-panel ' + statusClass;
+        content.innerHTML = `
+                <strong>${statusText}</strong><br>
+                Model: ${status.displayModel || 'Unknown'}<br>
+                Connected: ${status.connected}<br>
+                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical display)</span><br>' : ''}
+                ${status.errorMessage ? 'Info: ' + status.errorMessage + '<br>' : ''}
+                ${status.dummyMode ? '<button onclick="reconnectVFD()" style="margin-top: 10px;">Try Reconnect</button>' : ''}
+            `;
+    }
+
+    // Printer Functions
+    async function printText() {
+        const text = document.getElementById('print-text').value;
+        try {
+            const response = await fetch(`${API_BASE}/printer/print/text`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: text
+            });
+            const result = await response.json();
+            logMessage(`Print text: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Print error: ${error.message}`, 'error');
+        }
+    }
+
+    async function printImage() {
+        const fileInput = document.getElementById('image-file');
+        const file = fileInput.files[0];
+        if (!file) {
+            logMessage('Please select an image', 'warning');
+            return;
+        }
+
+        try {
+            const base64 = await fileToBase64(file);
+            const response = await fetch(`${API_BASE}/printer/print`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    items: [{
+                        type: 'IMAGE',
+                        content: base64,
+                        options: { width: 200 }
+                    }],
+                    cutPaper: true
+                })
+            });
+            const result = await response.json();
+            logMessage(`Print image: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Print image error: ${error.message}`, 'error');
+        }
+    }
+
+    async function cutPaper() {
+        try {
+            const response = await fetch(`${API_BASE}/printer/cut`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`Cut paper: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Cut paper error: ${error.message}`, 'error');
+        }
+    }
+
+    async function testPrinter() {
+        try {
+            const response = await fetch(`${API_BASE}/printer/test`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`Test print: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Test error: ${error.message}`, 'error');
+        }
+    }
+
+    async function checkPrinterHealth() {
+        try {
+            const response = await fetch(`${API_BASE}/printer/health`);
+            const result = await response.json();
+            logMessage(`Printer health: ${result.message}`, response.ok ? 'success' : 'warning');
+        } catch (error) {
+            logMessage(`Health check error: ${error.message}`, 'error');
+        }
+    }
+
+    // VFD Functions
+    async function displayVFDText() {
+        const text = document.getElementById('vfd-text').value;
+        try {
+            const response = await fetch(`${API_BASE}/vfd/display`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const result = await response.json();
+            logMessage(`VFD display: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`VFD display error: ${error.message}`, 'error');
+        }
+    }
+
+    async function clearVFD() {
+        try {
+            const response = await fetch(`${API_BASE}/vfd/clear`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`VFD clear: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`VFD clear error: ${error.message}`, 'error');
+        }
+    }
+
+    async function setCursorPosition() {
+        const row = parseInt(document.getElementById('vfd-row').value);
+        const col = parseInt(document.getElementById('vfd-col').value);
+        try {
+            const response = await fetch(`${API_BASE}/vfd/cursor/position`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ row: row, col: col })
+            });
+            const result = await response.json();
+            logMessage(`Cursor position: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Cursor position error: ${error.message}`, 'error');
+        }
+    }
+
+    async function homeCursor() {
+        try {
+            const response = await fetch(`${API_BASE}/vfd/cursor/home`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`Cursor home: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Cursor home error: ${error.message}`, 'error');
+        }
+    }
+
+    async function setBrightness() {
+        const brightness = parseInt(document.getElementById('vfd-brightness').value);
+        try {
+            const response = await fetch(`${API_BASE}/vfd/brightness`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brightness: brightness })
+            });
+            const result = await response.json();
+            logMessage(`Brightness: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Brightness error: ${error.message}`, 'error');
+        }
+    }
+
+    async function showCursor(show) {
+        try {
+            const response = await fetch(`${API_BASE}/vfd/cursor/show`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ showCursor: show })
+            });
+            const result = await response.json();
+            logMessage(`Cursor ${show ? 'shown' : 'hidden'}: ${result.message}`,
+                response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Show cursor error: ${error.message}`, 'error');
+        }
+    }
+
+    async function runVFDDemo() {
+        try {
+            const response = await fetch(`${API_BASE}/vfd/demo`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`VFD demo: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`VFD demo error: ${error.message}`, 'error');
+        }
+    }
+
+    async function checkVFDHealth() {
+        try {
+            const response = await fetch(`${API_BASE}/vfd/health`);
+            const result = await response.json();
+            logMessage(`VFD health: ${result.message}`, response.ok ? 'success' : 'warning');
+        } catch (error) {
+            logMessage(`VFD health check error: ${error.message}`, 'error');
+        }
+    }
+
+    async function reconnectVFD() {
+        try {
+            logMessage('Attempting to reconnect to VFD display...', 'info');
+            const response = await fetch(`${API_BASE}/vfd/reconnect`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`VFD reconnect: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`VFD reconnect error: ${error.message}`, 'error');
+        }
+    }
+
+    // Combined Actions
+    async function displayTotal() {
+        await clearVFD();
+        await new Promise(r => setTimeout(r, 100));
+        document.getElementById('vfd-text').value = 'Total: $25.00';
+        await displayVFDText();
+    }
+
+    async function printAndDisplay() {
+        // Display on VFD
+        document.getElementById('vfd-text').value = 'Printing...';
+        await displayVFDText();
+
+        // Print receipt
+        const response = await fetch(`${API_BASE}/printer/print`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: [
+                    { type: 'TEXT', content: '*** RECEIPT ***',
+                        options: { bold: true, alignment: 'CENTER', fontSize: 2 }},
+                    { type: 'LINE', content: '===============================' },
+                    { type: 'TEXT', content: 'Item 1: $10.00\nItem 2: $15.00\nTotal: $25.00' }
+                ],
+                cutPaper: true
+            })
+        });
+
+        // Update VFD
+        await new Promise(r => setTimeout(r, 500));
+        document.getElementById('vfd-text').value = 'Thank you!';
+        await displayVFDText();
+    }
+
+    async function welcomeMessage() {
+        document.getElementById('vfd-text').value = 'Welcome!';
+        await displayVFDText();
+    }
+
+    async function resetAll() {
+        await clearVFD();
+        logMessage('System reset', 'success');
+    }
+
+    // Utility Functions
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    function logMessage(message, type = 'info') {
+        const logs = document.getElementById('logs');
+        const timestamp = new Date().toLocaleTimeString();
+        const colors = {
+            error: 'red',
+            warning: 'orange',
+            success: 'green',
+            info: '#333'
+        };
+        logs.innerHTML += `<div style="color: ${colors[type]}">[${timestamp}] ${message}</div>`;
+        logs.scrollTop = logs.scrollHeight;
+    }
+
+    function clearLogs() {
+        document.getElementById('logs').innerHTML = '';
+    }
+
+    function exportLogs() {
+        const logs = document.getElementById('logs').innerText;
+        const blob = new Blob([logs], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logs_${new Date().toISOString()}.txt`;
+        a.click();
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', function() {
+        initSSE();
+        logMessage('Application started');
+    });
+
+    // Cleanup
+    window.addEventListener('beforeunload', function() {
+        if (printerEventSource) printerEventSource.close();
+        if (vfdEventSource) vfdEventSource.close();
+    });
+</script>
+</body>
+</html>

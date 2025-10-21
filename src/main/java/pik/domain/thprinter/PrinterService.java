@@ -1,0 +1,679 @@
+package pik.domain.thprinter;
+
+import com.google.gson.Gson;
+import jpos.JposConst;
+import jpos.JposException;
+import jpos.POSPrinter;
+import jpos.POSPrinterConst;
+import jpos.events.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import pik.common.PrinterConstants;
+import pik.dal.PrinterConfig;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * Core printer service for managing JavaPOS POSPrinter operations
+ * @author Martin Sustik <sustik@herman.cz>
+ * @since 25/09/2025
+ */
+public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener, DirectIOListener {
+    private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
+
+    private final PrinterConfig config;
+    private final List<IPrinterStatusListener> statusListeners = new CopyOnWriteArrayList<>();
+    private final ReentrantLock printerLock = new ReentrantLock();
+    private final Gson gson = new Gson();
+
+    private final POSPrinter printer;
+    private PrinterStatus currentStatus;
+    private volatile PrinterState state = PrinterState.UNINITIALIZED;
+
+    public PrinterService(PrinterConfig config) {
+        this.config = config;
+        this.currentStatus = new PrinterStatus();
+        this.printer = new POSPrinter();
+    }
+
+    // Observer registration methods
+    public void addStatusListener(IPrinterStatusListener listener) {
+        if (listener != null && !statusListeners.contains(listener)) {
+            statusListeners.add(listener);
+            logger.debug("Added status listener: {}", listener.getClass().getSimpleName());
+        }
+    }
+
+    public void removeStatusListener(IPrinterStatusListener listener) {
+        statusListeners.remove(listener);
+        logger.debug("Removed status listener: {}", listener.getClass().getSimpleName());
+    }
+
+    // Notify all observers
+    private void notifyStatusChanged(String source) {
+        if (statusListeners.isEmpty()) {
+            return;
+        }
+
+        PrinterStatusEvent event = new PrinterStatusEvent(new PrinterStatus(currentStatus), source);
+
+        for (IPrinterStatusListener listener : statusListeners) {
+            try {
+                listener.onStatusChanged(event);
+            } catch (Exception e) {
+                logger.error("Error notifying listener {}: {}", listener.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Manually load JavaPOS configuration from jpos.xml
+     * This bypasses the auto-discovery mechanism which can fail due to timing issues
+     */
+    private void loadJposConfiguration() throws JposException {
+        try {
+            // Get path to jpos.xml
+            String configPath = System.getProperty("jpos.config.populatorFile");
+
+            if (configPath == null || configPath.isEmpty()) {
+                // Fallback: try to find it in standard locations
+                String[] searchPaths = {"config/jpos.xml", "../config/jpos.xml", "jpos.xml"
+                };
+
+                for (String path : searchPaths) {
+                    File f = new File(path);
+                    if (f.exists()) {
+                        configPath = f.getAbsolutePath();
+                        logger.info("Found jpos.xml at: {}", configPath);
+                        break;
+                    }
+                }
+            }
+
+            if (configPath == null) {
+                throw new JposException(JposConst.JPOS_E_NOSERVICE,
+                        "Cannot find jpos.xml configuration file");
+            }
+
+            // Remove file:// prefix if present
+            configPath = configPath.replace("file://", "").replace("file:", "");
+
+            logger.info("Loading JavaPOS configuration from: {}", configPath);
+
+            // Use JCL's SimpleXmlRegPopulator to load the configuration
+                jpos.config.simple.xml.SimpleXmlRegPopulator populator = new jpos.config.simple.xml.SimpleXmlRegPopulator();
+
+            populator.load(configPath);
+
+            logger.info("JavaPOS configuration loaded successfully");
+
+        } catch (Exception e) {
+            logger.error("Failed to load JavaPOS configuration", e);
+            throw new JposException(JposConst.JPOS_E_NOSERVICE, "Failed to load jpos.xml: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Initialize the printer connection and setup
+     */
+    @Override
+    public void initialize() throws JposException {
+        printerLock.lock();
+        try {
+            logger.info("Initializing printer service with config: {}", config);
+
+            transitionTo(PrinterState.OPENING);
+
+            // ⭐ JavaPOS hack - Load configuration FIRST !!!
+            loadJposConfiguration();
+
+            String logicalName = config.getLogicalName();
+
+            printer.open(logicalName);
+            logger.debug("Printer opened with logical name: {}", logicalName);
+            transitionTo(PrinterState.OPENED);
+
+            transitionTo(PrinterState.CLAIMING);
+            printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+            logger.debug("Printer claimed successfully");
+            transitionTo(PrinterState.CLAIMED);
+
+            transitionTo(PrinterState.ENABLING);
+            printer.setDeviceEnabled(true);
+            logger.debug("Printer enabled");
+            transitionTo(PrinterState.ENABLED);
+
+            // Setup event listeners
+            printer.addStatusUpdateListener(this);
+            printer.addErrorListener(this);
+            printer.addDirectIOListener(this);
+            logger.debug("Event listeners registered");
+
+            // Configure printer settings
+            transitionTo(PrinterState.CONFIGURING);
+            configurePrinter();
+
+            // Update status
+            updatePrinterStatus();
+
+            transitionTo(PrinterState.READY);
+            logger.info("Printer service initialized successfully");
+
+        } catch (JposException e) {
+            transitionTo(PrinterState.ERROR);
+            cleanup();
+            logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
+            throw e;
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Transition to a new printer state
+     */
+    private void transitionTo(PrinterState newState) {
+        logger.debug("Printer state transition: {} -> {}", state, newState);
+        this.state = newState;
+    }
+
+    /**
+     * Get current printer state
+     */
+    public PrinterState getPrinterState() {
+        return state;
+    }
+
+    /**
+     * Cleanup printer resources based on current state
+     */
+    private void cleanup() {
+        try {
+            logger.debug("Cleaning up printer in state: {}", state);
+
+            if (printer == null) {
+                return;
+            }
+
+            // Remove listeners if they were added (after ENABLED state)
+            if (state.ordinal() >= PrinterState.ENABLED.ordinal()) {
+                try {
+                    printer.removeStatusUpdateListener(this);
+                    printer.removeErrorListener(this);
+                    printer.removeDirectIOListener(this);
+                    logger.debug("Event listeners removed");
+                } catch (Exception e) {
+                    logger.debug("Error removing listeners: {}", e.getMessage());
+                }
+            }
+
+            // Disable if enabled
+            if (state.ordinal() >= PrinterState.ENABLED.ordinal()) {
+                try {
+                    if (printer.getDeviceEnabled()) {
+                        printer.setDeviceEnabled(false);
+                        logger.debug("Device disabled");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error disabling device: {}", e.getMessage());
+                }
+            }
+
+            // Release if claimed
+            if (state.ordinal() >= PrinterState.CLAIMED.ordinal()) {
+                try {
+                    if (printer.getClaimed()) {
+                        printer.release();
+                        logger.debug("Device released");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error releasing device: {}", e.getMessage());
+                }
+            }
+
+            // Close if opened
+            if (state.ordinal() >= PrinterState.OPENED.ordinal()) {
+                try {
+                    if (printer.getState() != JposConst.JPOS_S_CLOSED) {
+                        printer.close();
+                        logger.debug("Device closed");
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error closing device: {}", e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Unexpected error during cleanup", e);
+        } finally {
+            transitionTo(PrinterState.UNINITIALIZED);
+        }
+    }
+
+    /**
+     * Check if service is initialized (regardless of current errors)
+     */
+    @Override
+    public boolean isInitialized() {
+        return state == PrinterState.READY;
+    }
+
+    /**
+     * Configure printer-specific settings
+     */
+    private void configurePrinter() throws JposException {
+        try {
+            // Set character set
+            if (printer.getCapCharacterSet() > 0) {
+                printer.setCharacterSet(POSPrinterConst.PTR_CS_ASCII);
+            }
+
+            // Enable asynchronous mode for better performance
+            if (printer.getCapTransaction()) {
+                printer.setAsyncMode(false);
+            }
+
+            // Set map mode for metric measurements
+            printer.setMapMode(POSPrinterConst.PTR_MM_METRIC);
+
+            logger.debug("Printer configured with basic settings");
+
+        } catch (JposException e) {
+            logger.warn("Some printer configurations failed: {}", e.getMessage());
+            // Don't throw - some settings might not be supported
+        }
+    }
+
+    /**
+     * Print text content
+     */
+    @Override
+    public void printText(String text) throws JposException, InterruptedException {
+        if (!isReady()) {
+            throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
+        }
+
+        if (!printerLock.tryLock(config.connectionTimeout(), TimeUnit.MILLISECONDS)) {
+            throw new JposException(JposConst.JPOS_E_TIMEOUT, "Could not acquire printer lock within timeout");
+        }
+
+        try {
+            logger.debug("Printing text: {}", text.substring(0, Math.min(50, text.length())));
+            printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, text);
+            logger.debug("Text printed successfully");
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Print structured content from PrintRequest
+     */
+    @Override
+    public void print(PrintRequest request) throws JposException {
+        if (!isReady()) {
+            throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
+        }
+
+        printerLock.lock();
+        try {
+            logger.debug("Processing print request with {} copies", request.getCopies());
+
+            for (int copy = 0; copy < request.getCopies(); copy++) {
+                PrintRequest.PrintOptions options = request.getOptions();
+                if (options == null) {
+                    options = new PrintRequest.PrintOptions();  // Use defaults
+                }
+
+                if (request.getText() != null && !request.getText().isEmpty()) {
+                    printFormattedText(request.getText(), options);
+                }
+
+                if (request.getItems() != null) {
+                    for (PrintRequest.PrintItem item : request.getItems()) {
+                        printItem(item);
+                    }
+                }
+
+                if (request.isCutPaper()) {
+                    cutPaper();
+                }
+            }
+
+            logger.info("Print request completed successfully");
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Print formatted text with options
+     */
+    private void printFormattedText(String text, PrintRequest.PrintOptions options) throws JposException {
+        StringBuilder formattedText = new StringBuilder();
+
+        // Apply formatting based on options
+        if (options != null) {
+            if (options.getLineSpacing() != 30) {
+                formattedText.append((char)0x1B).append((char)0x33).append((char)options.getLineSpacing());
+            }
+        }
+
+        formattedText.append(text);
+
+        if (!text.endsWith("\n")) {
+            formattedText.append("\n");
+        }
+
+        printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, formattedText.toString());
+    }
+
+    /**
+     * Print individual item based on type
+     */
+    private void printItem(PrintRequest.PrintItem item) throws JposException {
+        if (item == null || item.getType() == null) {
+            throw new IllegalArgumentException("Print item and type cannot be null");
+        }
+
+        switch (item.getType().toUpperCase()) {
+            case "TEXT":
+                printFormattedItem(item);
+                break;
+            case "IMAGE":
+                printImageItem(item);
+                break;
+            case "BARCODE":
+                printBarcodeItem(item);
+                break;
+            case "LINE":
+                printLineItem(item);
+                break;
+            default:
+                logger.warn("Unknown print item type: {}", item.getType());
+        }
+    }
+
+    /**
+     * Print formatted text item
+     */
+    private void printFormattedItem(PrintRequest.PrintItem item) throws JposException {
+        StringBuilder formattedText = new StringBuilder();
+        PrintRequest.PrintItemOptions opts = item.getOptions();
+
+        if (opts != null) {
+            // Apply text formatting
+            if (opts.isBold()) {
+                formattedText.append((char)0x1B).append("E").append((char)1);
+            }
+            if (opts.isUnderline()) {
+                formattedText.append((char)0x1B).append("-").append((char)1);
+            }
+
+            // Apply alignment
+            switch (opts.getAlignment().toUpperCase()) {
+                case "CENTER":
+                    formattedText.append((char)0x1B).append("a").append((char)1);
+                    break;
+                case "RIGHT":
+                    formattedText.append((char)0x1B).append("a").append((char)2);
+                    break;
+                default:
+                    formattedText.append((char)0x1B).append("a").append((char)0);
+            }
+
+            // Apply font size
+            if (opts.getFontSize() > PrinterConstants.MIN_FONT_SIZE) {
+                int size = Math.min(opts.getFontSize(), PrinterConstants.MAX_FONT_SIZE) - 1;
+                formattedText.append((char)0x1D).append("!").append((char)size);
+            }
+        }
+
+        formattedText.append(item.getContent());
+
+        if (opts != null) {
+            // Reset formatting
+            if (opts.isBold()) {
+                formattedText.append((char)0x1B).append("E").append((char)0);
+            }
+            if (opts.isUnderline()) {
+                formattedText.append((char)0x1B).append("-").append((char)0);
+            }
+            formattedText.append((char)0x1B).append("a").append((char)0); // Reset alignment
+        }
+
+        if (!item.getContent().endsWith("\n")) {
+            formattedText.append("\n");
+        }
+
+        printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, formattedText.toString());
+    }
+
+    /**
+     * Print image from base64 data or file path
+     */
+    private void printImageItem(PrintRequest.PrintItem item) throws JposException {
+        try {
+            BufferedImage image;
+            String content = item.getContent();
+
+            if (content.startsWith("data:image/") || content.startsWith("iVBORw0K")) {
+                // Base64 encoded image
+                String base64Data = content.contains(",") ? content.split(",")[1] : content;
+                byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+                image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+            } else {
+                // File path
+                image = ImageIO.read(new File(content));
+            }
+
+            if (image != null) {
+                printBitmap(image, item.getOptions());
+            } else {
+                logger.error("Failed to load image: {}", content);
+            }
+
+        } catch (IOException e) {
+            logger.error("Error processing image: {}", e.getMessage());
+            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to process image");
+        }
+    }
+
+    /**
+     * Print bitmap image
+     */
+    private void printBitmap(BufferedImage image, PrintRequest.PrintItemOptions options) throws JposException {
+        try {
+            // Resize image if needed
+            if (options != null && (options.getWidth() > 0 || options.getHeight() > 0)) {
+                int width = options.getWidth() > 0 ? options.getWidth() : image.getWidth();
+                int height = options.getHeight() > 0 ? options.getHeight() : image.getHeight();
+
+                BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                resized.getGraphics().drawImage(image, 0, 0, width, height, null);
+                image = resized;
+            }
+
+            // Convert to byte array and print
+            byte[] bitmapData = GraphUtils.convertToMonochromeBitmap(image);
+            printer.printMemoryBitmap(POSPrinterConst.PTR_S_RECEIPT, bitmapData,
+                    POSPrinterConst.PTR_BMT_BMP, image.getWidth(),
+                    POSPrinterConst.PTR_BM_ASIS);
+
+        } catch (Exception e) {
+            logger.error("Error printing bitmap: {}", e.getMessage());
+            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to print bitmap");
+        }
+    }
+
+    /**
+     * Print barcode
+     */
+    private void printBarcodeItem(PrintRequest.PrintItem item) throws JposException {
+        try {
+            // Default barcode parameters
+            int symbology = POSPrinterConst.PTR_BCS_Code128;
+            int height = 50;
+            int width = POSPrinterConst.PTR_BC_TEXT_BELOW;
+            int alignment = POSPrinterConst.PTR_BC_CENTER;
+            int textPosition = POSPrinterConst.PTR_BC_TEXT_BELOW;
+
+            printer.printBarCode(POSPrinterConst.PTR_S_RECEIPT, item.getContent(),
+                    symbology, height, width, alignment, textPosition);
+
+        } catch (JposException e) {
+            logger.error("Error printing barcode: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Print separator line
+     */
+    private void printLineItem(PrintRequest.PrintItem item) throws JposException {
+        String line = item.getContent();
+        if (line == null || line.isEmpty()) {
+            line = "----------------------------------------\n";
+        } else if (!line.endsWith("\n")) {
+            line += "\n";
+        }
+
+        printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, line);
+    }
+
+    /**
+     * Cut paper
+     */
+    @Override
+    public void cutPaper() throws JposException {
+        if (!isReady()) {
+            throw new JposException(JposConst.JPOS_E_OFFLINE, "Printer is not ready");
+        }
+
+        printerLock.lock();
+        try {
+            if (printer.getCapRecPapercut()) {
+                printer.cutPaper(PrinterConstants.FULL_CUT_PERCENTAGE); // 100% cut
+                logger.debug("Paper cut executed");
+            } else {
+                logger.warn("Printer does not support paper cutting");
+            }
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Update printer status by querying device
+     */
+    public void updatePrinterStatus() {
+        printerLock.lock();
+        try {
+            PrinterStatus newStatus = new PrinterStatus();
+
+            if (state == PrinterState.READY && printer != null) {
+                try {
+                    newStatus.setOnline(printer.getDeviceEnabled());
+                    newStatus.setCoverOpen(printer.getCoverOpen());
+                    newStatus.setPaperEmpty(printer.getRecEmpty());
+                    newStatus.setPaperNearEnd(printer.getRecNearEnd());
+                    newStatus.setPowerState(printer.getPowerState());
+                    newStatus.setError(false);
+                    newStatus.setErrorMessage(null);
+                } catch (JposException e) {
+                    newStatus.setOnline(false);
+                    newStatus.setError(true);
+                    newStatus.setErrorMessage(e.getMessage());
+                }
+            } else {
+                newStatus.setOnline(false);
+                newStatus.setError(true);
+                newStatus.setErrorMessage("Printer not in READY state: " + state);
+            }
+
+            newStatus.setLastUpdate(System.currentTimeMillis());
+
+            // ✅ Check if status actually changed
+            if (!newStatus.equals(currentStatus)) {
+                currentStatus = newStatus;
+                notifyStatusChanged("periodic_check");
+                logger.debug("Status updated: {}", currentStatus);
+            }
+
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Check if printer is ready for operations (initialized + online + no errors)
+     */
+    @Override
+    public boolean isReady() {
+        return state == PrinterState.READY && currentStatus.isOnline() && !currentStatus.hasErrors();
+    }
+
+    /**
+     * Get current printer status
+     */
+    @Override
+    public PrinterStatus getStatus() {
+        printerLock.lock();
+        try {
+            // Return a defensive copy to prevent external modification
+            return new PrinterStatus(currentStatus);
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    /**
+     * Close printer connection
+     */
+    @Override
+    public void close() {
+        printerLock.lock();
+        try {
+            if (printer != null && state == PrinterState.READY) {
+                cleanup();
+                logger.info("Printer closed successfully");
+            }
+
+            currentStatus.setOnline(false);
+
+        } finally {
+            printerLock.unlock();
+        }
+    }
+
+    // Event listener implementations
+    @Override
+    public void statusUpdateOccurred(StatusUpdateEvent e) {
+        logger.debug("Status update event: {}", e.getStatus());
+        updatePrinterStatus();
+    }
+
+    @Override
+    public void errorOccurred(ErrorEvent e) {
+        logger.error("Printer error occurred: {} - {}", e.getErrorCode(), e.getErrorCodeExtended());
+
+        currentStatus.setError(true);
+        currentStatus.setErrorMessage(String.format("Error %d: %s", e.getErrorCode(), e.getErrorCodeExtended()));
+
+        notifyStatusChanged("error_event");
+    }
+
+    @Override
+    public void directIOOccurred(DirectIOEvent e) {
+        logger.debug("DirectIO event: eventNumber={}, data={}, object={}", e.getEventNumber(), e.getData(), e.getObject());
+    }
+}

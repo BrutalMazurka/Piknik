@@ -1,0 +1,108 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 
+          http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+    
+    <id>windows</id>
+    
+    <!-- Create zip format for Windows -->
+    <formats>
+        <format>zip</format>
+    </formats>
+    
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <!--<baseDirectory>piknik-${project.version}</baseDirectory>-->
+    <baseDirectory>piknik</baseDirectory>
+    
+    <fileSets>
+        <!-- Include the main JAR with dependencies -->
+        <fileSet>
+            <directory>${project.build.directory}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>piknik-*-deps.jar</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include JavaPOS lib directory from external location -->
+        <fileSet>
+            <directory>${project.basedir}/../JavaPOS/lib</directory>
+            <outputDirectory>res/lib</outputDirectory>
+            <includes>
+                <include>**/*.jar</include>
+                <include>**/*.txt</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include WINDOWS native libraries from external location -->
+        <fileSet>
+            <directory>${project.basedir}/../JavaPOS/bin/win</directory>
+            <outputDirectory>res/bin</outputDirectory>
+            <includes>
+                <include>**/*.dll</include>
+                <include>**/*.DLL</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include bundled Java runtime for WINDOWS -->
+        <fileSet>
+            <directory>${project.basedir}/../Java/win</directory>
+            <outputDirectory>jre</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include html directory from resources -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/html</directory>
+            <outputDirectory>res/html</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include config directory if it exists -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/config</directory>
+            <outputDirectory>config</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+            <excludes>
+                <exclude>**/*.log</exclude>
+            </excludes>
+        </fileSet>
+        
+        <!-- Include WINDOWS start scripts from project root -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/scripts</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>start.bat</include>
+                <include>start_debug.bat</include>
+            </includes>
+            <lineEnding>windows</lineEnding>
+        </fileSet>
+        
+        <!-- Create empty logs directory -->
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <outputDirectory>logs</outputDirectory>
+            <excludes>
+                <exclude>**/*</exclude>
+            </excludes>
+        </fileSet>
+        
+        <!-- Include README if it exists -->
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>README.txt</include>
+                <include>LICENSE</include>
+            </includes>
+            <lineEnding>windows</lineEnding>
+        </fileSet>
+    </fileSets>
+</assembly>

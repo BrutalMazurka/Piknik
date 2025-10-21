@@ -1,0 +1,110 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 
+          http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+    
+    <id>linux</id>
+    
+    <!-- Create tar.gz format for Linux -->
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+    
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <!--<baseDirectory>piknik-${project.version}</baseDirectory>-->
+    <baseDirectory>piknik</baseDirectory>
+
+    <fileSets>
+        <!-- Include the main JAR with dependencies -->
+        <fileSet>
+            <directory>${project.build.directory}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>piknik-*-deps.jar</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include JavaPOS lib directory from external location -->
+        <fileSet>
+            <directory>${project.basedir}/../JavaPOS/lib</directory>
+            <outputDirectory>res/lib</outputDirectory>
+            <includes>
+                <include>**/*.jar</include>
+                <include>**/*.txt</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include LINUX native libraries from external location -->
+        <fileSet>
+            <directory>${project.basedir}/../JavaPOS/bin/linux</directory>
+            <outputDirectory>res/bin</outputDirectory>
+            <includes>
+                <include>**/*.so</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        
+        <!-- Include bundled Java runtime for LINUX -->
+        <fileSet>
+            <directory>${project.basedir}/../Java/linux</directory>
+            <outputDirectory>jre</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <directoryMode>0755</directoryMode>
+        </fileSet>
+        
+        <!-- Include html directory from resources -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/html</directory>
+            <outputDirectory>res/html</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+        
+        <!-- Include config directory if it exists -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/config</directory>
+            <outputDirectory>config</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+            <excludes>
+                <exclude>**/*.log</exclude>
+            </excludes>
+        </fileSet>
+        
+        <!-- Include LINUX start scripts from project root -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/scripts</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>start.sh</include>
+                <include>start_debug.sh</include>
+            </includes>
+            <fileMode>0755</fileMode>
+            <lineEnding>unix</lineEnding>
+        </fileSet>
+        
+        <!-- Create empty logs directory -->
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <outputDirectory>logs</outputDirectory>
+            <excludes>
+                <exclude>**/*</exclude>
+            </excludes>
+        </fileSet>
+        
+        <!-- Include README if it exists -->
+        <fileSet>
+            <directory>${project.basedir}</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>README.txt</include>
+                <include>LICENSE</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- CONSOLE Appender - always works -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- FILE Appender - with absolute path -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- Use absolute path from current directory -->
+        <file>${user.dir}/logs/piknik.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${user.dir}/logs/piknik.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+
+    <!-- Your application package - set to DEBUG for more detail -->
+    <logger name="pik" level="DEBUG" />
+
+    <!-- JavaPOS debugging (optional - uncomment to see JavaPOS internals) -->
+    <logger name="jpos" level="DEBUG" />
+
+    <!-- Web framework - reduce noise -->
+    <logger name="io.javalin" level="INFO" />
+    <logger name="org.eclipse.jetty" level="WARN" />
+</configuration>
