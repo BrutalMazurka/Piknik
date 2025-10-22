@@ -1,4 +1,5 @@
-image: maven:3.9.11-eclipse-temurin-8
+image: maven:3.9.11-ibm-semeru-21-noble
+# image: maven:3.9.11-eclipse-temurin-8
 
 stages:
   - build
@@ -12,7 +13,8 @@ cache:
 variables:
   MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  DOCKER_TLS_CERTDIR: ""
+  # DOCKER_TLS_CERTDIR: ""
+  MAVEN_REPO_URL: "https://repo.maven.apache.org/maven2"
 
 build:
   stage: build
