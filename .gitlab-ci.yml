@@ -19,10 +19,6 @@ variables:
 build:
   stage: build
   script:
-    # Install the provided JARs to local Maven repository
-    - mvn install:install-file -Dfile=../JavaPOS/lib/javapos.jar -DgroupId=org.javapos -DartifactId=javapos -Dversion=1.14.1 -Dpackaging=jar
-    - mvn install:install-file -Dfile=../JavaPOS/lib/epsonjpos.jar -DgroupId=com.epson -DartifactId=epsonjpos -Dversion=1.14.1 -Dpackaging=jar
-    # Now run the build
     - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install
     - rm -rf pom.xml
 
