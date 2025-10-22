@@ -23,6 +23,7 @@
             <artifactId>javapos</artifactId>
             <version>1.14.1</version>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <!-- Epson JavaPOS - provided scope (external classpath) -->
@@ -31,6 +32,7 @@
             <artifactId>epsonjpos</artifactId>
             <version>1.14.1</version>
             <scope>provided</scope>
+            <optional>true</optional>
         </dependency>
 
         <!-- XML Processing - provided scope (external classpath) -->
