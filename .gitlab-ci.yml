@@ -1,4 +1,4 @@
-image: ${IMAGE_MAVEN_JAVA8}
+image: maven:3.9.11-eclipse-temurin-8
 
 stages:
   - build
