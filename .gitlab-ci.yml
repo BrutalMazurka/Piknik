@@ -1,4 +1,4 @@
-image: ${IMAGE_MAVEN_JAVA25}
+image: ${IMAGE_MAVEN_JAVA8}
 
 stages:
   - build
