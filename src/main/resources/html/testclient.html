@@ -114,9 +114,8 @@
 
         <div class="form-group">
             <label for="print-text">Print text:</label>
-            <textarea id="print-text" rows="4" placeholder="Enter text to print...">Nazdar!
-Chceš vytisknout nějaké lupeň?
-                </textarea>
+            <textarea id="print-text" rows="4" placeholder="Enter text to print...">
+            </textarea>
             <br><br>
             <button onclick="printText()">Print text</button>
         </div>
@@ -148,7 +147,7 @@ Chceš vytisknout nějaké lupeň?
 
         <div class="form-group">
             <label for="vfd-text">Show text:</label>
-            <textarea id="vfd-text" rows="2" maxlength="40" placeholder="Enter text (max 40 chars)...">NAZDAR!</textarea>
+            <textarea id="vfd-text" rows="2" maxlength="40" placeholder="Enter text (max 40 chars)...">Příliš žluťoučký kůň</textarea>
             <small>Row 1: chars 1-20, Row 2: chars 21-40</small>
             <br><br>
             <button onclick="displayVFDText()">Show text</button>
@@ -217,8 +216,13 @@ Chceš vytisknout nějaké lupeň?
 </div>
 
 <script>
-    const API_BASE = 'http://localhost:8080/api';
+    //const API_BASE = 'http://localhost:8080/api';
+    // Automatically use the current host (works for both localhost and network access)
+    const API_BASE = `http://${window.location.hostname}:${window.location.port}/api`;
+
     let printerEventSource, vfdEventSource;
+    const textarea = document.getElementById('print-text');
+    textarea.value = "Nazdar!\nChceš vytisknout nějaké lupeň?\n\n";
 
     // Initialize SSE connections
     function initSSE() {
@@ -340,7 +344,9 @@ Chceš vytisknout nějaké lupeň?
             `;
     }
 
-    // Printer Functions
+    /**
+     * Printer Functions
+     */
     async function printText() {
         const text = document.getElementById('print-text').value;
         try {
@@ -415,7 +421,9 @@ Chceš vytisknout nějaké lupeň?
         }
     }
 
-    // VFD Functions
+    /**
+     * VFD Functions
+     */
     async function displayVFDText() {
         const text = document.getElementById('vfd-text').value;
         try {
@@ -528,17 +536,19 @@ Chceš vytisknout nějaké lupeň?
         }
     }
 
-    // Combined Actions
+    /**
+     * Combined Actions
+     */
     async function displayTotal() {
         await clearVFD();
         await new Promise(r => setTimeout(r, 100));
-        document.getElementById('vfd-text').value = 'Total: $25.00';
+        document.getElementById('vfd-text').value = 'Celkem: 1280,00 Kč';
         await displayVFDText();
     }
 
     async function printAndDisplay() {
         // Display on VFD
-        document.getElementById('vfd-text').value = 'Printing...';
+        document.getElementById('vfd-text').value = 'Tisknůů...';
         await displayVFDText();
 
         // Print receipt
@@ -550,20 +560,20 @@ Chceš vytisknout nějaké lupeň?
                     { type: 'TEXT', content: '*** RECEIPT ***',
                         options: { bold: true, alignment: 'CENTER', fontSize: 2 }},
                     { type: 'LINE', content: '===============================' },
-                    { type: 'TEXT', content: 'Item 1: $10.00\nItem 2: $15.00\nTotal: $25.00' }
+                    { type: 'TEXT', content: 'Položka 1: 42,00 Kč\nPoložka 2: 127,50 Kč\nCelkem asi: 172,00 Kč' }
                 ],
-                cutPaper: true
+                cutPaper: false
             })
         });
 
         // Update VFD
         await new Promise(r => setTimeout(r, 500));
-        document.getElementById('vfd-text').value = 'Thank you!';
+        document.getElementById('vfd-text').value = 'Uff, hotovo!';
         await displayVFDText();
     }
 
     async function welcomeMessage() {
-        document.getElementById('vfd-text').value = 'Welcome!';
+        document.getElementById('vfd-text').value = 'Vítejte a nazdar!';
         await displayVFDText();
     }
 

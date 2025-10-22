@@ -17,11 +17,11 @@
 </head>
 <body>
 <div class="container">
-    <h1>🖨️ Integrated Printer & VFD Controller API</h1>
+    <h1>️🕮 Integrated Printer & VFD Controller API ️🕮</h1>
     <p>Unified REST API for Epson TM-T20III Printer and FV-2030B VFD Display control</p>
 
     <div class="section">
-        <h2>Printer Endpoints</h2>
+        <h2>🖨️ Printer Endpoints</h2>
 
         <div class="endpoint">
             <span class="method">GET</span> <span class="path">/api/printer/status</span>
@@ -55,7 +55,7 @@
     </div>
 
     <div class="section">
-        <h2>VFD Display Endpoints</h2>
+        <h2>📟 VFD Display Endpoints</h2>
 
         <div class="endpoint">
             <span class="method">GET</span> <span class="path">/api/vfd/status</span>
@@ -124,6 +124,11 @@ printerEvents.onmessage = (e) => console.log('Printer:', JSON.parse(e.data));
 const vfdEvents = new EventSource('/api/vfd/events/status');
 vfdEvents.onmessage = (e) => console.log('VFD:', JSON.parse(e.data));
         </pre>
+    </div>
+
+    <div class="section">
+        And now for something completely different...
+        <h2><a href="/test" target="_blank">💉 Open Interactive Test Client 🧪</a></h2>
     </div>
 </div>
 </body>

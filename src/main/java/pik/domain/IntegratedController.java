@@ -565,6 +565,8 @@ public class IntegratedController {
             config.router.apiBuilder(() -> {
                 get("/", ctx -> ctx.redirect("/docs"));
                 get("/docs", ctx -> ctx.html(generateCombinedDocs()));
+                get("/test", ctx -> ctx.html(loadTestClient()));
+                get("/testclient", ctx -> ctx.html(loadTestClient()));
 
                 PrinterController printerController = new PrinterController(printerService, this);
                 printerController.registerRoutes();
@@ -601,6 +603,36 @@ public class IntegratedController {
                 return gson.fromJson(json, targetType);
             }
         };
+    }
+
+    /**
+     * Load test client HTML/JS page
+     */
+    private String loadTestClient() {
+        // Try external location first
+        Path externalHtml = Paths.get("res/html/testclient.html");
+        if (Files.exists(externalHtml)) {
+            try {
+                String content = Files.readString(externalHtml, StandardCharsets.UTF_8);
+                logger.debug("Loaded test client from external file: {}", externalHtml);
+                return content;
+            } catch (IOException e) {
+                logger.warn("Failed to load external test client: {}", e.getMessage());
+            }
+        }
+
+        // Fallback to classpath (embedded in JAR)
+        try (InputStream is = getClass().getResourceAsStream("/html/testclient.html")) {
+            if (is != null) {
+                String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                logger.debug("Loaded test client from classpath");
+                return content;
+            }
+        } catch (IOException e) {
+            logger.error("Failed to load test client", e);
+        }
+
+        return "<h1>Test client not available</h1>";
     }
 
     /**
