@@ -134,6 +134,7 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <failOnWarning>false</failOnWarning>
                 </configuration>
             </plugin>
 
