@@ -17,22 +17,36 @@
     </properties>
 
     <dependencies>
-        <!-- JavaPOS - provided scope (external classpath) -->
+        <!-- JavaPOS - provided scope (external classpath)
         <dependency>
             <groupId>org.javapos</groupId>
             <artifactId>javapos</artifactId>
             <version>1.14.1</version>
             <scope>provided</scope>
             <optional>true</optional>
-        </dependency>
+        </dependency> -->
 
-        <!-- Epson JavaPOS - provided scope (external classpath) -->
+        <!-- Epson JavaPOS - provided scope (external classpath)
         <dependency>
             <groupId>com.epson</groupId>
             <artifactId>epsonjpos</artifactId>
-            <version>1.14.1</version>
+            <version>1.14.38</version>
             <scope>provided</scope>
             <optional>true</optional>
+        </dependency> -->
+
+        <!-- JavaPOS - provided scope (Artifactory) -->
+        <dependency>
+            <groupId>org.javapos</groupId>
+            <artifactId>jpos</artifactId>
+            <version>1.14.1</version>
+        </dependency>
+
+        <!-- Epson JavaPOS - provided scope (Artifactory) -->
+        <dependency>
+            <groupId>com.epson</groupId>
+            <artifactId>epsonjpos</artifactId>
+            <version>1.14.38</version>
         </dependency>
 
         <!-- XML Processing - provided scope (external classpath) -->
