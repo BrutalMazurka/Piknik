@@ -13,8 +13,6 @@ cache:
 variables:
   MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
   MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-  # DOCKER_TLS_CERTDIR: ""
-  MAVEN_REPO_URL: "https://repo.maven.apache.org/maven2"
 
 build:
   stage: build
