@@ -95,7 +95,7 @@ Aby oba výše popsané kroky proběhly úspěšně, doporučuji mít připraven
 fáze sestavení "compile" nebo "package". Pokud je požadována jiná struktura adresářů je nutno změnit konfigurační soubory 
 pro Maven: `pom.xml`, `distribution-linux.xml` a `distribution-windows.xml`.
 
-**Adresářový strom pro build projektu**
+**1. Adresářový strom pro build projektu**
 
 	.
 	├── Java
@@ -140,9 +140,13 @@ pro Maven: `pom.xml`, `distribution-linux.xml` a `distribution-windows.xml`.
 	    ├── pom.xml                       <- hlavní build script pro Maven
 	    └── README.md                     <- to, co je na obrazovce...
 	
+Postup přípravy:
 
+* Rozbalit a nakopírovat JRE pro příslušnou platformu do správného podaresáře "Java/linux" nebo "Java/win".
+* Nakopírovat JAR knihovny z instalace Epson JavaPOS ADK do "JavaPos/lib".
+* Nakopírovat nativní knihovny z instalace Epson JavaPOS ADK do správného adresáře "JavaPOS/bin/linux" nebo "JavaPOS/bin/win".
 
-**Očekávaný výsledek build procesu:**
+**2. Očekávaný výsledek build procesu:**
 
     piknik-1.0.jar               <- build aplikace
     piknik-1.0-deps.jar          <- build aplikace se závislostmi
