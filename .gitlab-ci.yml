@@ -17,6 +17,10 @@ variables:
 build:
   stage: build
   script:
+    - echo "Username length:" $(echo -n "${ARTIFACTORY_USERNAME}" | wc -c)
+    - echo "Password length:" $(echo -n "${ARTIFACTORY_PASSWORD}" | wc -c)
+    - export ARTIFACTORY_USERNAME="${ARTIFACTORY_USERNAME}"
+    - export ARTIFACTORY_PASSWORD="${ARTIFACTORY_PASSWORD}"
     - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install -Denv.ARTIFACTORY_USERNAME=${ARTIFACTORY_USERNAME} -Denv.ARTIFACTORY_PASSWORD=${ARTIFACTORY_PASSWORD}
     - rm -rf pom.xml
 
