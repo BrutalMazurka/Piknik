@@ -5,7 +5,6 @@ target/
 .kotlin
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
@@ -34,6 +33,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### C-Build outputs ###
+*.o
+*.bin
+*.a
+*.so
+
 
 ### Mac OS ###
 .DS_Store

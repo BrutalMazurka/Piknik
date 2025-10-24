@@ -17,6 +17,8 @@ variables:
 build:
   stage: build
   script:
+    - export ARTIFACTORY_USERNAME="${ARTIFACTORY_USERNAME}"
+    - export ARTIFACTORY_PASSWORD="${ARTIFACTORY_PASSWORD}"
     - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install
     - rm -rf pom.xml
 
@@ -25,5 +27,7 @@ deploy:
     - master
   stage: deploy
   script:
+    - export ARTIFACTORY_USERNAME="${ARTIFACTORY_USERNAME}"
+    - export ARTIFACTORY_PASSWORD="${ARTIFACTORY_PASSWORD}"
     - mvn $MAVEN_CLI_OPTS clean deploy
     - rm -rf pom.xml
