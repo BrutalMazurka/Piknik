@@ -13,11 +13,12 @@ Pro vývoj a testování použit Kubuntu Linux 25.04 a deployment platforma byly
 
 ### &#9881; Distribuce a provoz
 
-Ditribuce probíhá formou GZ (pro Linux) a ZIP (pro Windows) archivů. Instalace spočívá v rozbalení archivu na vhodném 
-místě na disku a spuštění aplikace se provede pomocí skriptu "start.sh" (pro Linux) nebo "start.bat" (pro Windows).
+Ditribuce probíhá formou GZ (pro Linux) a ZIP (pro Windows) archivů.
 
-🛈 ***Distribuční balíčky jsou uspořádány tak, aby se na cílovou platformu pouze rozbalily a nebyla nutná žádná další instalace
-do systému, jako např. Java, JavaPOS, ovladač VCP/USB, apod. Vše je součástí balíčku pro cílovou platformu.***
+**Proces instalace zahrnuje 2 kroky:**
+
+1. Instalace ovladače Epson spuštěním (jako Administrátor !!!) souboru `installJavaPOSFull-64.bat` z instalačníko balíku `Epson_JavaPOS_ADK_11438_x64.zip`.
+2. Rozbalení archivu s aplikací Piknik na vhodném místě na disku. Spuštění aplikace se provede pomocí skriptu "start.sh" (pro Linux) nebo "start.bat" (pro Windows). Tento skript by se měl zavést do systému, aby startoval automatisky jako service.
 
 ### 🗜 Struktura distribučního balíku
 
