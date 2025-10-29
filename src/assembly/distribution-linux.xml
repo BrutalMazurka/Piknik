@@ -69,7 +69,9 @@
             <directory>${project.basedir}/src/main/resources/config</directory>
             <outputDirectory>config</outputDirectory>
             <includes>
-                <include>**/*</include>
+                <include>application.properties</include>
+                <include>logback.xml</include>
+                <include>jpos_vcp.xml</include>
             </includes>
             <excludes>
                 <exclude>**/*.log</exclude>
