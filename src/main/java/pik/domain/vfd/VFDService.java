@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 import pik.dal.VFDConfig;
 
 import java.util.List;
@@ -217,8 +217,8 @@ public class VFDService implements IVFDService {
             throw new Exception("VFD display is not ready");
         }
 
-        if (brightness < PrinterConstants.BRIGHTNESS_MIN || brightness > PrinterConstants.BRIGHTNESS_MAX) {
-            throw new IllegalArgumentException("Brightness must be between " + PrinterConstants.BRIGHTNESS_MIN + " and " + PrinterConstants.BRIGHTNESS_MAX);
+        if (brightness < TM_T20IIIConstants.BRIGHTNESS_MIN || brightness > TM_T20IIIConstants.BRIGHTNESS_MAX) {
+            throw new IllegalArgumentException("Brightness must be between " + TM_T20IIIConstants.BRIGHTNESS_MIN + " and " + TM_T20IIIConstants.BRIGHTNESS_MAX);
         }
 
         displayLock.lock();

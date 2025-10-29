@@ -3,7 +3,7 @@ package pik.domain.vfd;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.FV2030BConstants;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 import java.io.UnsupportedEncodingException;
 
@@ -39,8 +39,8 @@ public class FV2030BCommandSet implements IVFDCommandSet {
 
     @Override
     public byte[] getBrightnessCommand(int brightness) {
-        if (brightness < PrinterConstants.BRIGHTNESS_MIN) brightness = PrinterConstants.BRIGHTNESS_MIN;
-        if (brightness > PrinterConstants.BRIGHTNESS_MAX) brightness = PrinterConstants.BRIGHTNESS_MAX;
+        if (brightness < TM_T20IIIConstants.BRIGHTNESS_MIN) brightness = TM_T20IIIConstants.BRIGHTNESS_MIN;
+        if (brightness > TM_T20IIIConstants.BRIGHTNESS_MAX) brightness = TM_T20IIIConstants.BRIGHTNESS_MAX;
         return new byte[] {ESC, '*', (byte)brightness};
     }
 

@@ -2,7 +2,7 @@ package pik.domain.vfd;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 /**
  * Dummy Display - Used when no physical display is available
@@ -80,13 +80,13 @@ public class DummyDisplay extends AbstractVFDDisplay {
     public void runDemo() {
         logger.info("DummyDisplay.runDemo (simulated)");
         try {
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
             logger.debug("Demo step 1: Clear");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
             logger.debug("Demo step 2: Display text");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
             logger.debug("Demo step 3: Brightness");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
             logger.debug("Demo complete");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

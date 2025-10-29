@@ -3,7 +3,7 @@ image: maven:3.9.11-ibm-semeru-21-noble
 
 stages:
   - build
-  - deploy
+#  - deploy
 
 cache:
   paths:
@@ -22,12 +22,12 @@ build:
     - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install -DskipTests
     - rm -rf pom.xml
 
-deploy:
-  only:
-    - master
-  stage: deploy
-  script:
+#deploy:
+#  only:
+#    - master
+#  stage: deploy
+#  script:
     #- mvn $MAVEN_CLI_OPTS clean deploy
     # Skip unit tests
-    - mvn $MAVEN_CLI_OPTS clean deploy -DskipTests
-    - rm -rf pom.xml
+#    - mvn $MAVEN_CLI_OPTS clean deploy -DskipTests
+#    - rm -rf pom.xml

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import pik.common.EDisplayType;
+import pik.common.EPrinterType;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,6 +21,7 @@ class ConfigurationServiceTest {
     @DisplayName("Should load valid printer configuration")
     void shouldLoadValidPrinterConfiguration() throws ConfigurationException {
         // Given
+        System.setProperty("printer.connection.type", "NETWORK");
         System.setProperty("printer.name", "TM-T20III");
         System.setProperty("printer.ip", "10.0.0.150");
         System.setProperty("printer.network.port", "9100");
@@ -35,15 +37,17 @@ class ConfigurationServiceTest {
         assertThat(config.ipAddress()).isEqualTo("10.0.0.150");
         assertThat(config.networkPort()).isEqualTo(9100);
         assertThat(config.connectionTimeout()).isEqualTo(10000);
+        assertThat(config.connectionType()).isEqualTo(EPrinterType.NETWORK);
     }
 
     @Test
     @DisplayName("Should throw exception for invalid printer port")
     void shouldThrowExceptionForInvalidPrinterPort() {
         // Given
+        System.setProperty("printer.connection.type", "NETWORK");
         System.setProperty("printer.name", "TM-T20III");
         System.setProperty("printer.ip", "10.0.0.150");
-        System.setProperty("printer.port", "99999"); // Invalid port
+        System.setProperty("printer.network.port", "99999"); // Invalid port
         System.setProperty("printer.connection.timeout", "10000");
 
         // When & Then

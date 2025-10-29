@@ -3,7 +3,7 @@ package pik.domain.vfd;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.FV2030BConstants;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 import java.io.UnsupportedEncodingException;
 
@@ -109,7 +109,7 @@ public class FV2030BDisplay extends AbstractVFDDisplay {
             logger.debug("\n--- {} Demo ---", displayModel);
 
             clearDisplay();
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
             displayText("FV-2030B Ready");
             Thread.sleep(2000);
 
@@ -118,7 +118,7 @@ public class FV2030BDisplay extends AbstractVFDDisplay {
             displayText("Brightness Test");
             Thread.sleep(1000);
 
-            for (int brightness = 20; brightness <= PrinterConstants.BRIGHTNESS_MAX; brightness += 20) {
+            for (int brightness = 20; brightness <= TM_T20IIIConstants.BRIGHTNESS_MAX; brightness += 20) {
                 setBrightness(brightness);
                 Thread.sleep(800);
             }

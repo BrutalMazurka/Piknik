@@ -8,7 +8,7 @@ import jpos.POSPrinterConst;
 import jpos.events.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 import pik.dal.PrinterConfig;
 
 import javax.imageio.ImageIO;
@@ -157,7 +157,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 transitionTo(PrinterState.OPENED);
 
                 transitionTo(PrinterState.CLAIMING);
-                printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+                printer.claim(TM_T20IIIConstants.DEFAULT_CONNECTION_TIMEOUT);
                 logger.debug("Printer claimed successfully");
                 transitionTo(PrinterState.CLAIMED);
 
@@ -515,8 +515,8 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             }
 
             // Apply font size
-            if (opts.getFontSize() > PrinterConstants.MIN_FONT_SIZE) {
-                int size = Math.min(opts.getFontSize(), PrinterConstants.MAX_FONT_SIZE) - 1;
+            if (opts.getFontSize() > TM_T20IIIConstants.MIN_FONT_SIZE) {
+                int size = Math.min(opts.getFontSize(), TM_T20IIIConstants.MAX_FONT_SIZE) - 1;
                 formattedText.append((char)0x1D).append("!").append((char)size);
             }
         }
@@ -650,7 +650,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             }
 
             if (printer.getCapRecPapercut()) {
-                printer.cutPaper(PrinterConstants.FULL_CUT_PERCENTAGE); // 100% cut
+                printer.cutPaper(TM_T20IIIConstants.FULL_CUT_PERCENTAGE); // 100% cut
                 logger.debug("Paper cut executed");
             } else {
                 logger.warn("Printer does not support paper cutting");

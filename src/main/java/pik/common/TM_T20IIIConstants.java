@@ -1,11 +1,12 @@
 package pik.common;
 
 /**
+ * Epson TM-T20III Thermal Printer Constants
  * @author Martin Sustik <sustik@herman.cz>
  * @since 07/10/2025
  */
-public final class PrinterConstants {
-    private PrinterConstants() {
+public final class TM_T20IIIConstants {
+    private TM_T20IIIConstants() {
         throw new AssertionError("Utility class cannot be instantiated");
     }
 

@@ -3,7 +3,7 @@ package pik.domain.thprinter;
 import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -206,19 +206,19 @@ public class DummyPrinter implements IPrinterService {
             logger.info("\n--- DummyPrinter Demo ---");
 
             printText("=== DEMO PARAGON ===\n");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
 
             printText("Položka 1: 10,00 Kč\n");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
 
             printText("Položka 2: 42,00 Kč\n");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
 
             printText("Celkem asi tak: 127,50 Kč\n");
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
 
             cutPaper();
-            Thread.sleep(PrinterConstants.DEMO_STEP_DELAY_MS);
+            Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
 
             logger.info("Demo complete!");
 

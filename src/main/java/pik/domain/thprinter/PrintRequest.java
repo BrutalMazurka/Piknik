@@ -1,6 +1,6 @@
 package pik.domain.thprinter;
 
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 import java.util.List;
 
@@ -78,11 +78,11 @@ public class PrintRequest {
             return fontSize;
         }
         public void setFontSize(int fontSize) {
-            if (fontSize < PrinterConstants.MIN_FONT_SIZE ||
-                    fontSize > PrinterConstants.MAX_FONT_SIZE) {
+            if (fontSize < TM_T20IIIConstants.MIN_FONT_SIZE ||
+                    fontSize > TM_T20IIIConstants.MAX_FONT_SIZE) {
                 throw new IllegalArgumentException(
-                        "Font size must be between " + PrinterConstants.MIN_FONT_SIZE +
-                                " and " + PrinterConstants.MAX_FONT_SIZE);
+                        "Font size must be between " + TM_T20IIIConstants.MIN_FONT_SIZE +
+                                " and " + TM_T20IIIConstants.MAX_FONT_SIZE);
             }
             this.fontSize = fontSize;
         }

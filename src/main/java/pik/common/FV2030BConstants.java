@@ -1,6 +1,7 @@
 package pik.common;
 
 /**
+ * VIRTUOS FV-2030B VFD Display Constants
  * @author Martin Sustik <sustik@herman.cz>
  * @since 20/10/2025
  */

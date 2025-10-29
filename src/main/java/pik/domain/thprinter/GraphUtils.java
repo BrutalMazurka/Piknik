@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 
 /**
  * @author Martin Sustik <sustik@herman.cz>
@@ -80,7 +80,7 @@ public final class GraphUtils {
                             0.587 * ((rgb >> 8) & 0xFF) +
                             0.114 * (rgb & 0xFF));
 
-                    if (gray < PrinterConstants.GRAYSCALE_THRESHOLD) { // Black pixel
+                    if (gray < TM_T20IIIConstants.GRAYSCALE_THRESHOLD) { // Black pixel
                         pixelByte |= (0x80 >> bit);
                     }
                 }
@@ -138,7 +138,7 @@ public final class GraphUtils {
                         0.114 * (rgb & 0xFF));
 
                 // If pixel is dark enough, set bit
-                if (gray < PrinterConstants.GRAYSCALE_THRESHOLD) {
+                if (gray < TM_T20IIIConstants.GRAYSCALE_THRESHOLD) {
                     int byteIndex = y * bytesPerRow + x / 8;
                     int bitIndex = 7 - (x % 8);
                     bitmapData[byteIndex] |= (1 << bitIndex);

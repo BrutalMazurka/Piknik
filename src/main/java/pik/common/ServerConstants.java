@@ -1,6 +1,7 @@
 package pik.common;
 
 /**
+ * Web Server Parameters
  * @author Martin Sustik <sustik@herman.cz>
  * @since 07/10/2025
  */

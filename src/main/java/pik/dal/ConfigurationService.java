@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.EPrinterType;
-import pik.common.PrinterConstants;
+import pik.common.TM_T20IIIConstants;
 import pik.common.ServerConstants;
 import pik.domain.StartupMode;
 
@@ -37,7 +37,7 @@ public class ConfigurationService {
      */
     private PrinterConfig loadPrinterConfiguration() throws ConfigurationException {
         String name = loader.getString("printer.name", "TM-T20III");
-        int timeout = loader.getInt("printer.connection.timeout", PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+        int timeout = loader.getInt("printer.connection.timeout", TM_T20IIIConstants.DEFAULT_CONNECTION_TIMEOUT);
 
         // Determine connection type
         String connectionTypeStr = loader.getString("printer.connection.type", "USB");
@@ -55,7 +55,7 @@ public class ConfigurationService {
             case NETWORK:
                 // Network/Ethernet connection
                 String ip = loader.getString("printer.ip", "10.0.0.150");
-                int networkPort = loader.getInt("printer.network.port", PrinterConstants.DEFAULT_PORT);
+                int networkPort = loader.getInt("printer.network.port", TM_T20IIIConstants.DEFAULT_PORT);
                 config = PrinterConfig.network(name, ip, networkPort, timeout);
                 logger.info("Configured NETWORK printer: {} at {}:{}", name, ip, networkPort);
                 break;
@@ -109,7 +109,7 @@ public class ConfigurationService {
     private ServerConfig loadServerConfiguration() throws ConfigurationException {
         int port = loader.getInt("server.port", ServerConstants.SERVER_PORT);
         String host = loader.getString("server.host", ServerConstants.SERVER_IP);
-        int interval = loader.getInt("monitor.status.interval", PrinterConstants.STATUS_CHECK_INTERVAL);
+        int interval = loader.getInt("monitor.status.interval", TM_T20IIIConstants.STATUS_CHECK_INTERVAL);
         boolean enabled = loader.getBoolean("monitor.enabled", true);
         int threadPoolSize = loader.getInt("server.thread.pool", ServerConstants.THREAD_POOL_SIZE);
 
