@@ -17,9 +17,9 @@ variables:
 build:
   stage: build
   script:
-    #- mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install
+    - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install
     # Skip unit tests
-    - mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install -DskipTests
+    #- mvn $MAVEN_CLI_OPTS -U --update-snapshots clean install -DskipTests
     - rm -rf pom.xml
 
 #deploy:
