@@ -22,7 +22,7 @@ class ConfigurationServiceTest {
         // Given
         System.setProperty("printer.name", "TM-T20III");
         System.setProperty("printer.ip", "10.0.0.150");
-        System.setProperty("printer.port", "9100");
+        System.setProperty("printer.network.port", "9100");
         System.setProperty("printer.connection.timeout", "10000");
 
         // When
@@ -33,7 +33,7 @@ class ConfigurationServiceTest {
         assertThat(config).isNotNull();
         assertThat(config.name()).isEqualTo("TM-T20III");
         assertThat(config.ipAddress()).isEqualTo("10.0.0.150");
-        assertThat(config.port()).isEqualTo(9100);
+        assertThat(config.networkPort()).isEqualTo(9100);
         assertThat(config.connectionTimeout()).isEqualTo(10000);
     }
 

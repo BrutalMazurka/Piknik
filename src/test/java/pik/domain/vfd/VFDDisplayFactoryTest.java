@@ -62,9 +62,9 @@ class VFDDisplayFactoryTest {
 
         // When & Then
         assertThat(fvDisplay.getMaxRows()).isEqualTo(2);
-        assertThat(fvDisplay.getMaxColumns()).isEqualTo(30);
+        assertThat(fvDisplay.getMaxColumns()).isEqualTo(20);
 
         assertThat(dummyDisplay.getMaxRows()).isEqualTo(2);
-        assertThat(dummyDisplay.getMaxColumns()).isEqualTo(30);
+        assertThat(dummyDisplay.getMaxColumns()).isEqualTo(20);
     }
 }

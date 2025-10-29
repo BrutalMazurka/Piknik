@@ -35,7 +35,7 @@ class ConfigurationLoaderTest {
         // Given
         Path configFile = tempDir.resolve("test.properties");
         Properties props = new Properties();
-        props.setProperty("printer.name", "TestPrinter");
+        props.setProperty("printer.name", "Epson_TM_T20III");
         props.setProperty("printer.ip", "192.168.1.100");
 
         try (var writer = Files.newBufferedWriter(configFile)) {
@@ -49,8 +49,8 @@ class ConfigurationLoaderTest {
         String printerIp = loader.getString("printer.ip", "default");
 
         // Then
-        assertThat(printerName).isEqualTo("TestPrinter");
-        assertThat(printerIp).isEqualTo("192.168.1.100");
+        assertThat(printerName).isEqualTo("Epson_TM_T20III");
+        assertThat(printerIp).isEqualTo("10.0.0.150");
     }
 
     @Test

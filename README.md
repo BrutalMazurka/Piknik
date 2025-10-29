@@ -17,7 +17,10 @@ Ditribuce probíhá formou GZ (pro Linux) a ZIP (pro Windows) archivů.
 
 **Proces instalace zahrnuje 2 kroky:**
 
-1. Instalace ovladače Epson spuštěním (jako Administrátor !!!) souboru `installJavaPOSFull-64.bat` z instalačníko balíku `Epson_JavaPOS_ADK_11438_x64.zip`.
+1. Instalace služby nebo ovladače Epson dle způsobu připojení tiskárny 
+   1. U síťové (Ethernet) tiskárny je třeba nainstalovat ovladače Epson spuštěním (jako Administrátor !!!) souboru `installJavaPOSFull-64.bat` z instalačníko balíku `Epson_JavaPOS_ADK_11438_x64.zip`. Tímto se zároveň nainstaluje služba PCSSV, bez které síťová tiskárna nefunguje!
+   2. U tiskárny připojené pomocí VCP/USB je třeba nainstalovat ovladač Epson Virtual Com Port `TMVirtualPortDriver870d for Secure Printing.exe` a následně utilitou `EPSON Virtual Com Port Driver Com Port Asignment Tool` asociovat COM port pro tiskárnu.
+   3. Společné - dle typu připojení tiskárny je třeba mít v adresáři `/config` správně vygenerovaný konfigurák `jpos.xml` pro Epson JavaPOS API. Bez něj bude tiskárna pro aplikaci nedostupná !!!  
 2. Rozbalení archivu s aplikací Piknik na vhodném místě na disku. Spuštění aplikace se provede pomocí skriptu "start.sh" (pro Linux) nebo "start.bat" (pro Windows). Tento skript by se měl zavést do systému, aby startoval automatisky jako service.
 
 ### 🗜 Struktura distribučního balíku
