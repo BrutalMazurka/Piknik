@@ -501,8 +501,7 @@ public class IntegratedController {
         SSEClient client = printerSSEClients.remove(clientId);
         if (client != null) {
             client.close();
-            logger.info("Printer SSE client unregistered: {} (total printer clients: {})",
-                    clientId, printerSSEClients.size());
+            logger.info("Printer SSE client unregistered: {} (total printer clients: {})", clientId, printerSSEClients.size());
         }
     }
 
@@ -513,8 +512,7 @@ public class IntegratedController {
         SSEClient client = vfdSSEClients.remove(clientId);
         if (client != null) {
             client.close();
-            logger.info("VFD SSE client unregistered: {} (total VFD clients: {})",
-                    clientId, vfdSSEClients.size());
+            logger.info("VFD SSE client unregistered: {} (total VFD clients: {})", clientId, vfdSSEClients.size());
         }
     }
 
@@ -578,10 +576,7 @@ public class IntegratedController {
 
         javalinApp.exception(Exception.class, (exception, ctx) -> {
             logger.error("Unhandled exception", exception);
-            ErrorResponse errorResponse = new ErrorResponse(
-                    "Internal server error",
-                    exception.getMessage()
-            );
+            ErrorResponse errorResponse = new ErrorResponse("Internal server error", exception.getMessage());
             ctx.status(500).json(errorResponse);
         });
 
