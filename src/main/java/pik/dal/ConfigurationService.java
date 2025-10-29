@@ -3,6 +3,7 @@ package pik.dal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
+import pik.common.EPrinterType;
 import pik.common.PrinterConstants;
 import pik.common.ServerConstants;
 import pik.domain.StartupMode;
@@ -32,15 +33,51 @@ public class ConfigurationService {
     }
 
     /**
-     * Load printer configuration
+     * Load printer configuration with support for multiple connection types
      */
     private PrinterConfig loadPrinterConfiguration() throws ConfigurationException {
         String name = loader.getString("printer.name", "TM-T20III");
-        String ip = loader.getString("printer.ip", "10.0.0.150");
-        int port = loader.getInt("printer.port", PrinterConstants.DEFAULT_PORT);
         int timeout = loader.getInt("printer.connection.timeout", PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
 
-        PrinterConfig config = new PrinterConfig(name, ip, port, timeout);
+        // Determine connection type
+        String connectionTypeStr = loader.getString("printer.connection.type", "USB");
+        EPrinterType connectionType;
+        try {
+            connectionType = EPrinterType.valueOf(connectionTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid printer connection type '{}', defaulting to USB", connectionTypeStr);
+            connectionType = EPrinterType.USB;
+        }
+
+        PrinterConfig config;
+
+        switch (connectionType) {
+            case NETWORK:
+                // Network/Ethernet connection
+                String ip = loader.getString("printer.ip", "10.0.0.150");
+                int networkPort = loader.getInt("printer.network.port", PrinterConstants.DEFAULT_PORT);
+                config = PrinterConfig.network(name, ip, networkPort, timeout);
+                logger.info("Configured NETWORK printer: {} at {}:{}", name, ip, networkPort);
+                break;
+
+            case USB:
+                // USB/Serial COM port connection
+                String comPort = loader.getString("printer.port", "COM14");
+                int baudRate = loader.getInt("printer.baud", 9600);
+                config = PrinterConfig.usb(name, comPort, baudRate, timeout);
+                logger.info("Configured USB printer: {} at {} ({}baud)", name, comPort, baudRate);
+                break;
+
+            case NONE:
+                // Dummy mode - no physical printer
+                config = PrinterConfig.dummy(name);
+                logger.info("Configured DUMMY printer: {}", name);
+                break;
+
+            default:
+                throw new ConfigurationException("Unsupported connection type: " + connectionType);
+        }
+
         config.validate();
         return config;
     }
@@ -126,5 +163,4 @@ public class ConfigurationService {
         logger.info("VFD: {}", vfdConfig);
         logger.info("Server: {}", serverConfig);
     }
-
 }

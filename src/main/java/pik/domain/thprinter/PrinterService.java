@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Core printer service for managing JavaPOS POSPrinter operations
+ * Supports both real printer and dummy mode for testing/development
  * @author Martin Sustik <sustik@herman.cz>
  * @since 25/09/2025
  */
@@ -35,14 +36,22 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     private final ReentrantLock printerLock = new ReentrantLock();
     private final Gson gson = new Gson();
 
-    private final POSPrinter printer;
+    private POSPrinter printer;
     private PrinterStatus currentStatus;
     private volatile PrinterState state = PrinterState.UNINITIALIZED;
+    private volatile boolean dummyMode = false;
 
     public PrinterService(PrinterConfig config) {
         this.config = config;
         this.currentStatus = new PrinterStatus();
-        this.printer = new POSPrinter();
+
+        // If configured as NONE, start in dummy mode immediately
+        if (config.isDummy()) {
+            this.dummyMode = true;
+            logger.info("Printer service configured for DUMMY mode");
+        } else {
+            this.printer = new POSPrinter();
+        }
     }
 
     // Observer registration methods
@@ -86,8 +95,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
             if (configPath == null || configPath.isEmpty()) {
                 // Fallback: try to find it in standard locations
-                String[] searchPaths = {"config/jpos.xml", "../config/jpos.xml", "jpos.xml"
-                };
+                String[] searchPaths = {"config/jpos.xml", "../config/jpos.xml", "jpos.xml"};
 
                 for (String path : searchPaths) {
                     File f = new File(path);
@@ -110,8 +118,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             logger.info("Loading JavaPOS configuration from: {}", configPath);
 
             // Use JCL's SimpleXmlRegPopulator to load the configuration
-                jpos.config.simple.xml.SimpleXmlRegPopulator populator = new jpos.config.simple.xml.SimpleXmlRegPopulator();
-
+            jpos.config.simple.xml.SimpleXmlRegPopulator populator = new jpos.config.simple.xml.SimpleXmlRegPopulator();
             populator.load(configPath);
 
             logger.info("JavaPOS configuration loaded successfully");
@@ -131,51 +138,82 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             logger.info("Initializing printer service with config: {}", config);
 
+            // If already in dummy mode from config, just initialize as dummy
+            if (config.isDummy()) {
+                initializeDummyMode("Configured for dummy mode");
+                return;
+            }
+
             transitionTo(PrinterState.OPENING);
 
-            // ⭐ JavaPOS hack - Load configuration FIRST !!!
-            loadJposConfiguration();
+            try {
+                // JavaPOS hack - Load configuration FIRST
+                loadJposConfiguration();
 
-            String logicalName = config.getLogicalName();
+                String logicalName = config.getLogicalName();
 
-            printer.open(logicalName);
-            logger.debug("Printer opened with logical name: {}", logicalName);
-            transitionTo(PrinterState.OPENED);
+                printer.open(logicalName);
+                logger.debug("Printer opened with logical name: {}", logicalName);
+                transitionTo(PrinterState.OPENED);
 
-            transitionTo(PrinterState.CLAIMING);
-            printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
-            logger.debug("Printer claimed successfully");
-            transitionTo(PrinterState.CLAIMED);
+                transitionTo(PrinterState.CLAIMING);
+                printer.claim(PrinterConstants.DEFAULT_CONNECTION_TIMEOUT);
+                logger.debug("Printer claimed successfully");
+                transitionTo(PrinterState.CLAIMED);
 
-            transitionTo(PrinterState.ENABLING);
-            printer.setDeviceEnabled(true);
-            logger.debug("Printer enabled");
-            transitionTo(PrinterState.ENABLED);
+                transitionTo(PrinterState.ENABLING);
+                printer.setDeviceEnabled(true);
+                logger.debug("Printer enabled");
+                transitionTo(PrinterState.ENABLED);
 
-            // Setup event listeners
-            printer.addStatusUpdateListener(this);
-            printer.addErrorListener(this);
-            printer.addDirectIOListener(this);
-            logger.debug("Event listeners registered");
+                // Setup event listeners
+                printer.addStatusUpdateListener(this);
+                printer.addErrorListener(this);
+                printer.addDirectIOListener(this);
+                logger.debug("Event listeners registered");
 
-            // Configure printer settings
-            transitionTo(PrinterState.CONFIGURING);
-            configurePrinter();
+                // Configure printer settings
+                transitionTo(PrinterState.CONFIGURING);
+                configurePrinter();
 
-            // Update status
-            updatePrinterStatus();
+                // Update status
+                updatePrinterStatus();
 
-            transitionTo(PrinterState.READY);
-            logger.info("Printer service initialized successfully");
+                transitionTo(PrinterState.READY);
+                dummyMode = false;
+                logger.info("Printer service initialized successfully");
 
-        } catch (JposException e) {
-            transitionTo(PrinterState.ERROR);
-            cleanup();
-            logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
-            throw e;
+            } catch (JposException e) {
+                logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
+                logger.warn("Falling back to DUMMY mode");
+                cleanup();
+                initializeDummyMode("Hardware connection failed: " + e.getMessage());
+            }
+
         } finally {
             printerLock.unlock();
         }
+    }
+
+    /**
+     * Initialize printer in dummy mode
+     */
+    private void initializeDummyMode(String reason) {
+        dummyMode = true;
+        transitionTo(PrinterState.READY);
+        currentStatus.setOnline(true);
+        currentStatus.setError(false);
+        currentStatus.setErrorMessage("Running in dummy mode: " + reason);
+        currentStatus.setLastUpdate(System.currentTimeMillis());
+        notifyStatusChanged("dummy_mode_init");
+        logger.info("Printer service initialized in DUMMY mode: {}", reason);
+    }
+
+    /**
+     * Check if printer is in dummy mode
+     */
+    public boolean isDummyMode() {
+        return dummyMode;
     }
 
     /**
@@ -200,7 +238,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             logger.debug("Cleaning up printer in state: {}", state);
 
-            if (printer == null) {
+            if (printer == null || dummyMode) {
                 return;
             }
 
@@ -271,6 +309,11 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
      * Configure printer-specific settings
      */
     private void configurePrinter() throws JposException {
+        if (dummyMode) {
+            logger.debug("Skipping printer configuration in dummy mode");
+            return;
+        }
+
         try {
             // Set character set
             if (printer.getCapCharacterSet() > 0) {
@@ -307,6 +350,12 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         }
 
         try {
+            if (dummyMode) {
+                logger.info("[DUMMY] Print text: {}", text.substring(0, Math.min(100, text.length())));
+                simulatePrintDelay();
+                return;
+            }
+
             logger.debug("Printing text: {}", text.substring(0, Math.min(50, text.length())));
             printer.printNormal(POSPrinterConst.PTR_S_RECEIPT, text);
             logger.debug("Text printed successfully");
@@ -327,6 +376,18 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         printerLock.lock();
         try {
             logger.debug("Processing print request with {} copies", request.getCopies());
+
+            if (dummyMode) {
+                logger.info("[DUMMY] Print request: {} copies", request.getCopies());
+                if (request.getText() != null) {
+                    logger.info("[DUMMY] Text: {}", request.getText().substring(0, Math.min(100, request.getText().length())));
+                }
+                if (request.getItems() != null) {
+                    logger.info("[DUMMY] Items count: {}", request.getItems().size());
+                }
+                simulatePrintDelay();
+                return;
+            }
 
             for (int copy = 0; copy < request.getCopies(); copy++) {
                 PrintRequest.PrintOptions options = request.getOptions();
@@ -356,9 +417,25 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     }
 
     /**
+     * Simulate print delay in dummy mode
+     */
+    private void simulatePrintDelay() {
+        try {
+            Thread.sleep(200); // Simulate print time
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
      * Print formatted text with options
      */
     private void printFormattedText(String text, PrintRequest.PrintOptions options) throws JposException {
+        if (dummyMode) {
+            logger.debug("[DUMMY] Print formatted text");
+            return;
+        }
+
         StringBuilder formattedText = new StringBuilder();
 
         // Apply formatting based on options
@@ -383,6 +460,12 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     private void printItem(PrintRequest.PrintItem item) throws JposException {
         if (item == null || item.getType() == null) {
             throw new IllegalArgumentException("Print item and type cannot be null");
+        }
+
+        if (dummyMode) {
+            logger.debug("[DUMMY] Print item: type={}, content={}", item.getType(),
+                    item.getContent() != null ? item.getContent().substring(0, Math.min(50, item.getContent().length())) : "null");
+            return;
         }
 
         switch (item.getType().toUpperCase()) {
@@ -561,6 +644,11 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
         printerLock.lock();
         try {
+            if (dummyMode) {
+                logger.info("[DUMMY] Cut paper");
+                return;
+            }
+
             if (printer.getCapRecPapercut()) {
                 printer.cutPaper(PrinterConstants.FULL_CUT_PERCENTAGE); // 100% cut
                 logger.debug("Paper cut executed");
@@ -580,7 +668,16 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             PrinterStatus newStatus = new PrinterStatus();
 
-            if (state == PrinterState.READY && printer != null) {
+            if (dummyMode) {
+                // Dummy mode status
+                newStatus.setOnline(true);
+                newStatus.setCoverOpen(false);
+                newStatus.setPaperEmpty(false);
+                newStatus.setPaperNearEnd(false);
+                newStatus.setPowerState(1);
+                newStatus.setError(false);
+                newStatus.setErrorMessage("Running in dummy mode");
+            } else if (state == PrinterState.READY && printer != null) {
                 try {
                     newStatus.setOnline(printer.getDeviceEnabled());
                     newStatus.setCoverOpen(printer.getCoverOpen());
@@ -602,7 +699,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
             newStatus.setLastUpdate(System.currentTimeMillis());
 
-            // ✅ Check if status actually changed
+            // Check if status actually changed
             if (!newStatus.equals(currentStatus)) {
                 currentStatus = newStatus;
                 notifyStatusChanged("periodic_check");
@@ -643,6 +740,12 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     public void close() {
         printerLock.lock();
         try {
+            if (dummyMode) {
+                logger.info("Closing dummy printer");
+                currentStatus.setOnline(false);
+                return;
+            }
+
             if (printer != null && state == PrinterState.READY) {
                 cleanup();
                 logger.info("Printer closed successfully");
@@ -658,12 +761,14 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     // Event listener implementations
     @Override
     public void statusUpdateOccurred(StatusUpdateEvent e) {
+        if (dummyMode) return;
         logger.debug("Status update event: {}", e.getStatus());
         updatePrinterStatus();
     }
 
     @Override
     public void errorOccurred(ErrorEvent e) {
+        if (dummyMode) return;
         logger.error("Printer error occurred: {} - {}", e.getErrorCode(), e.getErrorCodeExtended());
 
         currentStatus.setError(true);
@@ -674,6 +779,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
     @Override
     public void directIOOccurred(DirectIOEvent e) {
+        if (dummyMode) return;
         logger.debug("DirectIO event: eventNumber={}, data={}, object={}", e.getEventNumber(), e.getData(), e.getObject());
     }
 }
