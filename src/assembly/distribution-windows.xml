@@ -1,19 +1,19 @@
 <assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0
           http://maven.apache.org/xsd/assembly-2.1.0.xsd">
-    
+
     <id>windows</id>
-    
+
     <!-- Create zip format for Windows -->
     <formats>
         <format>zip</format>
     </formats>
-    
+
     <includeBaseDirectory>true</includeBaseDirectory>
     <!--<baseDirectory>piknik-${project.version}</baseDirectory>-->
     <baseDirectory>piknik</baseDirectory>
-    
+
     <fileSets>
         <!-- Include the main JAR with dependencies -->
         <fileSet>
@@ -23,7 +23,7 @@
                 <include>piknik-*-deps.jar</include>
             </includes>
         </fileSet>
-        
+
         <!-- Include JavaPOS lib directory from external location -->
         <fileSet>
             <directory>${project.basedir}/../JavaPOS/lib</directory>
@@ -33,7 +33,7 @@
                 <include>**/*.txt</include>
             </includes>
         </fileSet>
-        
+
         <!-- Include WINDOWS native libraries from external location -->
         <fileSet>
             <directory>${project.basedir}/../JavaPOS/bin/win</directory>
@@ -43,7 +43,7 @@
                 <include>**/*.DLL</include>
             </includes>
         </fileSet>
-        
+
         <!-- Include bundled Java runtime for WINDOWS -->
         <fileSet>
             <directory>${project.basedir}/../Java/win</directory>
@@ -52,7 +52,7 @@
                 <include>**/*</include>
             </includes>
         </fileSet>
-        
+
         <!-- Include html directory from resources -->
         <fileSet>
             <directory>${project.basedir}/src/main/resources/html</directory>
@@ -61,21 +61,7 @@
                 <include>**/*</include>
             </includes>
         </fileSet>
-        
-        <!-- Include config directory if it exists -->
-        <fileSet>
-            <directory>${project.basedir}/src/main/resources/config</directory>
-            <outputDirectory>config</outputDirectory>
-            <includes>
-                <include>application.properties</include>
-                <include>logback.xml</include>
-                <include>jpos_vcp.xml</include>
-            </includes>
-            <excludes>
-                <exclude>**/*.log</exclude>
-            </excludes>
-        </fileSet>
-        
+
         <!-- Include WINDOWS start scripts from project root -->
         <fileSet>
             <directory>${project.basedir}/src/main/scripts</directory>
@@ -86,7 +72,7 @@
             </includes>
             <lineEnding>windows</lineEnding>
         </fileSet>
-        
+
         <!-- Create empty logs directory -->
         <fileSet>
             <directory>${project.basedir}</directory>
@@ -95,7 +81,7 @@
                 <exclude>**/*</exclude>
             </excludes>
         </fileSet>
-        
+
         <!-- Include README if it exists -->
         <fileSet>
             <directory>${project.basedir}</directory>
@@ -106,5 +92,27 @@
             </includes>
             <lineEnding>windows</lineEnding>
         </fileSet>
+
+        <!-- Include config directory - application.properties and logback.xml -->
+        <fileSet>
+            <directory>${project.basedir}/src/main/resources/config</directory>
+            <outputDirectory>config</outputDirectory>
+            <includes>
+                <include>application.properties</include>
+                <include>logback.xml</include>
+            </includes>
+            <excludes>
+                <exclude>**/*.log</exclude>
+            </excludes>
+        </fileSet>
     </fileSets>
+
+    <files>
+        <!-- Include jpos_vcp.xml renamed as jpos.xml -->
+        <file>
+            <source>${project.basedir}/src/main/resources/config/jpos_vcp.xml</source>
+            <outputDirectory>config</outputDirectory>
+            <destName>jpos.xml</destName>
+        </file>
+    </files>
 </assembly>
