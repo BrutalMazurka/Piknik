@@ -110,7 +110,7 @@
     <files>
         <!-- Include jpos_vcp.xml renamed as jpos.xml -->
         <file>
-            <source>${project.basedir}/src/main/resources/config/jpos_vcp.xml</source>
+            <source>${project.basedir}/src/main/resources/config/jpos_net.xml</source>
             <outputDirectory>config</outputDirectory>
             <destName>jpos.xml</destName>
         </file>

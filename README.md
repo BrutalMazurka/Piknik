@@ -90,6 +90,13 @@ Extrémně citlivý konfigurační soubor s popisem parametrů připojené tisk�
 Změny lze provést ručně nebo lze vygenerovat nový XML soubor pomocí utility "SetupPOS", která je součástí Epson JavaPOS ADK 
 pro Linux a Windows.
 
+V adresáři `/src/main/resources/config` se nachází 2 konfigurační soubory:
+* `jpos_net.xml` - konfigurace síťové tiskárny
+* `jpos_vcp.xml` - konfigurace VCP/USB tiskárny
+
+Obě tyto konfigurace byly řádně odzkoušeny na reálné tiskárně. Při vytvářrní GZ a ZIP archivů se kopíruje do adresáře `config` 
+obsah souboru `jpos_vcp.xml`. V případě potřeby jiného souboru je nutno upravit oba assembly skripty. 
+
 ### 🔨 Build aplikace a distribučních balíčků
 Aplikace si závislosti dotahuje z veřejné Maven CENTRAL repository až na 1 výjimku a to Epson JavaPOS ADK, které se musí 
 ručně stáhnout a linkovat jako externí knihovny.

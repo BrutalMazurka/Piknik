@@ -205,6 +205,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         currentStatus.setError(false);
         currentStatus.setErrorMessage("Running in dummy mode: " + reason);
         currentStatus.setLastUpdate(System.currentTimeMillis());
+        currentStatus.setDummyMode(true);
         notifyStatusChanged("dummy_mode_init");
         logger.info("Printer service initialized in DUMMY mode: {}", reason);
     }

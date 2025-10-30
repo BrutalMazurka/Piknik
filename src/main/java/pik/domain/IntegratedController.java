@@ -198,8 +198,13 @@ public class IntegratedController {
             printerService.initialize();
             long duration = System.currentTimeMillis() - startTime;
 
-            logger.info("✓ Printer service initialized successfully in {}ms", duration);
-            return ServiceInitializationResult.success("Printer", duration);
+            if (printerService.isDummyMode()) {
+                logger.warn("⚠ Printer service initialized in DUMMY mode in {}ms (no physical hardware)", duration);
+                return ServiceInitializationResult.success("Printer (Dummy Mode)", duration);
+            } else {
+                logger.info("✓ Printer service initialized successfully in {}ms", duration);
+                return ServiceInitializationResult.success("Printer", duration);
+            }
 
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;

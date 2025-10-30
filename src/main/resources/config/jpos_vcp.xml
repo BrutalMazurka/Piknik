@@ -15,7 +15,7 @@
         <prop name="Halftone" type="String" value="0"/>
         <prop name="PhysicalPrinterName" type="String" value="TM-T20III"/>
         <prop name="NVRAMControlLevel" type="String" value="1"/>
-        <prop name="LogicalPortName" type="String" value="ESDPRT002"/>
+        <prop name="LogicalPortName" type="String" value="ESDPRT001"/>
         <prop name="Stamp" type="String" value="0"/>
         <prop name="OutputCompleteType" type="String" value="2"/>
         <prop name="StatusThreadInterval" type="String" value="100"/>

@@ -294,6 +294,12 @@
         let statusClass = 'success';
         let statusText = 'Printer Ready';
 
+        // Check if running in dummy mode
+        if (status.errorMessage && status.errorMessage.includes('dummy mode')) {
+            statusClass = 'warning';
+            statusText = 'Printer Dummy Mode';
+        }
+
         if (!status.online) {
             statusClass = 'offline';
             statusText = 'Printer Offline';

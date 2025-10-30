@@ -15,6 +15,7 @@ public class PrinterStatus {
     private String errorMessage;
     private int powerState;
     private long lastUpdate;
+    private boolean dummyMode;
 
     public PrinterStatus() {
         this.lastUpdate = System.currentTimeMillis();
@@ -29,6 +30,7 @@ public class PrinterStatus {
         this.errorMessage = other.errorMessage;
         this.powerState = other.powerState;
         this.lastUpdate = other.lastUpdate;
+        this.dummyMode = other.dummyMode;
     }
 
     // Getters and setters
@@ -94,6 +96,14 @@ public class PrinterStatus {
 
     public boolean hasErrors() {
         return error || paperEmpty || !online;
+    }
+
+    public boolean isDummyMode() {
+        return dummyMode;
+    }
+
+    public void setDummyMode(boolean dummyMode) {
+        this.dummyMode = dummyMode;
     }
 
     @Override
