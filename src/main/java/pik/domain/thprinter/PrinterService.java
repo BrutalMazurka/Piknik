@@ -6,6 +6,8 @@ import jpos.JposException;
 import jpos.POSPrinter;
 import jpos.POSPrinterConst;
 import jpos.events.*;
+import jpos.events.OutputCompleteListener;
+import jpos.events.OutputCompleteEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.TM_T20IIIConstants;
@@ -28,7 +30,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 25/09/2025
  */
-public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener, DirectIOListener {
+public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener, DirectIOListener, OutputCompleteListener {
     private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
 
     private final PrinterConfig config;
@@ -40,6 +42,8 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     private PrinterStatus currentStatus;
     private volatile PrinterState state = PrinterState.UNINITIALIZED;
     private volatile boolean dummyMode = false;
+    private final Object outputCompleteLock = new Object();
+    private volatile boolean outputComplete = false;
 
     public PrinterService(PrinterConfig config) {
         this.config = config;
@@ -170,6 +174,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 printer.addStatusUpdateListener(this);
                 printer.addErrorListener(this);
                 printer.addDirectIOListener(this);
+                printer.addOutputCompleteListener(this);
                 logger.debug("Event listeners registered");
 
                 // Configure printer settings
@@ -249,6 +254,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                     printer.removeStatusUpdateListener(this);
                     printer.removeErrorListener(this);
                     printer.removeDirectIOListener(this);
+                    printer.removeOutputCompleteListener(this);
                     logger.debug("Event listeners removed");
                 } catch (Exception e) {
                     logger.debug("Error removing listeners: {}", e.getMessage());
@@ -299,6 +305,60 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     }
 
     /**
+     * Wait for output to complete (for async mode)
+     * @param timeoutMs Maximum time to wait in milliseconds
+     * @return true if output completed, false if timeout
+     */
+    public boolean waitForOutputComplete(long timeoutMs) {
+        if (dummyMode) {
+            return true; // No need to wait in dummy mode
+        }
+
+        try {
+            // Check if printer is in async mode
+            if (!printer.getAsyncMode()) {
+                // In synchronous mode, print commands block until complete
+                // adding small delay for network buffer flushing
+                Thread.sleep(100);
+                return true;
+            }
+        } catch (JposException e) {
+            logger.warn("Error checking async mode: {}", e.getMessage());
+            // Assume async mode and proceed with waiting
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+
+        // Wait for async output completion
+        synchronized (outputCompleteLock) {
+            outputComplete = false;
+            long startTime = System.currentTimeMillis();
+
+            while (!outputComplete) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                long remaining = timeoutMs - elapsed;
+
+                if (remaining <= 0) {
+                    logger.warn("Timeout waiting for output completion");
+                    return false;
+                }
+
+                try {
+                    outputCompleteLock.wait(remaining);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Interrupted while waiting for output completion");
+                    return false;
+                }
+            }
+
+            logger.debug("Output completed successfully");
+            return true;
+        }
+    }
+
+    /**
      * Check if service is initialized (regardless of current errors)
      */
     @Override
@@ -321,19 +381,25 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 printer.setCharacterSet(POSPrinterConst.PTR_CS_ASCII);
             }
 
-            // Enable asynchronous mode for better performance
-            if (printer.getCapTransaction()) {
-                printer.setAsyncMode(false);
-            }
+            // IMPORTANT: Enable asynchronous mode to get OutputCompleteEvents
+            printer.setAsyncMode(true);
+            logger.debug("Async mode enabled for output completion events");
 
             // Set map mode for metric measurements
             printer.setMapMode(POSPrinterConst.PTR_MM_METRIC);
 
             logger.debug("Printer configured with basic settings");
-
         } catch (JposException e) {
             logger.warn("Some printer configurations failed: {}", e.getMessage());
-            // Don't throw - some settings might not be supported
+        }
+    }
+
+    @Override
+    public void outputCompleteOccurred(OutputCompleteEvent e) {
+        logger.debug("Output complete event received: outputID={}", e.getOutputID());
+        synchronized (outputCompleteLock) {
+            outputComplete = true;
+            outputCompleteLock.notifyAll();
         }
     }
 

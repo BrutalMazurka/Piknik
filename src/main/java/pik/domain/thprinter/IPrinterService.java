@@ -13,6 +13,7 @@ public interface IPrinterService {
     void printText(String text) throws JposException, InterruptedException;
     void print(PrintRequest request) throws JposException;
     void cutPaper() throws JposException;
+    public boolean waitForOutputComplete(long timeoutMs);
     PrinterStatus getStatus();
     void close();
 }

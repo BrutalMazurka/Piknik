@@ -215,10 +215,23 @@ public class PrinterController {
                     "==================\n\n";
 
             printerService.printText(testContent);
+
+            // Wait for printing to complete (max 5 seconds)
+            if (!printerService.waitForOutputComplete(5000)) {
+                logger.warn("Print may not have completed fully");
+            }
+
             printerService.cutPaper();
 
             ctx.json(ApiResponse.success("Test print completed"));
 
+        } catch (JposException e) {
+            logger.error("JavaPOS error during test print: {} - {}", e.getErrorCode(), e.getMessage());
+            ctx.status(500).json(ApiResponse.error("Test print failed: " + e.getMessage()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Test print interrupted", e);
+            ctx.status(500).json(ApiResponse.error("Test print interrupted: " + e.getMessage()));
         } catch (Exception e) {
             logger.error("Test print failed", e);
             ctx.status(500).json(ApiResponse.error("Test print failed: " + e.getMessage()));

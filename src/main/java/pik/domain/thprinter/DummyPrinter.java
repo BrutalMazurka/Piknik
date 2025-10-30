@@ -111,6 +111,18 @@ public class DummyPrinter implements IPrinterService {
     }
 
     /**
+     * Wait for output to complete (dummy implementation always returns immediately)
+     * @param timeoutMs Maximum time to wait in milliseconds (ignored in dummy mode)
+     * @return always true for dummy printer
+     */
+    @Override
+    public boolean waitForOutputComplete(long timeoutMs) {
+        logger.debug("DummyPrinter.waitForOutputComplete: {} ms (no-op)", timeoutMs);
+        // Dummy printer doesn't need to wait - operations are instant
+        return true;
+    }
+
+    /**
      * Add status listener
      */
     public void addStatusListener(IPrinterStatusListener listener) {
