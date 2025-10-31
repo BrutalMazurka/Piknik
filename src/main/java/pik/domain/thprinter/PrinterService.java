@@ -6,8 +6,6 @@ import jpos.JposException;
 import jpos.POSPrinter;
 import jpos.POSPrinterConst;
 import jpos.events.*;
-import jpos.events.OutputCompleteListener;
-import jpos.events.OutputCompleteEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.TM_T20IIIConstants;
@@ -30,7 +28,9 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author Martin Sustik <sustik@herman.cz>
  * @since 25/09/2025
  */
-public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener, DirectIOListener, OutputCompleteListener {
+public class PrinterService implements IPrinterService, StatusUpdateListener, ErrorListener,
+        DirectIOListener, OutputCompleteListener {
+
     private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
 
     private final PrinterConfig config;
@@ -317,8 +317,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         try {
             // Check if printer is in async mode
             if (!printer.getAsyncMode()) {
-                // In synchronous mode, print commands block until complete
-                // adding small delay for network buffer flushing
+                // In synchronous mode, print commands block until complete adding small delay for network buffer flushing
                 Thread.sleep(100);
                 return true;
             }
@@ -626,15 +625,22 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 image = ImageIO.read(new File(content));
             }
 
-            if (image != null) {
-                printBitmap(image, item.getOptions());
-            } else {
-                logger.error("Failed to load image: {}", content);
+            if (image == null) {
+                logger.error("Failed to load image - ImageIO returned null");
+                throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to load image: unsupported format");
             }
+
+            if (image.getWidth() <= 0 || image.getHeight() <= 0) {
+                logger.error("Image has invalid dimensions: {}x{}", image.getWidth(), image.getHeight());
+                throw new JposException(JposConst.JPOS_E_FAILURE,
+                        "Failed to load image: invalid dimensions " + image.getWidth() + "x" + image.getHeight());
+            }
+
+            printBitmap(image, item.getOptions());
 
         } catch (IOException e) {
             logger.error("Error processing image: {}", e.getMessage());
-            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to process image");
+            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to process image: " + e.getMessage());
         }
     }
 
@@ -655,9 +661,28 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
             // Convert to byte array and print
             byte[] bitmapData = GraphUtils.convertToMonochromeBitmap(image);
+
+            // Options: PTR_BM_LEFT (-1), PTR_BM_CENTER (-2), PTR_BM_RIGHT (-3)
+            int alignment = POSPrinterConst.PTR_BM_CENTER;
+
+            // Check if options specify alignment
+            if (options != null && options.getAlignment() != null) {
+                switch (options.getAlignment().toUpperCase()) {
+                    case "LEFT":
+                        alignment = POSPrinterConst.PTR_BM_LEFT;
+                        break;
+                    case "CENTER":
+                        alignment = POSPrinterConst.PTR_BM_CENTER;
+                        break;
+                    case "RIGHT":
+                        alignment = POSPrinterConst.PTR_BM_RIGHT;
+                        break;
+                }
+            }
+
             printer.printMemoryBitmap(POSPrinterConst.PTR_S_RECEIPT, bitmapData,
                     POSPrinterConst.PTR_BMT_BMP, image.getWidth(),
-                    POSPrinterConst.PTR_BM_ASIS);
+                    alignment);
 
         } catch (Exception e) {
             logger.error("Error printing bitmap: {}", e.getMessage());

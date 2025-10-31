@@ -17,11 +17,10 @@ public class PrintRequest {
     private PrintOptions options;
 
     public static class PrintItem {
-        private String type; // TEXT, IMAGE, BARCODE, LINE
+        private String type;        // TEXT, IMAGE, BARCODE, LINE
         private String content;
         private PrintItemOptions options;
 
-        // Getters and setters
         public String getType() {
             return type;
         }
@@ -47,12 +46,11 @@ public class PrintRequest {
         private boolean bold;
         private boolean italic;
         private boolean underline;
-        private int fontSize = 1; // 1-8
-        private String alignment = "LEFT"; // LEFT, CENTER, RIGHT
+        private int fontSize = 1;           // 1-8
+        private String alignment = "LEFT";  // LEFT, CENTER, RIGHT
         private int width;
         private int height;
 
-        // Getters and setters
         public boolean isBold() {
             return bold;
         }
@@ -114,7 +112,6 @@ public class PrintRequest {
         private boolean autoFeed = true;
         private String characterSet = "ISO8859-1";
 
-        // Getters and setters
         public int getLineSpacing() {
             return lineSpacing;
         }
@@ -172,4 +169,5 @@ public class PrintRequest {
     public void setOptions(PrintOptions options) {
         this.options = options;
     }
+
 }

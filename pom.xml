@@ -7,7 +7,7 @@
 
     <groupId>pik</groupId>
     <artifactId>piknik</artifactId>
-    <version>1.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -90,13 +90,11 @@
             <groupId>com.google.zxing</groupId>
             <artifactId>core</artifactId>
             <version>[3.5.1,)</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.google.zxing</groupId>
             <artifactId>javase</artifactId>
             <version>[3.5.1,)</version>
-            <scope>provided</scope>
         </dependency>
 
         <!-- Logging -->
