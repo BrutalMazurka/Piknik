@@ -671,15 +671,34 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
             // STEP 2: Apply manual resize if requested in options
             if (options != null && (options.getWidth() > 0 || options.getHeight() > 0)) {
-                int width = options.getWidth() > 0 ? options.getWidth() : image.getWidth();
-                int height = options.getHeight() > 0 ? options.getHeight() : image.getHeight();
+                int width, height;
+
+                // Calculate dimensions while maintaining aspect ratio
+                if (options.getWidth() > 0 && options.getHeight() > 0) {
+                    // Both specified - use both (allows intentional distortion if desired)
+                    width = options.getWidth();
+                    height = options.getHeight();
+                } else if (options.getWidth() > 0) {
+                    // Only width specified - maintain aspect ratio
+                    width = options.getWidth();
+                    double aspectRatio = (double) image.getHeight() / image.getWidth();
+                    height = (int) Math.round(width * aspectRatio);
+                } else {
+                    // Only height specified - maintain aspect ratio
+                    height = options.getHeight();
+                    double aspectRatio = (double) image.getWidth() / image.getHeight();
+                    width = (int) Math.round(height * aspectRatio);
+                }
 
                 // Limit manual width to max print width
                 if (width > TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS) {
                     width = TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS;
                     // Recalculate height to maintain aspect ratio
-                    height = (int) (image.getHeight() * ((double) width / image.getWidth()));
+                    double aspectRatio = (double) image.getHeight() / image.getWidth();
+                    height = (int) Math.round(width * aspectRatio);
                 }
+
+                logger.debug("Manual resize from {}x{} to {}x{}", image.getWidth(), image.getHeight(), width, height);
 
                 BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
                 Graphics2D g2d = resized.createGraphics();
