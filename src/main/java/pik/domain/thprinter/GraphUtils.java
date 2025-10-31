@@ -117,6 +117,47 @@ public final class GraphUtils {
     }
 
     /**
+     * Auto-scale image to fit printer width while maintaining aspect ratio
+     * Images equal or smaller than maxWidth are returned unchanged
+     * Images larger than maxWidth are scaled down proportionally
+     *
+     * @param image Original image
+     * @param maxWidth Maximum width in pixels
+     * @return Scaled image (or original if no scaling needed)
+     */
+    public static BufferedImage autoScaleToFitWidth(BufferedImage image, int maxWidth) {
+        int originalWidth = image.getWidth();
+        int originalHeight = image.getHeight();
+
+        // No scaling needed if image fits
+        if (originalWidth <= maxWidth) {
+            logger.debug("Image width {}px fits within max {}px - no scaling needed", originalWidth, maxWidth);
+            return image;
+        }
+
+        // Calculate new dimensions maintaining aspect ratio
+        double scale = (double) maxWidth / originalWidth;
+        int newWidth = maxWidth;
+        int newHeight = (int) (originalHeight * scale);
+
+        logger.debug("Auto-scaling image from {}x{} to {}x{} (scale: {:.2f})", originalWidth, originalHeight, newWidth, newHeight, scale);
+
+        // Create scaled image
+        BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = scaledImage.createGraphics();
+
+        // High-quality scaling
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        g2d.drawImage(image, 0, 0, newWidth, newHeight, null);
+        g2d.dispose();
+
+        return scaledImage;
+    }
+
+    /**
      * Convert BufferedImage to bitmap byte array
      */
     public static byte[] convertImageToBitmap(BufferedImage image) {

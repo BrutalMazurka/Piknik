@@ -12,8 +12,10 @@ import pik.common.TM_T20IIIConstants;
 import pik.dal.PrinterConfig;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.Base64;
@@ -385,7 +387,9 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             logger.debug("Async mode enabled for output completion events");
 
             // Set map mode for metric measurements
-            printer.setMapMode(POSPrinterConst.PTR_MM_METRIC);
+            // printer.setMapMode(POSPrinterConst.PTR_MM_METRIC);
+            // Set map mode to dots for easier bitmap handling
+            printer.setMapMode(POSPrinterConst.PTR_MM_DOTS);
 
             logger.debug("Printer configured with basic settings");
         } catch (JposException e) {
@@ -645,27 +649,54 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     }
 
     /**
+     * Convert BufferedImage to BMP file format bytes
+     * JavaPOS printMemoryBitmap with PTR_BMT_BMP expects actual BMP file data, not raw pixels
+     */
+    private byte[] convertImageToBMPFileBytes(BufferedImage image) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        // Write BMP file format
+        ImageIO.write(image, "BMP", baos);
+
+        return baos.toByteArray();
+    }
+
+    /**
      * Print bitmap image
      */
     private void printBitmap(BufferedImage image, PrintRequest.PrintItemOptions options) throws JposException {
         try {
-            // Resize image if needed
+            // STEP 1: Auto-scale to fit printer width (before any other processing)
+            image = GraphUtils.autoScaleToFitWidth(image, TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS);
+
+            // STEP 2: Apply manual resize if requested in options
             if (options != null && (options.getWidth() > 0 || options.getHeight() > 0)) {
                 int width = options.getWidth() > 0 ? options.getWidth() : image.getWidth();
                 int height = options.getHeight() > 0 ? options.getHeight() : image.getHeight();
 
+                // Limit manual width to max print width
+                if (width > TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS) {
+                    width = TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS;
+                    // Recalculate height to maintain aspect ratio
+                    height = (int) (image.getHeight() * ((double) width / image.getWidth()));
+                }
+
                 BufferedImage resized = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-                resized.getGraphics().drawImage(image, 0, 0, width, height, null);
+                Graphics2D g2d = resized.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.drawImage(image, 0, 0, width, height, null);
+                g2d.dispose();
                 image = resized;
             }
 
-            // Convert to byte array and print
-            byte[] bitmapData = GraphUtils.convertToMonochromeBitmap(image);
+            // STEP 3: Convert to monochrome for thermal printer
+            BufferedImage monoImage = GraphUtils.convertToMonochromeImage(image);
 
-            // Options: PTR_BM_LEFT (-1), PTR_BM_CENTER (-2), PTR_BM_RIGHT (-3)
+            // STEP 4: Convert to BMP FILE format
+            byte[] bmpFileData = convertImageToBMPFileBytes(monoImage);
+
+            // STEP 5: Determine alignment
             int alignment = POSPrinterConst.PTR_BM_CENTER;
-
-            // Check if options specify alignment
             if (options != null && options.getAlignment() != null) {
                 switch (options.getAlignment().toUpperCase()) {
                     case "LEFT":
@@ -680,13 +711,33 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 }
             }
 
-            printer.printMemoryBitmap(POSPrinterConst.PTR_S_RECEIPT, bitmapData,
-                    POSPrinterConst.PTR_BMT_BMP, image.getWidth(),
-                    alignment);
+            int pixelWidth = monoImage.getWidth();
+            int pixelHeight = monoImage.getHeight();
 
+            logger.debug("Printing bitmap: {}x{} pixels, {} BMP file bytes, alignment={}", pixelWidth, pixelHeight, bmpFileData.length, alignment);
+
+            // STEP 6: Print using BMP file format
+            printer.printMemoryBitmap(
+                    POSPrinterConst.PTR_S_RECEIPT,
+                    bmpFileData,
+                    POSPrinterConst.PTR_BMT_BMP,
+                    pixelWidth,
+                    alignment
+            );
+
+            logger.debug("Bitmap sent to printer, waiting for completion...");
+
+            // Wait for async printing to complete
+            if (!waitForOutputComplete(5000)) {
+                logger.warn("Bitmap print may not have completed fully");
+            }
+
+        } catch (JposException e) {
+            logger.error("JavaPOS error printing bitmap: {} - {}", e.getErrorCode(), e.getMessage());
+            throw e;
         } catch (Exception e) {
-            logger.error("Error printing bitmap: {}", e.getMessage());
-            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to print bitmap");
+            logger.error("Error printing bitmap: {}", e.getMessage(), e);
+            throw new JposException(JposConst.JPOS_E_FAILURE, "Failed to print bitmap: " + e.getMessage());
         }
     }
 
