@@ -138,7 +138,7 @@ public class VFDService implements IVFDService {
      * Display text on VFD
      */
     @Override
-    public void displayText(String text) throws Exception {
+    public void displayText(String text) {
         if (!isReady()) {
             throw new IllegalStateException("VFD display is not ready");
         }

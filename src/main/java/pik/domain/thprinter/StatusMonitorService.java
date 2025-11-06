@@ -1,6 +1,5 @@
 package pik.domain.thprinter;
 
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +19,7 @@ public class StatusMonitorService {
     private final PrinterService printerService;
     private final Consumer<String> statusUpdateCallback;
     private ScheduledFuture<?> monitoringTask;
-    private boolean monitoring = false;     // No need to be volatile beacause startMonitoring() is synchronized
+    private boolean monitoring = false;         // No need to be volatile because startMonitoring() is synchronized
     private final int checkIntervalMs;
 
     public StatusMonitorService(PrinterService printerService, Consumer<String> statusUpdateCallback, int checkIntervalMs) {

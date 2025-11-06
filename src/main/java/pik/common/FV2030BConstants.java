@@ -11,5 +11,5 @@ public final class FV2030BConstants {
     }
     public static final int MAX_ROWS = 2;
     public static final int MAX_COLUMNS = 20;
-    public static final String VFD_ENCODING = "CP852";     // Welcome to the days of MS-DOS!
+    public static final String VFD_ENCODING = "CP852";     // Welcome to the days of MS-DOS :-)
 }

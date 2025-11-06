@@ -140,7 +140,7 @@ public final class GraphUtils {
         int newWidth = maxWidth;
         int newHeight = (int) (originalHeight * scale);
 
-        logger.debug("Auto-scaling image from {}x{} to {}x{} (scale: {:.2f})", originalWidth, originalHeight, newWidth, newHeight, scale);
+        logger.debug("Auto-scaling image from {}x{} to {}x{} (scale: {})", originalWidth, originalHeight, newWidth, newHeight, String.format("%.2f", scale));
 
         // Create scaled image
         BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);

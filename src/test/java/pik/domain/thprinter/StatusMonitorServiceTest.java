@@ -30,11 +30,7 @@ class StatusMonitorServiceTest {
 
     @BeforeEach
     void setUp() {
-        monitorService = new StatusMonitorService(
-                mockPrinterService,
-                mockStatusCallback,
-                1000
-        );
+        monitorService = new StatusMonitorService(mockPrinterService, mockStatusCallback, 1000);
     }
 
     @Test

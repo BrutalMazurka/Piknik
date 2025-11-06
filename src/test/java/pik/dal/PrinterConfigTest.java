@@ -20,7 +20,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", "COM14", 9600, 10000);
 
         // When & Then
-        assertThatCode(() -> config.validate()).doesNotThrowAnyException();
+        assertThatCode(config::validate).doesNotThrowAnyException();
         assertThat(config.connectionType()).isEqualTo(EPrinterType.USB);
         assertThat(config.name()).isEqualTo("TM-T20III");
         assertThat(config.comPort()).isEqualTo("COM14");
@@ -37,7 +37,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", "10.0.0.150", 9100, 10000);
 
         // When & Then
-        assertThatCode(() -> config.validate()).doesNotThrowAnyException();
+        assertThatCode(config::validate).doesNotThrowAnyException();
         assertThat(config.connectionType()).isEqualTo(EPrinterType.NETWORK);
         assertThat(config.name()).isEqualTo("TM-T20III");
         assertThat(config.ipAddress()).isEqualTo("10.0.0.150");
@@ -54,7 +54,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.dummy("TM-T20III");
 
         // When & Then
-        assertThatCode(() -> config.validate()).doesNotThrowAnyException();
+        assertThatCode(config::validate).doesNotThrowAnyException();
         assertThat(config.isDummy()).isTrue();
         assertThat(config.connectionType()).isEqualTo(EPrinterType.NONE);
         assertThat(config.name()).isEqualTo("TM-T20III");
@@ -68,7 +68,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("", "COM14", 9600, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Printer name cannot be empty");
     }
@@ -80,7 +80,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("", "10.0.0.150", 9100, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Printer name cannot be empty");
     }
@@ -92,7 +92,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", "10.0.0.150", 0, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Network port must be between 1 and 65535");
     }
@@ -104,7 +104,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", "10.0.0.150", 99999, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Network port must be between 1 and 65535");
     }
@@ -116,7 +116,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", "", 9100, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Printer IP address cannot be empty");
     }
@@ -128,7 +128,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", null, 9100, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Printer IP address cannot be empty");
     }
@@ -140,7 +140,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", "", 9600, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("COM port cannot be empty");
     }
@@ -152,7 +152,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", null, 9600, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("COM port cannot be empty");
     }
@@ -164,7 +164,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", "COM14", 200, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Baud rate must be between 300 and 115200");
     }
@@ -176,7 +176,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", "COM14", 200000, 10000);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Baud rate must be between 300 and 115200");
     }
@@ -191,7 +191,7 @@ class PrinterConfigTest {
             PrinterConfig config = PrinterConfig.usb("TM-T20III", "COM14", baudRate, 10000);
 
             // When & Then
-            assertThatCode(() -> config.validate())
+            assertThatCode(config::validate)
                     .as("Baud rate %d should be valid", baudRate)
                     .doesNotThrowAnyException();
         }
@@ -204,7 +204,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.usb("TM-T20III", "COM14", 9600, 500);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Connection timeout must be at least 1000ms");
     }
@@ -216,7 +216,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.network("TM-T20III", "10.0.0.150", 9100, 999);
 
         // When & Then
-        assertThatThrownBy(() -> config.validate())
+        assertThatThrownBy(config::validate)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Connection timeout must be at least 1000ms");
     }
@@ -228,7 +228,7 @@ class PrinterConfigTest {
         PrinterConfig config = PrinterConfig.dummy("TM-T20III");
 
         // When & Then - should not throw even though timeout might be less than required
-        assertThatCode(() -> config.validate()).doesNotThrowAnyException();
+        assertThatCode(config::validate).doesNotThrowAnyException();
     }
 
     @Test
@@ -368,8 +368,8 @@ class PrinterConfigTest {
         PrinterConfig maxPort = PrinterConfig.network("TM-T20III", "10.0.0.150", 65535, 10000);
 
         // When & Then
-        assertThatCode(() -> minPort.validate()).doesNotThrowAnyException();
-        assertThatCode(() -> maxPort.validate()).doesNotThrowAnyException();
+        assertThatCode(minPort::validate).doesNotThrowAnyException();
+        assertThatCode(maxPort::validate).doesNotThrowAnyException();
     }
 
     @Test

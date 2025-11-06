@@ -46,11 +46,9 @@ public class FV2030BCommandSet implements IVFDCommandSet {
 
     /**
      * Generate cursor position command.
-     *
      * NOTE: The FV-2030B uses 1-based indexing:
      * - row: 1-2 (row 1 = upper row, row 2 = lower row)
      * - col: 1-20 (column 1 = leftmost position)
-     *
      * The values are passed directly to the hardware without conversion.
      *
      * @param row Row number (1-2)

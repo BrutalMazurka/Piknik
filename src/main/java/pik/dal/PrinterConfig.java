@@ -1,6 +1,7 @@
 package pik.dal;
 
 import pik.common.EPrinterType;
+
 /**
  * Type-safe configuration for printer
  * Supports both Network (Ethernet) and USB/Serial (COM port) connections

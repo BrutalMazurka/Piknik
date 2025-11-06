@@ -15,16 +15,10 @@ public final class PrintUtils {
     public static final String ESC = "\u001b";
     public static final String GS = "\u001D";
     public static final String PRINTER_INIT = ESC + "@";
-    //public static final String BOLD_ON = ESC + "|bC";
-    //public static final String BOLD_OFF = ESC + "|bC";
     public static final String BOLD_ON = ESC + "E" + "\u0001";
     public static final String BOLD_OFF = ESC + "E" + "\0";
     public static final String DOUBLE_ON = GS + "!" + "\u0011";  // 2x sized text (double-high + double-wide)
     public static final String DOUBLE_OFF = GS + "!" + "\0";
-    public static final String CENTER_ON = ESC + "|cA";
-    public static final String CENTER_OFF = ESC + "|lA";
-    public static final String DOUBLE_HEIGHT = ESC + "|2C";
-    public static final String NORMAL_HEIGHT = ESC + "|1C";
 
     /**
      * Format price for printing

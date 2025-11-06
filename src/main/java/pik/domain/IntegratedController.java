@@ -36,11 +36,11 @@ public class IntegratedController {
     private static final Logger logger = LoggerFactory.getLogger(IntegratedController.class);
 
     // ⭐ This pretty-printing Gson is for general use
-    private final Gson gson;
+    private final Gson          gson;
     // ⭐ This compact Gson is specifically for SSE (no pretty printing!)
-    private final Gson compactGson;
-    private final ServerConfig serverConfig;
-    private Javalin javalinApp;
+    private final Gson          compactGson;
+    private final ServerConfig  serverConfig;
+    private Javalin             javalinApp;
 
     // Printer components
     private final PrinterService printerService;
@@ -254,13 +254,9 @@ public class IntegratedController {
      * @param results Initialization results
      * @throws StartupException if requirements not met
      */
-    private void evaluateStartupRequirements(StartupMode mode, List<ServiceInitializationResult> results)
-            throws StartupException {
+    private void evaluateStartupRequirements(StartupMode mode, List<ServiceInitializationResult> results) throws StartupException {
 
-        long successfulServices = results.stream()
-                .filter(ServiceInitializationResult::isSuccess)
-                .count();
-
+        long successfulServices = results.stream().filter(ServiceInitializationResult::isSuccess).count();
         long totalServices = results.size();
 
         logger.info("Service initialization complete: {}/{} services successful",
@@ -281,13 +277,11 @@ public class IntegratedController {
 
             case LENIENT:
                 if (successfulServices == 0) {
-                    String message = "LENIENT mode requires at least one service to initialize. " +
-                            "All services failed to initialize.";
+                    String message = "LENIENT mode requires at least one service to initialize. " + "All services failed to initialize.";
                     throw new StartupException(message, mode, results);
                 }
                 if (successfulServices < totalServices) {
-                    logger.warn("⚠ LENIENT mode: {}/{} services initialized (some services unavailable)",
-                            successfulServices, totalServices);
+                    logger.warn("⚠ LENIENT mode: {}/{} services initialized (some services unavailable)", successfulServices, totalServices);
                 } else {
                     logger.info("✓ LENIENT mode requirement met: all services initialized");
                 }
@@ -297,8 +291,7 @@ public class IntegratedController {
                 if (successfulServices == 0) {
                     logger.warn("⚠ PERMISSIVE mode: No services initialized - running in degraded mode");
                 } else if (successfulServices < totalServices) {
-                    logger.info("⚠ PERMISSIVE mode: {}/{} services initialized",
-                            successfulServices, totalServices);
+                    logger.info("⚠ PERMISSIVE mode: {}/{} services initialized", successfulServices, totalServices);
                 } else {
                     logger.info("✓ PERMISSIVE mode: all services initialized");
                 }
@@ -342,8 +335,7 @@ public class IntegratedController {
         }
 
         logger.info("Web Server: RUNNING on port {}", serverConfig.port());
-        logger.info("API Documentation: http://{}:{}/docs",
-                serverConfig.host(), serverConfig.port());
+        logger.info("API Documentation: http://{}:{}/docs", serverConfig.host(), serverConfig.port());
         logger.info("========================================");
     }
 

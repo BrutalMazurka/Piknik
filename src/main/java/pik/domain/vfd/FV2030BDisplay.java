@@ -110,22 +110,22 @@ public class FV2030BDisplay extends AbstractVFDDisplay {
 
             clearDisplay();
             Thread.sleep(TM_T20IIIConstants.DEMO_STEP_DELAY_MS);
-            displayText("FV-2030B Ready");
+            displayText("FV-2030B připraven");
             Thread.sleep(2000);
 
             // Brightness test
             clearDisplay();
-            displayText("Brightness Test");
+            displayText("Nastavení jasu");
             Thread.sleep(1000);
 
-            for (int brightness = 20; brightness <= TM_T20IIIConstants.BRIGHTNESS_MAX; brightness += 20) {
+            for (int brightness = 1; brightness <= TM_T20IIIConstants.BRIGHTNESS_MAX; brightness++) {
                 setBrightness(brightness);
                 Thread.sleep(800);
             }
-            setBrightness(80);
+            setBrightness(3);
 
             clearDisplay();
-            displayText("Demo Complete!");
+            displayText("Demo kompletní!");
             Thread.sleep(2000);
             clearDisplay();
 
