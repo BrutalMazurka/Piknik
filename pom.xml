@@ -14,7 +14,14 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mockito.version>5.20.0</mockito.version>
     </properties>
+
+<!--    <modules>
+        <module>${epis5-shared-dir-rel}/Epis5.IngenicoIFSF</module>
+        <module>${epis5-shared-dir-rel}/Epis5.IngenicoTransit</module>
+        <module>${epis5-shared-dir-rel}/Epis5.DukBckCore</module>
+    </modules>-->
 
     <dependencies>
         <!-- JavaPOS - provided scope (external classpath)
@@ -125,13 +132,13 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.20.0</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
-            <version>5.20.0</version>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -147,6 +154,32 @@
                     <source>21</source>
                     <target>21</target>
                     <failOnWarning>false</failOnWarning>
+                </configuration>
+            </plugin>
+
+            <!-- Dependency Plugin - Resolve Mockito agent path -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>get-mockito-agent</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Surefire Plugin - Configure Mockito as Java agent -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
                 </configuration>
             </plugin>
 
