@@ -31,6 +31,7 @@
   <component name="ProjectResources">
     <resource url="http://maven.apache.org/ASSEMBLY/2.1.0" location="$USER_HOME$/.cache/JetBrains/IntelliJIdea2025.2/extResources/dce13267_assembly-2.1.0.xsd.xml" />
     <resource url="http://maven.apache.org/POM/4.0.0" location="$USER_HOME$/.cache/JetBrains/IntelliJIdea2024.3/extResources/e1f42d95_maven-4.0.0.xsd.xml" />
+    <resource url="http://maven.apache.org/xsd/settings-1.1.0.xsd" location="$USER_HOME$/.cache/JetBrains/IntelliJIdea2025.2/extResources/d9da5963_settings-1.1.0.xsd.xml" />
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_25" default="true" project-jdk-name="temurin-25" project-jdk-type="JavaSDK" />
 </project>
