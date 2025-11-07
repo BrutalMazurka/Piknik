@@ -3,11 +3,11 @@
           xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0
           http://maven.apache.org/xsd/assembly-2.1.0.xsd">
 
-    <id>windows</id>
+    <id>linux</id>
 
-    <!-- Create zip format for Windows -->
+    <!-- Create tar.gz format for Linux -->
     <formats>
-        <format>zip</format>
+        <format>tar.gz</format>
     </formats>
 
     <includeBaseDirectory>true</includeBaseDirectory>
@@ -26,7 +26,7 @@
 
         <!-- Include JavaPOS lib directory from external location -->
         <fileSet>
-            <directory>${project.basedir}/../JavaPOS/lib</directory>
+            <directory>${project.basedir}/../../JavaPOS/lib</directory>
             <outputDirectory>res/lib</outputDirectory>
             <includes>
                 <include>**/*.jar</include>
@@ -34,23 +34,25 @@
             </includes>
         </fileSet>
 
-        <!-- Include WINDOWS native libraries from external location -->
+        <!-- Include LINUX native libraries from external location -->
         <fileSet>
-            <directory>${project.basedir}/../JavaPOS/bin/win</directory>
+            <directory>${project.basedir}/../../JavaPOS/bin/linux</directory>
             <outputDirectory>res/bin</outputDirectory>
             <includes>
-                <include>**/*.dll</include>
-                <include>**/*.DLL</include>
+                <include>**/*.so</include>
             </includes>
+            <fileMode>0755</fileMode>
         </fileSet>
 
-        <!-- Include bundled Java runtime for WINDOWS -->
+        <!-- Include bundled Java runtime for LINUX -->
         <fileSet>
-            <directory>${project.basedir}/../Java/win</directory>
+            <directory>${project.basedir}/../../Java/linux</directory>
             <outputDirectory>jre</outputDirectory>
             <includes>
                 <include>**/*</include>
             </includes>
+            <fileMode>0755</fileMode>
+            <directoryMode>0755</directoryMode>
         </fileSet>
 
         <!-- Include html directory from resources -->
@@ -62,15 +64,16 @@
             </includes>
         </fileSet>
 
-        <!-- Include WINDOWS start scripts from project root -->
+        <!-- Include LINUX start scripts from project root -->
         <fileSet>
             <directory>${project.basedir}/src/main/scripts</directory>
             <outputDirectory>/</outputDirectory>
             <includes>
-                <include>start.bat</include>
-                <include>start_debug.bat</include>
+                <include>start.sh</include>
+                <include>start_debug.sh</include>
             </includes>
-            <lineEnding>windows</lineEnding>
+            <fileMode>0755</fileMode>
+            <lineEnding>unix</lineEnding>
         </fileSet>
 
         <!-- Create empty logs directory -->
@@ -90,7 +93,6 @@
                 <include>README.txt</include>
                 <include>LICENSE</include>
             </includes>
-            <lineEnding>windows</lineEnding>
         </fileSet>
 
         <!-- Include config directory - application.properties and logback.xml -->

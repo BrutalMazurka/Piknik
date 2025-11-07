@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/piknik.iml" filepath="$PROJECT_DIR$/piknik.iml" />
+      <module fileurl="file://$PROJECT_DIR$/piknik-parent.iml" filepath="$PROJECT_DIR$/piknik-parent.iml" />
     </modules>
   </component>
 </project>
