@@ -5,8 +5,14 @@
     <file url="file://$PROJECT_DIR$/Piknik/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../EPIS/Shared/Epis.AuditLogs/src" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../EPIS/Shared/Epis.Commons/src" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../EPIS/Shared/Epis.Logging2/src" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../EPIS/Shared/src" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/../../../EPIS5/Shared/Epis5.DukBckCore/src" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/../../../EPIS5/Shared/Epis5.IngenicoIFSF/src" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/../../../EPIS5/Shared/Epis5.IngenicoTransit/src" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../EPIS5/Shared/Epis5.POS/src" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/../../../Java/jCommons/src" charset="UTF-8" />
   </component>
 </project>

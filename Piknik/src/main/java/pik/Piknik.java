@@ -1,5 +1,8 @@
 package pik;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.dal.ConfigurationService;
@@ -8,6 +11,7 @@ import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
 import pik.domain.IntegratedController;
 import pik.domain.StartupException;
+import epis.logging.Log4j2LoggerFactory;
 
 /**
  * Main entry point for Piknik POS Controller Application
@@ -16,6 +20,7 @@ import pik.domain.StartupException;
  */
 public class Piknik {
     private static final Logger logger = LoggerFactory.getLogger(Piknik.class);
+    private static final ILoggerFactory loggerFactory = new Log4j2LoggerFactory();
 
     public static void main(String[] args) {
         logger.info("Starting Piknik POS Controller Application...");
@@ -33,11 +38,15 @@ public class Piknik {
             logger.debug("VFD: {}", vfdConfig);
             logger.debug("Server: {}", serverConf);
 
+            Injector injector = Guice.createInjector(new GuiceModule(loggerFactory));
+            ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
+
             // Create and start integrated application
             IntegratedController app = new IntegratedController(
                     printerConfig,
                     vfdConfig,
-                    serverConf
+                    serverConf,
+                    injector
             );
 
             // Start with configured startup mode

@@ -2,13 +2,26 @@ package pik.domain;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.inject.Injector;
+import epis5.ingenico.transit.IIngenicoTransitApp;
+import epis5.ingenico.transit.prot.TransitHeartBeatOutputter;
+import epis5.ingenico.transit.prot.TransitProtCtrl;
+import epis5.ingenico.transit.prot.TransitProtProxy;
+import epis5.ingenicoifsf.IIngenicoIEmvTerminal;
+import epis5.ingenicoifsf.prot.IfsfHeartBeatOutputter;
+import epis5.ingenicoifsf.prot.IfsfProtCtrl;
+import epis5.ingenicoifsf.prot.IfsfProtProxy;
 import io.javalin.Javalin;
 import io.javalin.json.JsonMapper;
+import jCommons.comm.proxy.IOAccessProxySett;
+import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.common.ELogger;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
+import pik.domain.io.IOGeneral;
 import pik.domain.thprinter.PrinterController;
 import pik.domain.thprinter.PrinterService;
 import pik.domain.thprinter.StatusMonitorService;
@@ -41,6 +54,7 @@ public class IntegratedController {
     private final Gson          compactGson;
     private final ServerConfig  serverConfig;
     private Javalin             javalinApp;
+    private final IOGeneral     ioGeneral;
 
     // Printer components
     private final PrinterService printerService;
@@ -53,6 +67,14 @@ public class IntegratedController {
     private final ConcurrentHashMap<String, SSEClient> printerSSEClients = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, SSEClient> vfdSSEClients = new ConcurrentHashMap<>();
     private volatile boolean shutdownHookRegistered = false;
+
+    // Ingenico Card Reader
+    private final IfsfProtCtrl ifsfProtCtrl;
+    private final IfsfProtProxy ifsfProtProxy;
+    private final IfsfProtProxy ifsfDevProxyProtProxy;
+    private final TransitProtCtrl transitProtCtrl;
+    private final TransitProtProxy transitProtProxy;
+
 
     // Initialization results
     private final Map<String, ServiceInitializationResult> initializationResults = new LinkedHashMap<>();
@@ -67,7 +89,9 @@ public class IntegratedController {
      * @param vfdConfig VFD configuration
      * @param serverConfig Server configuration
      */
-    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, ServerConfig serverConfig) {
+    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, ServerConfig serverConfig, Injector injector) {
+        ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
+
         this.serverConfig = serverConfig;
 
         // ⭐ Initialize Gson with pretty printing (for API responses)
@@ -84,6 +108,21 @@ public class IntegratedController {
                 serverConfig.statusCheckInterval()
         );
         this.executorService = Executors.newScheduledThreadPool(serverConfig.threadPoolSize());
+        this.ioGeneral = injector.getInstance(IOGeneral.class);
+        IOAccessProxySett proxySett;
+        proxySett = new IOAccessProxySett(loggerFactory.get(ELogger.INGENICO_IFSF), "IfsfProtProxy");
+        ifsfProtProxy = new IfsfProtProxy(proxySett, ioGeneral.getIfsfTcpServerAccess());
+        ifsfDevProxyProtProxy = new IfsfProtProxy(proxySett, ioGeneral.getIfsfDevProxyTcpServerAccess());
+        ifsfProtCtrl = new IfsfProtCtrl(ifsfProtProxy, ifsfDevProxyProtProxy,
+                injector.getInstance(IIngenicoIEmvTerminal.class),
+                new IfsfHeartBeatOutputter(ioGeneral.getIfsfTcpServerAccess()));
+        ifsfProtCtrl.setLogAll(true);
+
+        proxySett = new IOAccessProxySett(loggerFactory.get(ELogger.INGENICO_TRANSIT), "TransitProtProxy");
+        transitProtProxy = new TransitProtProxy(proxySett, ioGeneral.getTransitTcpServerAccess());
+        transitProtCtrl = new TransitProtCtrl(transitProtProxy,
+                injector.getInstance(IIngenicoTransitApp.class),
+                new TransitHeartBeatOutputter(ioGeneral.getTransitTcpServerAccess()));
 
         // Register observers AFTER construction
         setupStatusListeners();
@@ -129,13 +168,14 @@ public class IntegratedController {
      */
     public void start(StartupMode mode) throws StartupException {
         logger.info("========================================");
-        logger.info("Starting Integrated Printer & VFD Controller");
+        logger.info("Starting Integrated Controller");
         logger.info("Startup Mode: {}", mode);
         logger.info("========================================");
 
         try {
             // Step 1: Initialize all services
             List<ServiceInitializationResult> results = initializeAllServices();
+            ioGeneral.init();
 
             // Step 2: Evaluate startup success based on mode
             evaluateStartupRequirements(mode, results);
@@ -642,6 +682,8 @@ public class IntegratedController {
             }
 
             logger.info("Closing {} printer SSE clients, {} VFD SSE clients", printerSSEClients.size(), vfdSSEClients.size());
+
+            ioGeneral.deinit();
 
             for (SSEClient client : printerSSEClients.values()) {
                 client.close();

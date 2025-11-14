@@ -15,9 +15,18 @@
 
     <modules>
         <module>Piknik</module>
+        <module>${epis-shared-dir-rel}</module>
+        <module>${epis-shared-dir-rel}/maven/guice-deps</module>
+        <module>${epis-shared-dir-rel}/maven/protobuf-deps</module>
+        <module>${epis-shared-dir-rel}/maven/log4j-deps</module>
+        <module>${epis-java-dir-rel}/jCommons</module>
         <module>${epis5-shared-dir-rel}/Epis5.IngenicoIFSF</module>
         <module>${epis5-shared-dir-rel}/Epis5.IngenicoTransit</module>
         <module>${epis5-shared-dir-rel}/Epis5.DukBckCore</module>
+        <module>${epis5-shared-dir-rel}/Epis5.POS</module>
+        <module>${epis-shared-dir-rel}/Epis.AuditLogs</module>
+        <module>${epis-shared-dir-rel}/Epis.Commons</module>
+        <module>${epis-shared-dir-rel}/Epis.Logging2</module>
     </modules>
 
     <properties>

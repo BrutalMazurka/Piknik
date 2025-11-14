@@ -14,7 +14,7 @@
     </parent>
 
     <!-- Project-specific info -->
-    <groupId>cz.herman.pik.most</groupId>
+    <groupId>pik</groupId>
     <artifactId>piknik</artifactId>
     <version>1.0.2</version>
     <packaging>jar</packaging>
@@ -88,16 +88,34 @@
             <version>[3.5.1,)</version>
         </dependency>
 
-        <!-- Logging -->
+        <!-- Logging - Log4j2 with SLF4J -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>2.0.17</version>
         </dependency>
         <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>1.5.20</version>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.24.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.24.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>2.24.3</version>
+        </dependency>
+
+        <!-- Guice -->
+        <dependency>
+            <groupId>cz.herman.epis.shared.deps</groupId>
+            <artifactId>guice-deps</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <type>pom</type>
         </dependency>
 
         <!-- Shared Projects Dependencies -->
@@ -114,6 +132,37 @@
         <dependency>
             <groupId>cz.herman.epis5.shared</groupId>
             <artifactId>epis5-duk-bck-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.epis5.shared</groupId>
+            <artifactId>epis5-pos</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.cervenec</groupId>
+            <artifactId>jCommons</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.epis.shared.deps</groupId>
+            <artifactId>protobuf-deps</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.epis.shared</groupId>
+            <artifactId>epis-audit</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.epis.shared</groupId>
+            <artifactId>epis-commons</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>cz.herman.epis.shared</groupId>
+            <artifactId>epis-logging2</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
 

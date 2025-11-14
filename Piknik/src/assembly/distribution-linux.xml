@@ -95,13 +95,13 @@
             </includes>
         </fileSet>
 
-        <!-- Include config directory - application.properties and logback.xml -->
+        <!-- Include config directory -->
         <fileSet>
             <directory>${project.basedir}/src/main/resources/config</directory>
             <outputDirectory>config</outputDirectory>
             <includes>
-                <include>application.properties</include>
-                <include>logback.xml</include>
+                <include>app.properties</include>
+                <include>log4j2.xml</include>
             </includes>
             <excludes>
                 <exclude>**/*.log</exclude>
