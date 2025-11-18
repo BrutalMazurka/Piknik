@@ -24,6 +24,8 @@ public class IOGeneral {
     private final IOTcpServerAccess ifsfTcpServerAccess;
     private final IOTcpServerAccess ifsfDevProxyTcpServerAccess;
     private final IOTcpServerAccess ingenicoTransitTcpServerAccess;
+    private final Object initLock = new Object();
+    private volatile boolean initialized = false;
 
     private IOGeneral(Injector injector) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
@@ -77,19 +79,35 @@ public class IOGeneral {
     }
 
     public void init() {
-        ifsfTcpServerAccess.init();
-        ifsfDevProxyTcpServerAccess.init();
-        ingenicoTransitTcpServerAccess.init();
+        synchronized (initLock) {
+            if (initialized) {
+                appLogger.warn("IOGeneral already initialized, skipping");
+                return;
+            }
 
-        appLogger.info("IOGeneral inited");
+            ifsfTcpServerAccess.init();
+            ifsfDevProxyTcpServerAccess.init();
+            ingenicoTransitTcpServerAccess.init();
+
+            initialized = true;
+            appLogger.info("IOGeneral inited");
+        }
     }
 
     public void deinit() {
-        ingenicoTransitTcpServerAccess.deinit();
-        ifsfDevProxyTcpServerAccess.deinit();
-        ifsfTcpServerAccess.deinit();
+        synchronized (initLock) {
+            if (!initialized) {
+                appLogger.warn("IOGeneral not initialized, skipping deinit");
+                return;
+            }
 
-        appLogger.info("IOGeneral deinited");
+            ingenicoTransitTcpServerAccess.deinit();
+            ifsfDevProxyTcpServerAccess.deinit();
+            ifsfTcpServerAccess.deinit();
+
+            initialized = false;
+            appLogger.info("IOGeneral deinited");
+        }
     }
 
 }

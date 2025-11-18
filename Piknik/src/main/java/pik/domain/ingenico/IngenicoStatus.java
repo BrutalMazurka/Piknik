@@ -3,178 +3,82 @@ package pik.domain.ingenico;
 import java.util.Objects;
 
 /**
- * Ingenico Card Reader status information
+ * Ingenico Card Reader status information (IMMUTABLE)
  * Aggregates state from IngenicoReaderDevice, IngenicoIfsfApp, and IngenicoTransitApp
+ *
+ * Thread-safe immutable value object - all fields are final and no setters exist.
+ * Use the builder() method to create new instances with modified values.
  *
  * @author Martin Sustik <sustik@herman.cz>
  * @since 18/11/2025
  */
-public class IngenicoStatus {
-    // Initialization state
-    private EReaderInitState initState;
-    private boolean initialized;
+public record IngenicoStatus(
+        // Initialization state
+        EReaderInitState initState,
+        boolean initialized,
 
-    // IFSF Protocol (EMV/Payment) status
-    private boolean ifsfConnected;
-    private boolean ifsfAppAlive;
-    private String terminalId;
+        // IFSF Protocol (EMV/Payment) status
+        boolean ifsfConnected,
+        boolean ifsfAppAlive,
+        String terminalId,
 
-    // Transit Protocol (Public transport cards) status
-    private boolean transitConnected;
-    private boolean transitAppAlive;
-    private int transitTerminalStatusCode;
-    private String transitTerminalStatus;
+        // Transit Protocol (Public transport cards) status
+        boolean transitConnected,
+        boolean transitAppAlive,
+        int transitTerminalStatusCode,
+        String transitTerminalStatus,
 
-    // SAM module status
-    private boolean samDukDetected;
-    private String samDukStatus;
+        // SAM module status
+        boolean samDukDetected,
+        String samDukStatus,
 
-    // General status
-    private boolean error;
-    private String errorMessage;
-    private long lastUpdate;
-    private boolean dummyMode;
+        // General status
+        boolean error,
+        String errorMessage,
+        long lastUpdate,
+        boolean dummyMode
+) {
+    /**
+     * Validation in compact constructor
+     */
+    public IngenicoStatus {
+        Objects.requireNonNull(initState, "initState cannot be null");
+        // Allow null for optional string fields (terminalId, transitTerminalStatus, samDukStatus, errorMessage)
+    }
 
+    /**
+     * Default constructor for initial state
+     */
     public IngenicoStatus() {
-        this.lastUpdate = System.currentTimeMillis();
-        this.initState = EReaderInitState.STARTING;
-    }
-
-    public IngenicoStatus(IngenicoStatus other) {
-        this.initState = other.initState;
-        this.initialized = other.initialized;
-        this.ifsfConnected = other.ifsfConnected;
-        this.ifsfAppAlive = other.ifsfAppAlive;
-        this.terminalId = other.terminalId;
-        this.transitConnected = other.transitConnected;
-        this.transitAppAlive = other.transitAppAlive;
-        this.transitTerminalStatusCode = other.transitTerminalStatusCode;
-        this.transitTerminalStatus = other.transitTerminalStatus;
-        this.samDukDetected = other.samDukDetected;
-        this.samDukStatus = other.samDukStatus;
-        this.error = other.error;
-        this.errorMessage = other.errorMessage;
-        this.lastUpdate = other.lastUpdate;
-        this.dummyMode = other.dummyMode;
-    }
-
-    // Initialization state
-    public EReaderInitState getInitState() {
-        return initState;
-    }
-    public void setInitState(EReaderInitState initState) {
-        this.initState = initState;
-    }
-
-    public boolean isInitialized() {
-        return initialized;
-    }
-    public void setInitialized(boolean initialized) {
-        this.initialized = initialized;
-    }
-
-    // IFSF status
-    public boolean isIfsfConnected() {
-        return ifsfConnected;
-    }
-    public void setIfsfConnected(boolean ifsfConnected) {
-        this.ifsfConnected = ifsfConnected;
-    }
-
-    public boolean isIfsfAppAlive() {
-        return ifsfAppAlive;
-    }
-    public void setIfsfAppAlive(boolean ifsfAppAlive) {
-        this.ifsfAppAlive = ifsfAppAlive;
-    }
-
-    public String getTerminalId() {
-        return terminalId;
-    }
-    public void setTerminalId(String terminalId) {
-        this.terminalId = terminalId;
-    }
-
-    // Transit status
-    public boolean isTransitConnected() {
-        return transitConnected;
-    }
-    public void setTransitConnected(boolean transitConnected) {
-        this.transitConnected = transitConnected;
-    }
-
-    public boolean isTransitAppAlive() {
-        return transitAppAlive;
-    }
-    public void setTransitAppAlive(boolean transitAppAlive) {
-        this.transitAppAlive = transitAppAlive;
-    }
-
-    public int getTransitTerminalStatusCode() {
-        return transitTerminalStatusCode;
-    }
-    public void setTransitTerminalStatusCode(int transitTerminalStatusCode) {
-        this.transitTerminalStatusCode = transitTerminalStatusCode;
-    }
-
-    public String getTransitTerminalStatus() {
-        return transitTerminalStatus;
-    }
-    public void setTransitTerminalStatus(String transitTerminalStatus) {
-        this.transitTerminalStatus = transitTerminalStatus;
-    }
-
-    // SAM status
-    public boolean isSamDukDetected() {
-        return samDukDetected;
-    }
-    public void setSamDukDetected(boolean samDukDetected) {
-        this.samDukDetected = samDukDetected;
-    }
-
-    public String getSamDukStatus() {
-        return samDukStatus;
-    }
-    public void setSamDukStatus(String samDukStatus) {
-        this.samDukStatus = samDukStatus;
-    }
-
-    // General status
-    public boolean isError() {
-        return error;
-    }
-    public void setError(boolean error) {
-        this.error = error;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-    public void setErrorMessage(String errorMessage) {
-        this.errorMessage = errorMessage;
-    }
-
-    public long getLastUpdate() {
-        return lastUpdate;
-    }
-    public void setLastUpdate(long lastUpdate) {
-        this.lastUpdate = lastUpdate;
-    }
-
-    public boolean isDummyMode() {
-        return dummyMode;
-    }
-    public void setDummyMode(boolean dummyMode) {
-        this.dummyMode = dummyMode;
+        this(
+                EReaderInitState.STARTING,
+                false,
+                false,
+                false,
+                null,
+                false,
+                false,
+                0,
+                null,
+                false,
+                null,
+                false,
+                null,
+                System.currentTimeMillis(),
+                false
+        );
     }
 
     /**
      * Check if reader is fully operational
+     * A reader is operational when it's initialized, both protocols are connected and alive,
+     * SAM DUK is detected, and there are no errors.
      */
     public boolean isOperational() {
         return initialized &&
                ifsfConnected && ifsfAppAlive &&
                transitConnected && transitAppAlive &&
+               samDukDetected &&  // SAM DUK must be detected for full operation
                !error;
     }
 
@@ -193,38 +97,161 @@ public class IngenicoStatus {
         return error || (!initialized && !dummyMode);
     }
 
+    /**
+     * Create a builder pre-populated with this instance's values
+     */
+    public Builder toBuilder() {
+        return new Builder(this);
+    }
+
+    /**
+     * Create a new empty builder
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder for creating new IngenicoStatus instances
+     */
+    public static class Builder {
+        private EReaderInitState initState = EReaderInitState.STARTING;
+        private boolean initialized = false;
+        private boolean ifsfConnected = false;
+        private boolean ifsfAppAlive = false;
+        private String terminalId = null;
+        private boolean transitConnected = false;
+        private boolean transitAppAlive = false;
+        private int transitTerminalStatusCode = 0;
+        private String transitTerminalStatus = null;
+        private boolean samDukDetected = false;
+        private String samDukStatus = null;
+        private boolean error = false;
+        private String errorMessage = null;
+        private long lastUpdate = System.currentTimeMillis();
+        private boolean dummyMode = false;
+
+        public Builder() {
+        }
+
+        public Builder(IngenicoStatus status) {
+            this.initState = status.initState;
+            this.initialized = status.initialized;
+            this.ifsfConnected = status.ifsfConnected;
+            this.ifsfAppAlive = status.ifsfAppAlive;
+            this.terminalId = status.terminalId;
+            this.transitConnected = status.transitConnected;
+            this.transitAppAlive = status.transitAppAlive;
+            this.transitTerminalStatusCode = status.transitTerminalStatusCode;
+            this.transitTerminalStatus = status.transitTerminalStatus;
+            this.samDukDetected = status.samDukDetected;
+            this.samDukStatus = status.samDukStatus;
+            this.error = status.error;
+            this.errorMessage = status.errorMessage;
+            this.lastUpdate = status.lastUpdate;
+            this.dummyMode = status.dummyMode;
+        }
+
+        public Builder initState(EReaderInitState initState) {
+            this.initState = initState;
+            return this;
+        }
+
+        public Builder initialized(boolean initialized) {
+            this.initialized = initialized;
+            return this;
+        }
+
+        public Builder ifsfConnected(boolean ifsfConnected) {
+            this.ifsfConnected = ifsfConnected;
+            return this;
+        }
+
+        public Builder ifsfAppAlive(boolean ifsfAppAlive) {
+            this.ifsfAppAlive = ifsfAppAlive;
+            return this;
+        }
+
+        public Builder terminalId(String terminalId) {
+            this.terminalId = terminalId;
+            return this;
+        }
+
+        public Builder transitConnected(boolean transitConnected) {
+            this.transitConnected = transitConnected;
+            return this;
+        }
+
+        public Builder transitAppAlive(boolean transitAppAlive) {
+            this.transitAppAlive = transitAppAlive;
+            return this;
+        }
+
+        public Builder transitTerminalStatusCode(int transitTerminalStatusCode) {
+            this.transitTerminalStatusCode = transitTerminalStatusCode;
+            return this;
+        }
+
+        public Builder transitTerminalStatus(String transitTerminalStatus) {
+            this.transitTerminalStatus = transitTerminalStatus;
+            return this;
+        }
+
+        public Builder samDukDetected(boolean samDukDetected) {
+            this.samDukDetected = samDukDetected;
+            return this;
+        }
+
+        public Builder samDukStatus(String samDukStatus) {
+            this.samDukStatus = samDukStatus;
+            return this;
+        }
+
+        public Builder error(boolean error) {
+            this.error = error;
+            return this;
+        }
+
+        public Builder errorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+            return this;
+        }
+
+        public Builder lastUpdate(long lastUpdate) {
+            this.lastUpdate = lastUpdate;
+            return this;
+        }
+
+        public Builder dummyMode(boolean dummyMode) {
+            this.dummyMode = dummyMode;
+            return this;
+        }
+
+        public IngenicoStatus build() {
+            return new IngenicoStatus(
+                    initState,
+                    initialized,
+                    ifsfConnected,
+                    ifsfAppAlive,
+                    terminalId,
+                    transitConnected,
+                    transitAppAlive,
+                    transitTerminalStatusCode,
+                    transitTerminalStatus,
+                    samDukDetected,
+                    samDukStatus,
+                    error,
+                    errorMessage,
+                    lastUpdate,
+                    dummyMode
+            );
+        }
+    }
+
     @Override
     public String toString() {
         return String.format(
             "IngenicoStatus{initState=%s, initialized=%s, ifsfConn=%s, ifsfAlive=%s, transitConn=%s, transitAlive=%s, samDuk=%s, error=%s, dummy=%s}",
             initState, initialized, ifsfConnected, ifsfAppAlive, transitConnected, transitAppAlive, samDukDetected, error, dummyMode);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        IngenicoStatus that = (IngenicoStatus) o;
-        return initialized == that.initialized &&
-                ifsfConnected == that.ifsfConnected &&
-                ifsfAppAlive == that.ifsfAppAlive &&
-                transitConnected == that.transitConnected &&
-                transitAppAlive == that.transitAppAlive &&
-                transitTerminalStatusCode == that.transitTerminalStatusCode &&
-                samDukDetected == that.samDukDetected &&
-                error == that.error &&
-                dummyMode == that.dummyMode &&
-                initState == that.initState &&
-                Objects.equals(terminalId, that.terminalId) &&
-                Objects.equals(transitTerminalStatus, that.transitTerminalStatus) &&
-                Objects.equals(samDukStatus, that.samDukStatus) &&
-                Objects.equals(errorMessage, that.errorMessage);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(initState, initialized, ifsfConnected, ifsfAppAlive, terminalId,
-                transitConnected, transitAppAlive, transitTerminalStatusCode, transitTerminalStatus,
-                samDukDetected, samDukStatus, error, errorMessage, dummyMode);
     }
 }
