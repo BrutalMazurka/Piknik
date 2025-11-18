@@ -1,6 +1,8 @@
 package pik;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.Injector;
+import com.google.inject.Provides;
 import epis5.duk.bck.core.sam.SamDuk;
 import epis5.duk.bck.core.sam.SamType;
 import epis5.ingenico.transit.IIngenicoTransitApp;
@@ -16,6 +18,9 @@ import pik.domain.ingenico.ifsf.IngenicoIfsfApp;
 import pik.domain.ingenico.tap.ICardTapping;
 import pik.domain.ingenico.tap.IngenicoCardTappingState;
 import pik.domain.ingenico.transit.IngenicoTransitApp;
+import pik.domain.io.IOGeneral;
+
+import java.lang.reflect.Constructor;
 
 /**
  * @author Martin Sustik <sustik@herman.cz>
@@ -30,6 +35,9 @@ public class GuiceModule extends AbstractModule {
 
     @Override
     protected void configure() {
+        // Bind the logger factory so it can be injected
+        bind(ILoggerFactory.class).toInstance(loggerFactory);
+
         //********************************
         //********** Ingenico ************
         //********************************
@@ -52,6 +60,20 @@ public class GuiceModule extends AbstractModule {
         IngenicoCardTappingState ingenicoCardTappingState = new IngenicoCardTappingState();
         bind(ICardTapping.class).toInstance(ingenicoCardTappingState);
         bind(IngenicoCardTappingState.class).toInstance(ingenicoCardTappingState);
+    }
+
+    /**
+     * Provides IOGeneral singleton using reflection to access private constructor
+     */
+    @Provides
+    public IOGeneral provideIOGeneral(Injector injector) {
+        try {
+            Constructor<IOGeneral> constructor = IOGeneral.class.getDeclaredConstructor(Injector.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(injector);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create IOGeneral instance", e);
+        }
     }
 
 }

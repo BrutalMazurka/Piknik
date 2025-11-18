@@ -42,7 +42,6 @@ public class Piknik {
             logger.debug("Server: {}", serverConf);
 
             Injector injector = Guice.createInjector(new GuiceModule(loggerFactory));
-            ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
 
             // Create and start integrated application
             IntegratedController app = new IntegratedController(
