@@ -40,6 +40,9 @@ public class IngenicoController {
             get("/status", this::getStatus);
             get("/health", this::healthCheck);
             get("/info", this::getInfo);
+            get("/config", this::getConfig);
+            post("/test", this::testReader);
+            get("/diagnostics", this::getDiagnostics);
         });
 
         path("/api/ingenico/events", () -> {
@@ -151,6 +154,89 @@ public class IngenicoController {
     }
 
     /**
+     * Get reader configuration
+     */
+    private void getConfig(Context ctx) {
+        try {
+            IngenicoStatus status = ingenicoService.getStatus();
+
+            ConfigResponse config = new ConfigResponse(
+                    ingenicoService.isDummyMode() ? "NONE" : "NETWORK",
+                    status.dummyMode(),
+                    status.ifsfConnected(),
+                    status.transitConnected(),
+                    status.terminalId()
+            );
+
+            ctx.json(ApiResponse.success(config));
+        } catch (Exception e) {
+            logger.error("Error getting Ingenico configuration", e);
+            ctx.status(500).json(ApiResponse.error("Failed to get configuration: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Test reader connectivity and diagnostics
+     */
+    private void testReader(Context ctx) {
+        try {
+            IngenicoStatus status = ingenicoService.getStatus();
+
+            // Build test results
+            TestResult testResult = new TestResult(
+                    ingenicoService.isReady(),
+                    status.initialized(),
+                    status.ifsfConnected() && status.ifsfAppAlive(),
+                    status.transitConnected() && status.transitAppAlive(),
+                    status.samDukDetected(),
+                    status.dummyMode() ? "Dummy mode - no physical reader" :
+                        (status.isOperational() ? "All systems operational" : status.errorMessage())
+            );
+
+            if (testResult.success()) {
+                ctx.json(ApiResponse.success("Reader test passed", testResult));
+            } else {
+                ctx.status(503).json(ApiResponse.error("Reader test failed", testResult));
+            }
+        } catch (Exception e) {
+            logger.error("Error testing Ingenico reader", e);
+            ctx.status(500).json(ApiResponse.error("Failed to test reader: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get detailed diagnostics information
+     */
+    private void getDiagnostics(Context ctx) {
+        try {
+            IngenicoStatus status = ingenicoService.getStatus();
+
+            DiagnosticsResponse diagnostics = new DiagnosticsResponse(
+                    status.initState().name(),
+                    status.initState().getDescription(),
+                    status.initialized(),
+                    status.ifsfConnected(),
+                    status.ifsfAppAlive(),
+                    status.transitConnected(),
+                    status.transitAppAlive(),
+                    status.transitTerminalStatusCode(),
+                    status.transitTerminalStatus(),
+                    status.samDukDetected(),
+                    status.samDukStatus(),
+                    status.error(),
+                    status.errorMessage(),
+                    status.dummyMode(),
+                    status.lastUpdate()
+            );
+
+            ctx.json(ApiResponse.success(diagnostics));
+        } catch (Exception e) {
+            logger.error("Error getting Ingenico diagnostics", e);
+            ctx.status(500).json(ApiResponse.error("Failed to get diagnostics: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Health check response DTO
      */
     public record HealthCheckResponse(
@@ -160,6 +246,53 @@ public class IngenicoController {
             boolean noErrors,
             boolean noWarnings,
             String message
+    ) {
+    }
+
+    /**
+     * Configuration response DTO
+     */
+    public record ConfigResponse(
+            String connectionType,
+            boolean dummyMode,
+            boolean ifsfConnected,
+            boolean transitConnected,
+            String terminalId
+    ) {
+    }
+
+    /**
+     * Test result DTO
+     */
+    public record TestResult(
+            boolean success,
+            boolean initialized,
+            boolean ifsfOperational,
+            boolean transitOperational,
+            boolean samDetected,
+            String message
+    ) {
+    }
+
+    /**
+     * Diagnostics response DTO
+     */
+    public record DiagnosticsResponse(
+            String initState,
+            String initStateDescription,
+            boolean initialized,
+            boolean ifsfConnected,
+            boolean ifsfAppAlive,
+            boolean transitConnected,
+            boolean transitAppAlive,
+            int transitTerminalStatusCode,
+            String transitTerminalStatus,
+            boolean samDukDetected,
+            String samDukStatus,
+            boolean error,
+            String errorMessage,
+            boolean dummyMode,
+            long lastUpdate
     ) {
     }
 }

@@ -13,6 +13,7 @@ import epis5.ingenicoifsf.proxy.IfsfDeviceOutputRegister;
 import jCommons.logging.ILoggerFactory;
 import jCommons.utils.ByteUtils;
 import pik.common.ELogger;
+import pik.dal.IngenicoConfig;
 import pik.domain.ingenico.IngenicoReaderDevice;
 import pik.domain.ingenico.ifsf.IngenicoIfsfApp;
 import pik.domain.ingenico.tap.ICardTapping;
@@ -28,9 +29,11 @@ import java.lang.reflect.Constructor;
  */
 public class GuiceModule extends AbstractModule {
     private final ILoggerFactory loggerFactory;
+    private final IngenicoConfig ingenicoConfig;
 
-    public GuiceModule(ILoggerFactory loggerFactory) {
+    public GuiceModule(ILoggerFactory loggerFactory, IngenicoConfig ingenicoConfig) {
         this.loggerFactory = loggerFactory;
+        this.ingenicoConfig = ingenicoConfig;
     }
 
     @Override
@@ -64,13 +67,14 @@ public class GuiceModule extends AbstractModule {
 
     /**
      * Provides IOGeneral singleton using reflection to access private constructor
+     * Passes IngenicoConfig to avoid IOGeneral reading directly from AppConfig
      */
     @Provides
     public IOGeneral provideIOGeneral(Injector injector) {
         try {
-            Constructor<IOGeneral> constructor = IOGeneral.class.getDeclaredConstructor(Injector.class);
+            Constructor<IOGeneral> constructor = IOGeneral.class.getDeclaredConstructor(Injector.class, IngenicoConfig.class);
             constructor.setAccessible(true);
-            return constructor.newInstance(injector);
+            return constructor.newInstance(injector, ingenicoConfig);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create IOGeneral instance", e);
         }
