@@ -52,6 +52,9 @@ public class IngenicoService implements IIngenicoService {
                 return;
             }
 
+            // NETWORK mode - initialize with real hardware
+            logger.info("Initializing Ingenico reader in NETWORK mode (reader IP: {})", config.readerIpAddress());
+
             // Subscribe to device events for status updates
             subscribeToDeviceEvents();
 
@@ -59,11 +62,19 @@ public class IngenicoService implements IIngenicoService {
             updateStatusFromDevice();
 
             initialized = true;
-            logger.info("Ingenico reader service initialized successfully");
+            logger.info("Ingenico reader service initialized successfully in NETWORK mode");
 
         } catch (Exception e) {
-            logger.error("Error during Ingenico service initialization", e);
-            initializeDummyMode();
+            // Log the actual error - don't silently fall back to dummy mode
+            logger.error("CRITICAL: Ingenico service initialization failed in NETWORK mode", e);
+            logger.error("  Reader IP: {}", config.readerIpAddress());
+            logger.error("  IFSF Port: {}", config.ifsfTcpServerPort());
+            logger.error("  Transit Port: {}", config.transitTcpServerPort());
+            logger.error("  Change 'ingenico.connection.type=NONE' in app.properties to use dummy mode");
+
+            // Re-throw the exception instead of silently falling back
+            throw new RuntimeException("Failed to initialize Ingenico reader in NETWORK mode. " +
+                    "Either fix the connection or set ingenico.connection.type=NONE for dummy mode.", e);
         } finally {
             serviceLock.unlock();
         }
