@@ -135,13 +135,13 @@ public class ConfigurationService {
      * Load Ingenico card reader configuration
      */
     private IngenicoConfig loadIngenicoConfiguration() throws ConfigurationException {
-        String connectionTypeStr = loader.getString("ingenico.connection.type", "NETWORK");
+        String connectionTypeStr = loader.getString("ingenico.connection.type", "NONE");
         EReaderType connectionType;
         try {
             connectionType = EReaderType.valueOf(connectionTypeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid reader connection type '{}', defaulting to NETWORK", connectionTypeStr);
-            connectionType = EReaderType.NETWORK;
+            logger.warn("Invalid reader connection type '{}', defaulting to NONE (Dummy)", connectionTypeStr);
+            connectionType = EReaderType.NONE;
         }
 
         IngenicoConfig config;
