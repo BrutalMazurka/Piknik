@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.EPrinterType;
+import pik.common.EReaderType;
 import pik.common.TM_T20IIIConstants;
 import pik.common.ServerConstants;
 import pik.domain.StartupMode;
@@ -20,6 +21,7 @@ public class ConfigurationService {
     private PrinterConfig printerConfig;
     private VFDConfig vfdConfig;
     private ServerConfig serverConfig;
+    private IngenicoConfig ingenicoConfig;
 
     public ConfigurationService() throws ConfigurationException {
         this(new ConfigurationLoader());
@@ -30,6 +32,7 @@ public class ConfigurationService {
         this.printerConfig = loadPrinterConfiguration();
         this.vfdConfig = loadVFDConfiguration();
         this.serverConfig = loadServerConfiguration();
+        this.ingenicoConfig = loadIngenicoConfiguration();
     }
 
     /**
@@ -129,6 +132,45 @@ public class ConfigurationService {
     }
 
     /**
+     * Load Ingenico card reader configuration
+     */
+    private IngenicoConfig loadIngenicoConfiguration() throws ConfigurationException {
+        String connectionTypeStr = loader.getString("ingenico.connection.type", "NETWORK");
+        EReaderType connectionType;
+        try {
+            connectionType = EReaderType.valueOf(connectionTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid reader connection type '{}', defaulting to NETWORK", connectionTypeStr);
+            connectionType = EReaderType.NETWORK;
+        }
+
+        IngenicoConfig config;
+
+        switch (connectionType) {
+            case NETWORK:
+                String readerIp = loader.getString("IngenicoReaderIPAddress", "192.168.40.10");
+                int ifsfPort = loader.getInt("IfsfTcpServerPort", 12710);
+                int ifsfDevProxyPort = loader.getInt("IfsfDevProxyTcpServerPort", 20007);
+                int transitPort = loader.getInt("IngenicoTransitTcpServerPort", 63855);
+                config = IngenicoConfig.network(readerIp, ifsfPort, ifsfDevProxyPort, transitPort);
+                logger.info("Configured NETWORK Ingenico reader: readerIP={}, ifsfPort={}, transitPort={}",
+                        readerIp, ifsfPort, transitPort);
+                break;
+
+            case NONE:
+                config = IngenicoConfig.dummy();
+                logger.info("Configured DUMMY Ingenico reader");
+                break;
+
+            default:
+                throw new ConfigurationException("Unsupported reader connection type: " + connectionType);
+        }
+
+        config.validate();
+        return config;
+    }
+
+    /**
      * Get printer configuration
      */
     public PrinterConfig getPrinterConfiguration() {
@@ -150,6 +192,13 @@ public class ConfigurationService {
     }
 
     /**
+     * Get Ingenico reader configuration
+     */
+    public IngenicoConfig getIngenicoConfiguration() {
+        return ingenicoConfig;
+    }
+
+    /**
      * Reload configuration
      */
     public void reload() throws ConfigurationException {
@@ -157,10 +206,12 @@ public class ConfigurationService {
         this.printerConfig = loadPrinterConfiguration();
         this.vfdConfig = loadVFDConfiguration();
         this.serverConfig = loadServerConfiguration();
+        this.ingenicoConfig = loadIngenicoConfiguration();
 
         logger.info("Configuration reloaded successfully");
         logger.info("Printer: {}", printerConfig);
         logger.info("VFD: {}", vfdConfig);
         logger.info("Server: {}", serverConfig);
+        logger.info("Ingenico: {}", ingenicoConfig);
     }
 }
