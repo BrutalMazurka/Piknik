@@ -18,9 +18,13 @@ import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.ELogger;
+import pik.dal.IngenicoConfig;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
+import pik.domain.ingenico.IngenicoController;
+import pik.domain.ingenico.IngenicoReaderDevice;
+import pik.domain.ingenico.IngenicoService;
 import pik.domain.io.IOGeneral;
 import pik.domain.thprinter.PrinterController;
 import pik.domain.thprinter.PrinterService;
@@ -63,9 +67,13 @@ public class IntegratedController {
     // VFD components
     private final VFDService vfdService;
 
+    // Ingenico components
+    private final IngenicoService ingenicoService;
+
     private final ScheduledExecutorService executorService;
     private final ConcurrentHashMap<String, SSEClient> printerSSEClients = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, SSEClient> vfdSSEClients = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, SSEClient> ingenicoSSEClients = new ConcurrentHashMap<>();
     private volatile boolean shutdownHookRegistered = false;
 
     // Ingenico Card Reader
@@ -87,9 +95,10 @@ public class IntegratedController {
      * Constructor accepting configurations (no circular dependency)
      * @param printerConfig Printer configuration
      * @param vfdConfig VFD configuration
+     * @param ingenicoConfig Ingenico reader configuration
      * @param serverConfig Server configuration
      */
-    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, ServerConfig serverConfig, Injector injector) {
+    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, IngenicoConfig ingenicoConfig, ServerConfig serverConfig, Injector injector) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
 
         this.serverConfig = serverConfig;
@@ -102,6 +111,7 @@ public class IntegratedController {
         // Initialize services
         this.printerService = new PrinterService(printerConfig);
         this.vfdService = new VFDService(vfdConfig);
+        this.ingenicoService = new IngenicoService(ingenicoConfig, injector.getInstance(IngenicoReaderDevice.class));
         this.printerStatusMonitor = new StatusMonitorService(
                 printerService,
                 this::broadcastToPrinterSSE,
@@ -150,6 +160,16 @@ public class IntegratedController {
             String sseMessage = "event: status\ndata: " + statusJson + "\n\n";
             broadcastToVFDSSE(sseMessage);
             logger.debug("Broadcast VFD status update to VFD SSE clients");
+        });
+
+        // Ingenico status observer for SSE - broadcast to Ingenico clients only
+        ingenicoService.addStatusListener(event -> {
+            // ⭐ Use compactGson instead of gson !
+            String statusJson = compactGson.toJson(event.getStatus());
+            // Send as properly formatted SSE message with event type
+            String sseMessage = "event: status\ndata: " + statusJson + "\n\n";
+            broadcastToIngenicoSSE(sseMessage);
+            logger.debug("Broadcast Ingenico status update to Ingenico SSE clients");
         });
     }
 
@@ -223,6 +243,11 @@ public class IntegratedController {
         results.add(vfdResult);
         initializationResults.put("vfd", vfdResult);
 
+        // Initialize Ingenico service
+        ServiceInitializationResult ingenicoResult = initializeIngenicoService();
+        results.add(ingenicoResult);
+        initializationResults.put("ingenico", ingenicoResult);
+
         return results;
     }
 
@@ -285,6 +310,37 @@ public class IntegratedController {
             logger.debug("VFD initialization error details", e);
 
             return ServiceInitializationResult.failure("VFD", e, duration);
+        }
+    }
+
+    /**
+     * Initialize Ingenico service
+     * @return Initialization result
+     */
+    private ServiceInitializationResult initializeIngenicoService() {
+        logger.info("Initializing Ingenico reader service...");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            ingenicoService.initialize();
+            long duration = System.currentTimeMillis() - startTime;
+
+            if (ingenicoService.isDummyMode()) {
+                logger.warn("⚠ Ingenico service initialized in DUMMY mode in {}ms (no physical hardware)", duration);
+                return ServiceInitializationResult.success("Ingenico (Dummy Mode)", duration);
+            } else {
+                logger.info("✓ Ingenico service initialized successfully in {}ms", duration);
+                return ServiceInitializationResult.success("Ingenico", duration);
+            }
+
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+
+            logger.error("✗ Ingenico service initialization failed after {}ms: {}",
+                    duration, e.getMessage());
+            logger.debug("Ingenico initialization error details", e);
+
+            return ServiceInitializationResult.failure("Ingenico", e, duration);
         }
     }
 
@@ -461,6 +517,42 @@ public class IntegratedController {
     }
 
     /**
+     * Broadcast message to Ingenico SSE clients only
+     */
+    private void broadcastToIngenicoSSE(String message) {
+        int clientCount = ingenicoSSEClients.size();
+        if (clientCount == 0) {
+            return;
+        }
+
+        logger.debug("Broadcasting to {} Ingenico SSE clients", clientCount);
+
+        int successCount = 0;
+        int failureCount = 0;
+
+        for (var entry : ingenicoSSEClients.entrySet()) {
+            SSEClient client = entry.getValue();
+            if (client.sendMessage(message)) {
+                successCount++;
+            } else {
+                failureCount++;
+                logger.debug("Failed to send to Ingenico client: {}", client);
+            }
+        }
+
+        if (failureCount > 0) {
+            logger.debug("Ingenico broadcast complete: {} successful, {} failed", successCount, failureCount);
+        }
+    }
+
+    /**
+     * Get Ingenico SSE clients map
+     */
+    public ConcurrentHashMap<String, SSEClient> getIngenicoSSEClients() {
+        return ingenicoSSEClients;
+    }
+
+    /**
      * Send heartbeat to all SSE clients to keep connections alive
      */
     private void sendHeartbeatToAllClients() {
@@ -487,18 +579,31 @@ public class IntegratedController {
                 }
             }
         }
+
+        // Ingenico clients
+        if (!ingenicoSSEClients.isEmpty()) {
+            logger.trace("Sending heartbeat to {} Ingenico SSE clients", ingenicoSSEClients.size());
+            for (SSEClient client : ingenicoSSEClients.values()) {
+                if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                    if (!client.sendHeartbeat()) {
+                        logger.debug("Heartbeat failed for Ingenico client: {}", client);
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Clean up stale SSE clients
      */
     private void cleanupStaleSSEClients() {
-        int totalClients = printerSSEClients.size() + vfdSSEClients.size();
+        int totalClients = printerSSEClients.size() + vfdSSEClients.size() + ingenicoSSEClients.size();
         if (totalClients == 0) {
             return;
         }
 
-        logger.debug("Running SSE client cleanup check ({} printer, {} VFD clients)", printerSSEClients.size(), vfdSSEClients.size());
+        logger.debug("Running SSE client cleanup check ({} printer, {} VFD, {} Ingenico clients)",
+                printerSSEClients.size(), vfdSSEClients.size(), ingenicoSSEClients.size());
 
         int removedCount = 0;
 
@@ -522,6 +627,18 @@ public class IntegratedController {
                 logger.info("Removing {} VFD SSE client: {}", reason, client.getClientId());
                 client.close();
                 vfdSSEClients.remove(entry.getKey());
+                removedCount++;
+            }
+        }
+
+        // Clean Ingenico clients
+        for (var entry : ingenicoSSEClients.entrySet()) {
+            SSEClient client = entry.getValue();
+            if (!client.isActive() || client.isStale(pik.common.ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+                String reason = !client.isActive() ? "inactive" : "stale";
+                logger.info("Removing {} Ingenico SSE client: {}", reason, client.getClientId());
+                client.close();
+                ingenicoSSEClients.remove(entry.getKey());
                 removedCount++;
             }
         }
@@ -550,6 +667,17 @@ public class IntegratedController {
         if (client != null) {
             client.close();
             logger.info("VFD SSE client unregistered: {} (total VFD clients: {})", clientId, vfdSSEClients.size());
+        }
+    }
+
+    /**
+     * Unregister an Ingenico SSE client
+     */
+    public void unregisterIngenicoSSEClient(String clientId) {
+        SSEClient client = ingenicoSSEClients.remove(clientId);
+        if (client != null) {
+            client.close();
+            logger.info("Ingenico SSE client unregistered: {} (total Ingenico clients: {})", clientId, ingenicoSSEClients.size());
         }
     }
 
@@ -608,6 +736,9 @@ public class IntegratedController {
 
                 VFDController vfdController = new VFDController(vfdService, this);
                 vfdController.registerRoutes();
+
+                IngenicoController ingenicoController = new IngenicoController(ingenicoService, this);
+                ingenicoController.registerRoutes();
             });
         });
 
@@ -681,7 +812,8 @@ public class IntegratedController {
                 sseHeartbeatTask.cancel(false);
             }
 
-            logger.info("Closing {} printer SSE clients, {} VFD SSE clients", printerSSEClients.size(), vfdSSEClients.size());
+            logger.info("Closing {} printer SSE clients, {} VFD SSE clients, {} Ingenico SSE clients",
+                    printerSSEClients.size(), vfdSSEClients.size(), ingenicoSSEClients.size());
 
             ioGeneral.deinit();
 
@@ -694,6 +826,11 @@ public class IntegratedController {
                 client.close();
             }
             vfdSSEClients.clear();
+
+            for (SSEClient client : ingenicoSSEClients.values()) {
+                client.close();
+            }
+            ingenicoSSEClients.clear();
 
             if (javalinApp != null) {
                 javalinApp.stop();
@@ -718,6 +855,7 @@ public class IntegratedController {
 
             printerService.close();
             vfdService.close();
+            ingenicoService.close();
             logger.info("Application shut down successfully");
         } catch (Exception e) {
             logger.error("Error during shutdown", e);
