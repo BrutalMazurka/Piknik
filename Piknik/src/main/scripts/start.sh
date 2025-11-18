@@ -24,7 +24,7 @@ echo "Application JAR: $APP_JAR"
 # JRE binaries location
 JAVA_BIN=$SCRIPT_DIR/jre/bin/java
 
-# Build classpath - INCLUDE CONFIG DIRECTORY FOR LOGBACK
+# Build classpath - INCLUDE CONFIG DIRECTORY FOR LOG4J2
 CLASSPATH="$APP_JAR:config"
 
 # Add all JavaPOS JARs from res/lib/
@@ -55,6 +55,9 @@ fi
 # JavaPOS config location (absolute path)
 JAVAPOS_CONFIG="$SCRIPT_DIR/config/jpos.xml"
 
+# Log4J2 config location (absolute path)
+LOG4J2_CONFIG="$SCRIPT_DIR/config/log4j2.xml"
+
 # Set Java options
 JAVA_OPTS="-Xms256m -Xmx512m"
 # CRITICAL: Pass file path WITHOUT file:// prefix
@@ -62,8 +65,11 @@ JAVA_OPTS="$JAVA_OPTS -Djpos.config.populatorFile=$JAVAPOS_CONFIG"
 # Specify the populator class explicitly
 JAVA_OPTS="$JAVA_OPTS -Djpos.config.populator.class=jpos.config.simple.xml.SimpleXmlRegPopulator"
 JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$JAVAPOS_BIN"
+# Set Log4J2 configuration file location
+JAVA_OPTS="$JAVA_OPTS -Dlog4j2.configurationFile=$LOG4J2_CONFIG"
 
 echo "JavaPOS config: $JAVAPOS_CONFIG"
+echo "Log4J2 config: $LOG4J2_CONFIG"
 echo "HTML resources: $SCRIPT_DIR/res/html"
 echo "Main class: pik.Piknik"
 echo ""
