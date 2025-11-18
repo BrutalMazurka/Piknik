@@ -1,0 +1,246 @@
+================================================================================
+                    ARCHITECTURE VIOLATIONS - QUICK REFERENCE
+================================================================================
+
+VIOLATION SUMMARY
+================================================================================
+
+CRITICAL (5 violations) - Must Fix Before Production
+────────────────────────────────────────────────────────────────────────────
+
+1. REVERSE DEPENDENCY: ConfigurationService imports StartupMode from domain
+   File: /home/user/Piknik/Piknik/src/main/java/pik/dal/ConfigurationService.java:10
+   Import: import pik.domain.StartupMode;
+   Risk: Creates upward dependency from DAL to Domain layer
+   Fix: Move StartupMode to pik.dal package
+
+2. REVERSE DEPENDENCY: ServerConfig imports StartupMode from domain
+   File: /home/user/Piknik/Piknik/src/main/java/pik/dal/ServerConfig.java:3
+   Import: import pik.domain.StartupMode;
+   Impact: Configuration object depends on domain enum
+   Fix: Move StartupMode to pik.dal package
+
+3. CONFIGURATION BYPASS: AppResources uses AppConfig.get() directly
+   File: /home/user/Piknik/Piknik/src/main/java/pik/domain/AppResources.java:44-46,153
+   Code: AppConfig.get("Dir_Root")
+        AppConfig.get("Dir_Home")
+        AppConfig.get("Dir_tmp", "/tmp/")
+        AppConfig.get("I18nDir", "")
+   Risk: Bypasses ConfigurationService, untestable
+   Fix: Create ResourcePathProvider in DAL, inject into domain
+
+4. CONFIGURATION BYPASS: IngenicoReaderDevice reads AppConfig directly
+   File: /home/user/Piknik/Piknik/src/main/java/pik/domain/ingenico/IngenicoReaderDevice.java:23
+   Code: return AppConfig.get(cfgKey, defaultIpStr);
+   Risk: Static initializer blocks configuration injection, untestable
+   Fix: Accept IP address in constructor instead of static init
+
+5. REVERSE DEPENDENCY: EmvPropertyFile uses AppResources from domain
+   File: /home/user/Piknik/Piknik/src/main/java/pik/dal/EmvPropertyFile.java:3,27
+   Import: import pik.domain.AppResources;
+   Usage: filePath = Paths.get(AppResources.getConfigDirPath().toString(), FILE_NAME);
+   Risk: DAL depends on domain layer
+   Fix: DAL should provide path resolution to domain
+
+
+HIGH (2 violations) - Should Fix Soon
+────────────────────────────────────────────────────────────────────────────
+
+6. REFLECTION-BASED WORKAROUND: GuiceModule uses reflection to create IOGeneral
+   File: /home/user/Piknik/Piknik/src/main/java/pik/GuiceModule.java:73-81
+   Issue: Reflection indicates design problem (IOGeneral has private constructor)
+   Symptom: Constructor<IOGeneral> constructor = IOGeneral.class.getDeclaredConstructor(...)
+            constructor.setAccessible(true);
+   Fix: Make IOGeneral constructor package-private, remove reflection
+
+
+MEDIUM (2 violations) - Nice to Fix
+────────────────────────────────────────────────────────────────────────────
+
+7. GOD OBJECT: IntegratedController has 8+ major responsibilities
+   File: /home/user/Piknik/Piknik/src/main/java/pik/domain/IntegratedController.java
+   Size: 922 lines of code
+   Responsibilities:
+   - Service initialization (5 methods)
+   - Startup mode evaluation
+   - Monitoring management
+   - Web server creation
+   - SSE client management (9 methods)
+   - SSE maintenance tasks
+   - Resource management & shutdown
+   - API documentation loading
+   Fix: Decompose into ServiceOrchestrator, WebServerManager, SSEManager
+
+8. CIRCULAR DEPENDENCY RISK: AppResources + EmvPropertyFile
+   AppResources has static AppConfig.get() calls
+   EmvPropertyFile imports AppResources
+   Creates risk of initialization order issues
+   Fix: Move configuration concerns to DAL
+
+
+================================================================================
+                          IMPACT ANALYSIS
+================================================================================
+
+IMPACT ON TESTABILITY
+─────────────────────────────────────────────────────────────────────────────
+✗ Cannot unit test AppResources (static AppConfig access)
+✗ Cannot unit test IngenicoReaderDevice (static initializer)
+✗ Cannot unit test IntegratedController (too many dependencies)
+✗ Cannot mock configuration in tests (AppConfig.get() bypass)
+✗ Cannot test EmvPropertyFile independently (depends on AppResources)
+
+IMPACT ON MAINTAINABILITY
+─────────────────────────────────────────────────────────────────────────────
+✗ Reverse dependencies create circular dependency risk
+✗ Configuration scattered across multiple files
+✗ Hard to trace configuration flow
+✗ Reflection-based initialization is fragile
+✗ IntegratedController too large to understand and modify
+
+IMPACT ON EXTENSIBILITY
+─────────────────────────────────────────────────────────────────────────────
+✗ Cannot add new services easily (IntegratedController must change)
+✗ Cannot swap configuration source without refactoring
+✗ Reflection workaround blocks clean dependency injection patterns
+
+
+================================================================================
+                        DEPENDENCY VIOLATIONS
+================================================================================
+
+EXPECTED DEPENDENCY FLOW (CLEAN ARCHITECTURE)
+─────────────────────────────────────────────────────────────────────────────
+                    Presentation
+                          ↓
+                    Domain Layer
+                          ↓
+                    DAL Layer
+
+NO REVERSE DEPENDENCIES ALLOWED
+NO CIRCULAR DEPENDENCIES ALLOWED
+
+ACTUAL DEPENDENCY FLOW (VIOLATIONS)
+─────────────────────────────────────────────────────────────────────────────
+                    Presentation
+                          ↓
+                    Domain Layer  ←─────┐
+                          ↓             │
+                    DAL Layer ──────────┘  [VIOLATION: DAL imports Domain]
+                          ↓
+                    AppConfig.get()
+                    (Accessed by: AppResources [Line 44-46, 153]
+                                   IngenicoReaderDevice [Line 23])
+
+CIRCULAR CONCERNS:
+AppResources (domain) ← EmvPropertyFile (dal) creates configuration tangle
+
+
+================================================================================
+                      REMEDIATION PRIORITY
+================================================================================
+
+PHASE 1 - CRITICAL (Week 1)
+────────────────────────────
+Priority: HIGHEST
+Impact: Fixes 5 critical violations
+Effort: Medium
+ 
+Steps:
+  1. Move StartupMode enum to pik.dal package
+  2. Update all imports in ConfigurationService, ServerConfig
+  3. Add unit tests for configuration classes
+
+PHASE 2 - CONFIGURATION (Week 2)
+────────────────────────────────
+Priority: HIGH
+Impact: Fixes AppConfig.get() bypasses
+Effort: Medium
+
+Steps:
+  1. Create ResourcePathProvider in DAL
+  2. Inject into domain layer instead of static access
+  3. Remove AppConfig.get() from AppResources
+  4. Remove AppConfig import from IngenicoReaderDevice
+
+PHASE 3 - INITIALIZATION (Week 3)
+────────────────────────────────
+Priority: MEDIUM
+Impact: Removes reflection-based workaround
+Effort: Small
+
+Steps:
+  1. Make IOGeneral constructor package-private
+  2. Remove reflection code from GuiceModule
+  3. Fix IngenicoReaderDevice to accept IP in constructor
+
+PHASE 4 - REFACTORING (Week 4)
+────────────────────────────
+Priority: MEDIUM
+Impact: Improves maintainability and testability
+Effort: Large
+
+Steps:
+  1. Extract ServiceOrchestrator from IntegratedController
+  2. Extract WebServerManager from IntegratedController
+  3. Extract SSEManager from IntegratedController
+  4. Extract ShutdownManager from IntegratedController
+
+
+================================================================================
+                         ESTIMATED EFFORT
+================================================================================
+
+CRITICAL Fixes (Phases 1-3):     2-3 weeks
+MEDIUM Fixes (Phase 4):          1-2 weeks
+Total Remediation Effort:        3-4 weeks
+Risk of Refactoring:            LOW (good test coverage exists)
+
+
+================================================================================
+                       FILES THAT NEED CHANGES
+================================================================================
+
+MOVE (Refactoring):
+  [ ] pik/domain/StartupMode.java → pik/dal/StartupMode.java
+
+MODIFY (Critical):
+  [ ] pik/dal/ConfigurationService.java (fix import)
+  [ ] pik/dal/ServerConfig.java (fix import)
+  [ ] pik/domain/AppResources.java (remove AppConfig.get())
+  [ ] pik/domain/ingenico/IngenicoReaderDevice.java (accept IP in constructor)
+  [ ] pik/dal/EmvPropertyFile.java (remove AppResources dependency)
+
+CREATE (New):
+  [ ] pik/dal/ResourcePathProvider.java (new utility class)
+
+MODIFY (Improvement):
+  [ ] pik/GuiceModule.java (remove reflection)
+  [ ] pik/domain/IOGeneral.java (make constructor package-private)
+
+REFACTOR (Large):
+  [ ] pik/domain/IntegratedController.java (decompose into 4 classes)
+  [ ] pik/domain/ServiceOrchestrator.java (new)
+  [ ] pik/domain/WebServerManager.java (new)
+  [ ] pik/domain/SSEManager.java (new)
+  [ ] pik/domain/ShutdownManager.java (new)
+
+
+================================================================================
+                         POSITIVE FINDINGS
+================================================================================
+
+The following aspects of the architecture are WELL-DESIGNED:
+
+✓ ConfigurationService properly centralizes configuration loading
+✓ Dependency injection with Guice is well-structured
+✓ Main entry point (Piknik.main) implements proper dependency flow
+✓ Services receive configuration via constructor (PrinterService, VFDService, IngenicoService)
+✓ Thread-safe collections used (ConcurrentHashMap, CopyOnWriteArrayList, CopyOnWriteArrayList)
+✓ Good use of observer pattern for status updates
+✓ Existing test coverage (11 test files)
+✓ Clear separation of concerns in individual domain services
+✓ Proper use of records for immutable configuration objects
+
+
+================================================================================
