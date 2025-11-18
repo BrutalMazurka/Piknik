@@ -34,6 +34,10 @@
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
+            <!-- Filter out expected "Socket closed" shutdown messages -->
+            <Filters>
+                <RegexFilter regex=".*Socket closed.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
         </RollingFile>
 
         <RollingFile name="IngenicoTransitProt_RFA" fileName="logs/IngenicoTransit"
@@ -44,6 +48,10 @@
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
+            <!-- Filter out expected "Socket closed" shutdown messages -->
+            <Filters>
+                <RegexFilter regex=".*Socket closed.*" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
         </RollingFile>
 
         <RollingFile name="AuditAudit_RFA" fileName="logs/Audit"
