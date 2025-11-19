@@ -25,7 +25,7 @@ public class IOGeneral {
     private final Object initLock = new Object();
     private volatile boolean initialized = false;
 
-    IOGeneral(Injector injector, IngenicoConfig ingenicoConfig) {
+    public IOGeneral(Injector injector, IngenicoConfig ingenicoConfig) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
         appLogger = loggerFactory.get(ELogger.APP);
 
