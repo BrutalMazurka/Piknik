@@ -86,7 +86,26 @@ public class ConfigurationLoader {
     private Properties loadFromExternalLocations() {
         Properties props = new Properties();
 
-        // Get the directory where the JAR is running from
+        // 1. Check for explicit config file path via system property (for IDE debugging)
+        String explicitConfigPath = System.getProperty("config.file");
+        if (explicitConfigPath != null) {
+            Path configPath = Paths.get(explicitConfigPath);
+            if (Files.exists(configPath) && Files.isRegularFile(configPath)) {
+                try (InputStream input = Files.newInputStream(configPath)) {
+                    props.load(input);
+                    logger.info("Loaded external configuration from system property 'config.file': {}",
+                            configPath.toAbsolutePath());
+                    return props;
+                } catch (IOException e) {
+                    logger.warn("Failed to load external config from system property '{}': {}",
+                            configPath, e.getMessage());
+                }
+            } else {
+                logger.warn("Config file specified by system property does not exist: {}", configPath);
+            }
+        }
+
+        // 2. Get the directory where the JAR is running from
         String jarDir = getJarDirectory();
         logger.debug("Application running from directory: {}", jarDir);
 
