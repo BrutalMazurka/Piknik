@@ -18,8 +18,6 @@ import pik.domain.GoogleEventBus;
  * @since 11/11/2025
  */
 public class IOGeneral {
-    private static IOGeneral instance = null;
-
     private final ILogger appLogger;
     private final IOTcpServerAccess ifsfTcpServerAccess;
     private final IOTcpServerAccess ifsfDevProxyTcpServerAccess;
@@ -27,7 +25,7 @@ public class IOGeneral {
     private final Object initLock = new Object();
     private volatile boolean initialized = false;
 
-    private IOGeneral(Injector injector, IngenicoConfig ingenicoConfig) {
+    IOGeneral(Injector injector, IngenicoConfig ingenicoConfig) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
         appLogger = loggerFactory.get(ELogger.APP);
 
