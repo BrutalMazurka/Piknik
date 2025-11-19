@@ -2,55 +2,66 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Integrated Printer & VFD Controller API</title>
+    <title>Integrated POS Controller API - Printer, VFD & Ingenico Reader</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
         .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
         h1 { color: #333; border-bottom: 3px solid #007acc; padding-bottom: 10px; }
         h2 { color: #007acc; margin-top: 30px; }
+        h3 { color: #555; margin-top: 20px; }
         .endpoint { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007acc; }
         .method { font-weight: bold; color: #007acc; margin-right: 10px; }
+        .method.get { color: #28a745; }
+        .method.post { color: #007bff; }
         .path { font-family: monospace; background: #e8e8e8; padding: 3px 8px; border-radius: 3px; }
         pre { background: #f0f0f0; padding: 15px; border-radius: 5px; overflow-x: auto; }
         .section { margin: 30px 0; }
+        .description { color: #666; margin-top: 5px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>️🕮 Integrated Printer & VFD Controller API ️🕮</h1>
-    <p>Unified REST API for Epson TM-T20III Printer and FV-2030B VFD Display control</p>
+    <h1>🕮 Integrated POS Controller API</h1>
+    <p>Unified REST API for Epson TM-T20III Printer, FV-2030B VFD Display, and Ingenico Card Reader control</p>
 
     <div class="section">
         <h2>🖨️ Printer Endpoints</h2>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/printer/status</span>
-            <p>Get current printer status</p>
+            <span class="method get">GET</span> <span class="path">/api/printer/status</span>
+            <p class="description">Get current printer status including connection state, errors, and warnings</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/printer/health</span>
-            <p>Printer health check</p>
+            <span class="method get">GET</span> <span class="path">/api/printer/health</span>
+            <p class="description">Printer health check - returns HTTP 200 if healthy, 503 if not</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/printer/print</span>
-            <p>Print structured content (JSON)</p>
+            <span class="method post">POST</span> <span class="path">/api/printer/print</span>
+            <p class="description">Print structured content (JSON)</p>
+            <pre>Content-Type: application/json</pre>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/printer/print/text</span>
-            <p>Print plain text</p>
+            <span class="method post">POST</span> <span class="path">/api/printer/print/text</span>
+            <p class="description">Print plain text</p>
+            <pre>Content-Type: text/plain</pre>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/printer/cut</span>
-            <p>Cut paper</p>
+            <span class="method post">POST</span> <span class="path">/api/printer/cut</span>
+            <p class="description">Cut paper</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/printer/test</span>
-            <p>Test print</p>
+            <span class="method post">POST</span> <span class="path">/api/printer/test</span>
+            <p class="description">Print a test page to verify printer functionality</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/printer/events/status</span>
+            <p class="description">Server-Sent Events (SSE) for real-time printer status updates</p>
         </div>
     </div>
 
@@ -58,71 +69,249 @@
         <h2>📟 VFD Display Endpoints</h2>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/vfd/status</span>
-            <p>Get current VFD status</p>
+            <span class="method get">GET</span> <span class="path">/api/vfd/status</span>
+            <p class="description">Get current VFD status including connection state and display content</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/vfd/health</span>
-            <p>VFD health check</p>
+            <span class="method get">GET</span> <span class="path">/api/vfd/health</span>
+            <p class="description">VFD health check - returns HTTP 200 if healthy, 503 if not</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/vfd/display</span>
-            <p>Display text on VFD</p>
+            <span class="method get">GET</span> <span class="path">/api/vfd/info</span>
+            <p class="description">Get VFD device information</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/display</span>
+            <p class="description">Display text on VFD (max 20 characters per line, 2 lines)</p>
             <pre>{"text": "Hello World"}</pre>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/vfd/clear</span>
-            <p>Clear VFD display</p>
+            <span class="method post">POST</span> <span class="path">/api/vfd/clear</span>
+            <p class="description">Clear VFD display</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/vfd/brightness</span>
-            <p>Set brightness (0-100)</p>
+            <span class="method post">POST</span> <span class="path">/api/vfd/brightness</span>
+            <p class="description">Set brightness (0-100)</p>
             <pre>{"brightness": 80}</pre>
         </div>
 
         <div class="endpoint">
-            <span class="method">POST</span> <span class="path">/api/vfd/reconnect</span>
-            <p>Attempt to reconnect to physical display</p>
+            <span class="method post">POST</span> <span class="path">/api/vfd/cursor/position</span>
+            <p class="description">Set cursor position (row: 0-1, column: 0-19)</p>
+            <pre>{"row": 0, "column": 5}</pre>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/cursor/home</span>
+            <p class="description">Move cursor to home position (0,0)</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/cursor/show</span>
+            <p class="description">Show or hide cursor</p>
+            <pre>{"show": true}</pre>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/command</span>
+            <p class="description">Send custom command to VFD (advanced)</p>
+            <pre>{"command": "..."}</pre>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/demo</span>
+            <p class="description">Run a demonstration sequence on the VFD</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/vfd/reconnect</span>
+            <p class="description">Attempt to reconnect to physical display</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/vfd/events/status</span>
+            <p class="description">Server-Sent Events (SSE) for real-time VFD status updates</p>
         </div>
     </div>
 
     <div class="section">
-        <h2>Real-time Monitoring</h2>
+        <h2>💳 Ingenico Card Reader Endpoints</h2>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/events/status</span>
-            <p>Server-Sent Events for printer status updates</p>
+            <span class="method get">GET</span> <span class="path">/api/ingenico/status</span>
+            <p class="description">Get current Ingenico reader status including connection states, initialization, and errors</p>
         </div>
 
         <div class="endpoint">
-            <span class="method">GET</span> <span class="path">/api/vfd/events/status</span>
-            <p>Server-Sent Events for VFD status updates</p>
+            <span class="method get">GET</span> <span class="path">/api/ingenico/health</span>
+            <p class="description">Ingenico reader health check - returns HTTP 200 if healthy, 503 if not</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/info</span>
+            <p class="description">Get reader hardware and software information</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/config</span>
+            <p class="description">Get reader configuration including connection type, protocols, and terminal ID</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/ingenico/test</span>
+            <p class="description">Test reader connectivity and run diagnostics</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/diagnostics</span>
+            <p class="description">Get detailed diagnostics including IFSF/Transit connections, SAM-DUK status, and initialization state</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/events/status</span>
+            <p class="description">Server-Sent Events (SSE) for real-time Ingenico reader status updates</p>
         </div>
     </div>
 
     <div class="section">
-        <h2>Example Usage</h2>
+        <h2>📊 Real-time Monitoring (SSE)</h2>
+        <p>All services provide Server-Sent Events for real-time status updates:</p>
+        <ul>
+            <li><code>/api/printer/events/status</code> - Printer status changes</li>
+            <li><code>/api/vfd/events/status</code> - VFD display status changes</li>
+            <li><code>/api/ingenico/events/status</code> - Card reader status changes</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📝 Example Usage</h2>
+        <h3>Printer Operations</h3>
         <pre>
-# Print receipt and display total
+# Print receipt
 curl -X POST -d "Receipt Content" http://localhost:8080/api/printer/print/text
+
+# Cut paper
+curl -X POST http://localhost:8080/api/printer/cut
+
+# Check printer health
+curl http://localhost:8080/api/printer/health
+
+# Get printer status
+curl http://localhost:8080/api/printer/status
+        </pre>
+
+        <h3>VFD Display Operations</h3>
+        <pre>
+# Display text
 curl -X POST -H "Content-Type: application/json" \
   -d '{"text":"Total: $25.00"}' \
   http://localhost:8080/api/vfd/display
 
-# Check health
-curl http://localhost:8080/api/printer/health
+# Set brightness
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"brightness": 80}' \
+  http://localhost:8080/api/vfd/brightness
+
+# Clear display
+curl -X POST http://localhost:8080/api/vfd/clear
+
+# Check VFD health
 curl http://localhost:8080/api/vfd/health
+        </pre>
 
-# Monitor status (JavaScript)
-const printerEvents = new EventSource('/api/events/status');
-printerEvents.onmessage = (e) => console.log('Printer:', JSON.parse(e.data));
+        <h3>Ingenico Reader Operations</h3>
+        <pre>
+# Get reader status
+curl http://localhost:8080/api/ingenico/status
 
+# Test reader
+curl -X POST http://localhost:8080/api/ingenico/test
+
+# Get diagnostics
+curl http://localhost:8080/api/ingenico/diagnostics
+
+# Get configuration
+curl http://localhost:8080/api/ingenico/config
+
+# Check reader health
+curl http://localhost:8080/api/ingenico/health
+        </pre>
+
+        <h3>Real-time Monitoring (JavaScript)</h3>
+        <pre>
+// Monitor printer status
+const printerEvents = new EventSource('/api/printer/events/status');
+printerEvents.addEventListener('status', (e) => {
+    console.log('Printer status:', JSON.parse(e.data));
+});
+
+// Monitor VFD status
 const vfdEvents = new EventSource('/api/vfd/events/status');
-vfdEvents.onmessage = (e) => console.log('VFD:', JSON.parse(e.data));
+vfdEvents.addEventListener('status', (e) => {
+    console.log('VFD status:', JSON.parse(e.data));
+});
+
+// Monitor Ingenico reader status
+const ingenicoEvents = new EventSource('/api/ingenico/events/status');
+ingenicoEvents.addEventListener('status', (e) => {
+    console.log('Ingenico status:', JSON.parse(e.data));
+});
+
+// Error handling
+printerEvents.onerror = (e) => console.error('Printer SSE error:', e);
+vfdEvents.onerror = (e) => console.error('VFD SSE error:', e);
+ingenicoEvents.onerror = (e) => console.error('Ingenico SSE error:', e);
+        </pre>
+
+        <h3>Typical POS Transaction Flow</h3>
+        <pre>
+# 1. Display amount on VFD
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"text":"Amount: $25.00"}' \
+  http://localhost:8080/api/vfd/display
+
+# 2. Check card reader health
+curl http://localhost:8080/api/ingenico/health
+
+# 3. Process payment (card reader handles transaction)
+# ... payment processing logic ...
+
+# 4. Print receipt
+curl -X POST -d "Transaction Receipt\nAmount: $25.00\nThank you!" \
+  http://localhost:8080/api/printer/print/text
+
+# 5. Cut paper
+curl -X POST http://localhost:8080/api/printer/cut
+
+# 6. Clear VFD display
+curl -X POST http://localhost:8080/api/vfd/clear
+        </pre>
+    </div>
+
+    <div class="section">
+        <h2>🎯 Response Format</h2>
+        <p>All endpoints return JSON responses in the following format:</p>
+        <h3>Success Response</h3>
+        <pre>
+{
+    "success": true,
+    "message": "Operation completed successfully",
+    "data": { ... }
+}
+        </pre>
+
+        <h3>Error Response</h3>
+        <pre>
+{
+    "success": false,
+    "message": "Error description",
+    "data": null
+}
         </pre>
     </div>
 
