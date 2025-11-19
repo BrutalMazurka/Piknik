@@ -6,6 +6,7 @@ import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.dal.ConfigurationService;
+import pik.dal.IngenicoConfig;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
 import pik.dal.VFDConfig;
@@ -31,20 +32,22 @@ public class Piknik {
 
             PrinterConfig printerConfig = configService.getPrinterConfiguration();
             VFDConfig vfdConfig = configService.getVFDConfiguration();
+            IngenicoConfig ingenicoConfig = configService.getIngenicoConfiguration();
             ServerConfig serverConf = configService.getServerConfiguration();
 
             logger.info("Configuration loaded successfully");
             logger.debug("Printer: {}", printerConfig);
             logger.debug("VFD: {}", vfdConfig);
+            logger.debug("Ingenico: {}", ingenicoConfig);
             logger.debug("Server: {}", serverConf);
 
-            Injector injector = Guice.createInjector(new GuiceModule(loggerFactory));
-            ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
+            Injector injector = Guice.createInjector(new GuiceModule(loggerFactory, ingenicoConfig));
 
             // Create and start integrated application
             IntegratedController app = new IntegratedController(
                     printerConfig,
                     vfdConfig,
+                    ingenicoConfig,
                     serverConf,
                     injector
             );

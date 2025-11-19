@@ -1,4 +1,4 @@
-package pik.domain;
+package pik.dal;
 
 /**
  * Defines how strictly the application should enforce service initialization

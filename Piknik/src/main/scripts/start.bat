@@ -24,7 +24,7 @@ if "%APP_JAR%"=="" (
 echo Application JAR: %APP_JAR%
 echo.
 
-REM Build classpath - INCLUDE CONFIG DIRECTORY FOR LOGBACK
+REM Build classpath - INCLUDE CONFIG DIRECTORY FOR LOG4J2
 set CLASSPATH=%APP_JAR%;config
 
 REM Add all JARs from res\lib\
@@ -67,7 +67,12 @@ set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populatorFile=%JAVAPOS_CONFIG%
 REM Specify the populator class explicitly
 set JAVA_OPTS=%JAVA_OPTS% -Djpos.config.populator.class=jpos.config.simple.xml.SimpleXmlRegPopulator
 
+REM Set Log4J2 configuration file (log4j2.xml) location
+set LOG4J2_CONFIG=%SCRIPT_DIR%config\log4j2.xml
+set JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.configurationFile=%LOG4J2_CONFIG%
+
 echo JavaPOS config: %JAVAPOS_CONFIG%
+echo Log4J2 config: %LOG4J2_CONFIG%
 echo HTML resources: %SCRIPT_DIR%res\html
 echo Native libraries: %JAVAPOS_BIN%
 echo.

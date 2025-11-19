@@ -29,11 +29,11 @@ public class IngenicoTransitApp implements IIngenicoTransitApp {
     private int terminalStatusCode;
     private final SamSlots samSlots;
 
-    public IngenicoTransitApp(PublishSubject<IngenicoTransitEventArgs> eventBus) {
+    public IngenicoTransitApp(PublishSubject<IngenicoTransitEventArgs> eventBus, String readerIpAddress) {
         this.eventBus = eventBus;
 
         connected = false;
-        socketAddress = new InetSocketAddress(IngenicoReaderDevice.IP_ADDRESS, 2914);
+        socketAddress = new InetSocketAddress(readerIpAddress, 2914);
         lastRxTC = TickCounter.instanceFromNow();
 
         appAlive = false;

@@ -7,10 +7,10 @@ import jCommons.comm.io.access.IOTcpServerAccess;
 import jCommons.comm.io.sett.IOTcpServerClientSett;
 import jCommons.comm.io.sett.IOTcpServerSett;
 import jCommons.comm.io.tcp.LengthDataTcpProtIOMsgDataBuilder;
-import jCommons.config.AppConfig;
 import jCommons.logging.ILogger;
 import jCommons.logging.ILoggerFactory;
 import pik.common.ELogger;
+import pik.dal.IngenicoConfig;
 import pik.domain.GoogleEventBus;
 
 /**
@@ -18,18 +18,18 @@ import pik.domain.GoogleEventBus;
  * @since 11/11/2025
  */
 public class IOGeneral {
-    private static IOGeneral instance = null;
-
     private final ILogger appLogger;
     private final IOTcpServerAccess ifsfTcpServerAccess;
     private final IOTcpServerAccess ifsfDevProxyTcpServerAccess;
     private final IOTcpServerAccess ingenicoTransitTcpServerAccess;
+    private final Object initLock = new Object();
+    private volatile boolean initialized = false;
 
-    private IOGeneral(Injector injector) {
+    IOGeneral(Injector injector, IngenicoConfig ingenicoConfig) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
         appLogger = loggerFactory.get(ELogger.APP);
 
-        int ifsfTcpServerPort = Integer.parseInt(AppConfig.get("IfsfTcpServerPort", "12710"));
+        int ifsfTcpServerPort = ingenicoConfig.ifsfTcpServerPort();
         IOTcpServerSett tcpServerSett = new IOTcpServerSett(ifsfTcpServerPort, 5_000, 500, 1, loggerFactory.get(ELogger.INGENICO_IFSF));
         IOTcpServerClientSett tcpServerClientSett = new IOTcpServerClientSett(66 * 1024, 5, 1, loggerFactory.get(ELogger.INGENICO_IFSF));
         tcpServerClientSett.setMonitorActivityOnTx(false);
@@ -39,7 +39,7 @@ public class IOGeneral {
                 tcpServerSett,
                 new GoogleEventBus());
 
-        int ifsfDevProxyTcpServerPort = Integer.parseInt(AppConfig.get("IfsfDevProxyTcpServerPort", "20007"));
+        int ifsfDevProxyTcpServerPort = ingenicoConfig.ifsfDevProxyTcpServerPort();
         tcpServerSett = new IOTcpServerSett(ifsfDevProxyTcpServerPort, 5_000, 500, 1, loggerFactory.get(ELogger.INGENICO_IFSF));
         tcpServerSett.setServerCodeName("DevProxyS ");
         tcpServerClientSett = new IOTcpServerClientSett(66 * 1024, 5, 20, loggerFactory.get(ELogger.INGENICO_IFSF));
@@ -51,7 +51,7 @@ public class IOGeneral {
                 tcpServerSett,
                 new GoogleEventBus());
 
-        int ingenicoTransitTcpServerPort = Integer.parseInt(AppConfig.get("IngenicoTransitTcpServerPort", "63855"));
+        int ingenicoTransitTcpServerPort = ingenicoConfig.transitTcpServerPort();
         tcpServerSett = new IOTcpServerSett(ingenicoTransitTcpServerPort, 5_000, 500, 1, loggerFactory.get(ELogger.INGENICO_TRANSIT));
         tcpServerClientSett = new IOTcpServerClientSett(66 * 1024, 5, 1, loggerFactory.get(ELogger.INGENICO_TRANSIT));
         tcpServerClientSett.setMonitorActivityOnTx(false);
@@ -77,19 +77,35 @@ public class IOGeneral {
     }
 
     public void init() {
-        ifsfTcpServerAccess.init();
-        ifsfDevProxyTcpServerAccess.init();
-        ingenicoTransitTcpServerAccess.init();
+        synchronized (initLock) {
+            if (initialized) {
+                appLogger.warn("IOGeneral already initialized, skipping");
+                return;
+            }
 
-        appLogger.info("IOGeneral inited");
+            ifsfTcpServerAccess.init();
+            ifsfDevProxyTcpServerAccess.init();
+            ingenicoTransitTcpServerAccess.init();
+
+            initialized = true;
+            appLogger.info("IOGeneral inited");
+        }
     }
 
     public void deinit() {
-        ingenicoTransitTcpServerAccess.deinit();
-        ifsfDevProxyTcpServerAccess.deinit();
-        ifsfTcpServerAccess.deinit();
+        synchronized (initLock) {
+            if (!initialized) {
+                appLogger.warn("IOGeneral not initialized, skipping deinit");
+                return;
+            }
 
-        appLogger.info("IOGeneral deinited");
+            ingenicoTransitTcpServerAccess.deinit();
+            ifsfDevProxyTcpServerAccess.deinit();
+            ifsfTcpServerAccess.deinit();
+
+            initialized = false;
+            appLogger.info("IOGeneral deinited");
+        }
     }
 
 }
