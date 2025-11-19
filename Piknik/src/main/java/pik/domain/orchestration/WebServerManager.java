@@ -1,4 +1,6 @@
-package pik.domain;
+package pik.domain.orchestration;
+
+import pik.domain.IntegratedController;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
