@@ -1,4 +1,4 @@
-package pik.domain;
+package pik.common;
 
 import jCommons.config.AppConfig;
 import jCommons.utils.StringUtils;

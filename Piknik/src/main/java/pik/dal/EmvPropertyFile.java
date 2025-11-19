@@ -1,6 +1,6 @@
 package pik.dal;
 
-import pik.domain.AppResources;
+import pik.common.AppResources;
 import jCommons.logging.LoggerFactory;
 import jCommons.utils.StringUtils;
 import org.joda.time.DateTime;
