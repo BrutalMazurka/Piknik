@@ -1,7 +1,5 @@
 package pik.dal;
 
-import pik.domain.StartupMode;
-
 /**
  * Type-safe configuration for server
  *

@@ -21,6 +21,7 @@ import pik.common.ELogger;
 import pik.dal.IngenicoConfig;
 import pik.dal.PrinterConfig;
 import pik.dal.ServerConfig;
+import pik.dal.StartupMode;
 import pik.dal.VFDConfig;
 import pik.domain.ingenico.IngenicoController;
 import pik.domain.ingenico.IngenicoReaderDevice;

@@ -7,7 +7,6 @@ import pik.common.EPrinterType;
 import pik.common.EReaderType;
 import pik.common.TM_T20IIIConstants;
 import pik.common.ServerConstants;
-import pik.domain.StartupMode;
 
 /**
  * Main configuration service - entry point for all configuration needs
