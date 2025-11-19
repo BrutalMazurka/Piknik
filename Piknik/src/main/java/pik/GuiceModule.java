@@ -21,8 +21,6 @@ import pik.domain.ingenico.tap.IngenicoCardTappingState;
 import pik.domain.ingenico.transit.IngenicoTransitApp;
 import pik.domain.io.IOGeneral;
 
-import java.lang.reflect.Constructor;
-
 /**
  * @author Martin Sustik <sustik@herman.cz>
  * @since 07/11/2025
@@ -66,18 +64,12 @@ public class GuiceModule extends AbstractModule {
     }
 
     /**
-     * Provides IOGeneral singleton using reflection to access private constructor
+     * Provides IOGeneral singleton
      * Passes IngenicoConfig to avoid IOGeneral reading directly from AppConfig
      */
     @Provides
     public IOGeneral provideIOGeneral(Injector injector) {
-        try {
-            Constructor<IOGeneral> constructor = IOGeneral.class.getDeclaredConstructor(Injector.class, IngenicoConfig.class);
-            constructor.setAccessible(true);
-            return constructor.newInstance(injector, ingenicoConfig);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create IOGeneral instance", e);
-        }
+        return new IOGeneral(injector, ingenicoConfig);
     }
 
 }
