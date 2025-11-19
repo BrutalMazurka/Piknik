@@ -43,11 +43,11 @@ public class IngenicoIfsfApp implements IIngenicoIEmvTerminal {
     private EmvOfflineBufferState offlineBufferState;
     //private boolean backgroundMaintenance;
 
-    public IngenicoIfsfApp(PublishSubject<IngenicoIfsfEventArgs> eventBus) {
+    public IngenicoIfsfApp(PublishSubject<IngenicoIfsfEventArgs> eventBus, String readerIpAddress) {
         this.eventBus = eventBus;
 
         connected = false;
-        socketAddress = new InetSocketAddress(IngenicoReaderDevice.IP_ADDRESS, 2913);
+        socketAddress = new InetSocketAddress(readerIpAddress, 2913);
         lastRxTC = TickCounter.instanceFromNow();
 
         appAlive = false;

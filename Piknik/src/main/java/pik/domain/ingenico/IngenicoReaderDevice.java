@@ -3,8 +3,6 @@ package pik.domain.ingenico;
 import epis5.duk.bck.core.sam.SamDuk;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
-import jCommons.config.AppConfig;
-import jCommons.logging.LoggerFactory;
 import jCommons.timer.TickCounter;
 import pik.domain.ingenico.ifsf.IngenicoIfsfApp;
 import pik.domain.ingenico.ifsf.IngenicoIfsfEventArgs;
@@ -12,21 +10,6 @@ import pik.domain.ingenico.transit.IngenicoTransitApp;
 import pik.domain.ingenico.transit.IngenicoTransitEventArgs;
 
 public class IngenicoReaderDevice {
-    public static final String IP_ADDRESS;
-
-    static {
-        IP_ADDRESS = parseIpAddressFromConfig("IngenicoReaderIPAddress", "192.168.40.10");
-    }
-
-    private static String parseIpAddressFromConfig(String cfgKey, String defaultIpStr) {
-        try {
-            return AppConfig.get(cfgKey, defaultIpStr);
-        } catch (Exception e) {
-            LoggerFactory.getDefaultLogger().fatal("Parsing IngenicoReaderIPAddress IP address from config, key=" + cfgKey, e);
-        }
-        return defaultIpStr;
-    }
-
     private final PublishSubject<IngenicoIfsfEventArgs> ifsfEventBus;
     private final PublishSubject<IngenicoTransitEventArgs> transitEventBus;
     private final PublishSubject<IngenicoEventArgs> eventBus;
@@ -34,15 +17,15 @@ public class IngenicoReaderDevice {
     private final IngenicoTransitApp transitApp;
     private final SamDuk samDuk;
 
-    private EReaderInitState initState;
+    private volatile EReaderInitState initState;
     private final TickCounter lastInitStateChangedTc;
 
     //Pokud se ctecka restartne (napr. TMS) a aplikace EVK bezi - zacne ctecka odpovidat na zakladni prikazy (GET_INFO),
     // ale na stav SAM modulu vraci error
     // Aplikace EVK musi dat ctece nejaky cas aby si inicializovala SAM rozhranni
-    private boolean extraDelayOnInit;
+    private volatile boolean extraDelayOnInit;
 
-    public IngenicoReaderDevice(SamDuk samDuk) {
+    public IngenicoReaderDevice(SamDuk samDuk, String readerIpAddress) {
         this.samDuk = samDuk;
         this.ifsfEventBus = PublishSubject.create();
         this.transitEventBus = PublishSubject.create();
@@ -52,8 +35,8 @@ public class IngenicoReaderDevice {
         this.extraDelayOnInit = false;
         this.lastInitStateChangedTc = TickCounter.instanceFromNow();
 
-        this.ifsfApp = new IngenicoIfsfApp(this.ifsfEventBus);
-        this.transitApp = new IngenicoTransitApp(this.transitEventBus);
+        this.ifsfApp = new IngenicoIfsfApp(this.ifsfEventBus, readerIpAddress);
+        this.transitApp = new IngenicoTransitApp(this.transitEventBus, readerIpAddress);
     }
 
     public Observable<IngenicoEventArgs> getInitStateChanges() {

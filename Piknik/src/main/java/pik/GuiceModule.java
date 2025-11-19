@@ -50,7 +50,7 @@ public class GuiceModule extends AbstractModule {
         SamDuk samDuk = new SamDuk(SamType.BUS, ByteUtils.hexStringToBytes(""));
         bind(SamDuk.class).toInstance(samDuk);
 
-        IngenicoReaderDevice ingenicoReaderDevice = new IngenicoReaderDevice(samDuk);
+        IngenicoReaderDevice ingenicoReaderDevice = new IngenicoReaderDevice(samDuk, ingenicoConfig.readerIpAddress());
 
         bind(IngenicoReaderDevice.class).toInstance(ingenicoReaderDevice);
         bind(IngenicoIfsfApp.class).toInstance(ingenicoReaderDevice.getIfsfApp());
