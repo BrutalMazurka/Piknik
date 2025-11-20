@@ -194,6 +194,24 @@
         </div>
     </div>
 
+    <!-- Ingenico Card Reader Section -->
+    <div class="section">
+        <h2>Ingenico Card Reader</h2>
+
+        <div id="ingenico-status" class="status-panel offline">
+            <h3>Reader Status</h3>
+            <div id="ingenico-status-content">Connecting...</div>
+        </div>
+
+        <div class="form-group">
+            <div class="button-group">
+                <button onclick="testIngenicoReader()">Test Reader</button>
+                <button class="secondary" onclick="checkIngenicoHealth()">Status check</button>
+                <button class="secondary" onclick="getIngenicoInfo()">Reader Info</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Combined Actions -->
     <div class="section full-width">
         <h2>Combined actions</h2>
@@ -220,7 +238,7 @@
     // Automatically use the current host (works for both localhost and network access)
     const API_BASE = `http://${window.location.hostname}:${window.location.port}/api`;
 
-    let printerEventSource, vfdEventSource;
+    let printerEventSource, vfdEventSource, ingenicoEventSource;
     const textarea = document.getElementById('print-text');
     textarea.value = "Nazdar!\nChceš vytisknout nějaké lupeň?\n\n";
 
@@ -285,6 +303,32 @@
             console.log('VFD SSE connection opened');
             logMessage('VFD SSE connection established', 'success');
         };
+
+        // Ingenico SSE
+        ingenicoEventSource = new EventSource(`${API_BASE}/ingenico/events/status`);
+
+        // Listen for 'status' events specifically
+        ingenicoEventSource.addEventListener('status', function(event) {
+            try {
+                console.log('Ingenico status event received:', event.data);
+                const status = JSON.parse(event.data);
+                updateIngenicoStatus(status);
+            } catch (e) {
+                console.error('Error parsing Ingenico status:', e);
+                logMessage('Ingenico SSE parse error: ' + e.message, 'error');
+            }
+        });
+
+        ingenicoEventSource.onerror = function(err) {
+            console.error('Ingenico SSE error:', err);
+            logMessage('Ingenico SSE connection error', 'error');
+            updateIngenicoStatus({ initialized: false, error: true });
+        };
+
+        ingenicoEventSource.onopen = function() {
+            console.log('Ingenico SSE connection opened');
+            logMessage('Ingenico SSE connection established', 'success');
+        };
     }
 
     function updatePrinterStatus(status) {
@@ -346,6 +390,42 @@
                 ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical display)</span><br>' : ''}
                 ${status.errorMessage ? 'Info: ' + status.errorMessage + '<br>' : ''}
                 ${status.dummyMode ? '<button onclick="reconnectVFD()" style="margin-top: 10px;">Try Reconnect</button>' : ''}
+            `;
+    }
+
+    function updateIngenicoStatus(status) {
+        console.log('Updating Ingenico status with:', status);
+        const panel = document.getElementById('ingenico-status');
+        const content = document.getElementById('ingenico-status-content');
+
+        let statusClass = 'offline';
+        let statusText = 'Reader Not Initialized';
+
+        if (status.dummyMode) {
+            statusClass = 'warning';
+            statusText = 'Reader Dummy Mode';
+        } else if (status.error) {
+            statusClass = 'error';
+            statusText = 'Reader Error';
+        } else if (status.initialized && status.isOperational) {
+            statusClass = 'success';
+            statusText = 'Reader Operational';
+        } else if (status.initialized && status.hasWarnings) {
+            statusClass = 'warning';
+            statusText = 'Reader Partial Connection';
+        } else if (status.initialized) {
+            statusClass = 'warning';
+            statusText = 'Reader Initialized';
+        }
+
+        panel.className = 'status-panel ' + statusClass;
+        content.innerHTML = `
+                <strong>${statusText}</strong><br>
+                Initialized: ${status.initialized || false}<br>
+                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical reader)</span><br>' : ''}
+                IFSF Connected: ${status.ifsfConnected || false}<br>
+                Transit Connected: ${status.transitConnected || false}<br>
+                ${status.errorMessage ? 'Error: ' + status.errorMessage + '<br>' : ''}
             `;
     }
 
@@ -542,6 +622,39 @@
     }
 
     /**
+     * Ingenico Reader Functions
+     */
+    async function testIngenicoReader() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/test`, { method: 'POST' });
+            const result = await response.json();
+            logMessage(`Ingenico test: ${result.message}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Ingenico test error: ${error.message}`, 'error');
+        }
+    }
+
+    async function checkIngenicoHealth() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/health`);
+            const result = await response.json();
+            logMessage(`Ingenico health: ${result.message}`, response.ok ? 'success' : 'warning');
+        } catch (error) {
+            logMessage(`Ingenico health check error: ${error.message}`, 'error');
+        }
+    }
+
+    async function getIngenicoInfo() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/info`);
+            const result = await response.json();
+            logMessage(`Ingenico info: ${result.data}`, response.ok ? 'success' : 'error');
+        } catch (error) {
+            logMessage(`Ingenico info error: ${error.message}`, 'error');
+        }
+    }
+
+    /**
      * Combined Actions
      */
     async function displayTotal() {
@@ -634,6 +747,7 @@
     window.addEventListener('beforeunload', function() {
         if (printerEventSource) printerEventSource.close();
         if (vfdEventSource) vfdEventSource.close();
+        if (ingenicoEventSource) ingenicoEventSource.close();
     });
 </script>
 </body>
