@@ -14,9 +14,12 @@ import java.util.Properties;
  * Loads configuration with priority:
  * 1. System Properties
  * 2. Environment Variables
- * 3. External config/application.properties (next to JAR)
+ * 3. External config/application.properties (next to JAR or via -Dconfig.dir system property)
  * 4. Classpath config/application.properties
  * 5. Classpath application.properties (embedded in JAR)
+ *
+ * <p>For IDE debugging, specify the external config directory using:</p>
+ * <pre>-Dconfig.dir=/path/to/config</pre>
  *
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/09/2025
@@ -86,9 +89,40 @@ public class ConfigurationLoader {
     private Properties loadFromExternalLocations() {
         Properties props = new Properties();
 
+        // Check if config directory is explicitly specified via system property
+        String configDir = System.getProperty("config.dir");
+        if (configDir != null) {
+            Path configPath = Paths.get(configDir, "application.properties").normalize();
+            logger.debug("Checking explicit config directory from system property: {}", configPath);
+
+            if (Files.exists(configPath) && Files.isRegularFile(configPath)) {
+                try (InputStream input = Files.newInputStream(configPath)) {
+                    props.load(input);
+                    logger.info("Loaded external configuration from system property 'config.dir': {}",
+                            configPath.toAbsolutePath());
+                    return props;
+                } catch (IOException e) {
+                    logger.warn("Failed to load external config from '{}': {}",
+                            configPath, e.getMessage());
+                }
+            } else {
+                logger.warn("Config directory specified via 'config.dir' but file not found: {}",
+                        configPath.toAbsolutePath());
+            }
+        }
+
         // Get the directory where the JAR is running from
         String jarDir = getJarDirectory();
         logger.debug("Application running from directory: {}", jarDir);
+
+        // Skip external config loading if running from IDE (target/classes or build/classes)
+        // to avoid loading the bundled config as "external"
+        if (jarDir.contains("target" + System.getProperty("file.separator") + "classes") ||
+            jarDir.contains("build" + System.getProperty("file.separator") + "classes")) {
+            logger.debug("Running from IDE build directory, skipping auto-detection. " +
+                    "Use -Dconfig.dir=<path> to specify external config location.");
+            return props;
+        }
 
         for (String relativePath : EXTERNAL_CONFIG_PATHS) {
             Path configPath = Paths.get(jarDir, relativePath).normalize();
