@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import pik.common.EDisplayType;
 import pik.common.EPrinterType;
 import pik.common.EReaderType;
+import pik.common.EVFDConnectionType;
 import pik.common.TM_T20IIIConstants;
 import pik.common.ServerConstants;
 
@@ -88,19 +89,45 @@ public class ConfigurationService {
      * Load VFD configuration
      */
     private VFDConfig loadVFDConfiguration() throws ConfigurationException {
-        String typeStr = loader.getString("vfd.type", "FV_2030B");
-        String port = loader.getString("vfd.port", "COM3");
-        int baudRate = loader.getInt("vfd.baud", 9600);
-
-        EDisplayType displayType;
+        String connectionTypeStr = loader.getString("vfd.connection.type", "USB");
+        EVFDConnectionType connectionType;
         try {
-            displayType = EDisplayType.valueOf(typeStr);
+            connectionType = EVFDConnectionType.valueOf(connectionTypeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            logger.warn("Invalid VFD type '{}', using FV_2030B", typeStr);
-            displayType = EDisplayType.FV_2030B;
+            logger.warn("Invalid VFD connection type '{}', defaulting to USB", connectionTypeStr);
+            connectionType = EVFDConnectionType.USB;
         }
 
-        VFDConfig config = new VFDConfig(displayType, port, baudRate);
+        VFDConfig config;
+
+        switch (connectionType) {
+            case USB:
+                String typeStr = loader.getString("vfd.type", "FV_2030B");
+                String port = loader.getString("vfd.port", "COM3");
+                int baudRate = loader.getInt("vfd.baud", 9600);
+
+                EDisplayType displayType;
+                try {
+                    displayType = EDisplayType.valueOf(typeStr);
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Invalid VFD display type '{}', using FV_2030B", typeStr);
+                    displayType = EDisplayType.FV_2030B;
+                }
+
+                config = VFDConfig.usb(displayType, port, baudRate);
+                logger.info("Configured USB VFD: displayType={}, port={}, baud={}",
+                        displayType, port, baudRate);
+                break;
+
+            case NONE:
+                config = VFDConfig.dummy();
+                logger.info("Configured DUMMY VFD");
+                break;
+
+            default:
+                throw new ConfigurationException("Unsupported VFD connection type: " + connectionType);
+        }
+
         config.validate();
         return config;
     }
