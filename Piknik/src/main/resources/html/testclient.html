@@ -294,13 +294,11 @@
         let statusClass = 'success';
         let statusText = 'Printer Ready';
 
-        // Check if running in dummy mode
-        if (status.errorMessage && status.errorMessage.includes('dummy mode')) {
+        // Check if running in dummy mode (takes priority)
+        if (status.dummyMode) {
             statusClass = 'warning';
             statusText = 'Printer Dummy Mode';
-        }
-
-        if (!status.online) {
+        } else if (!status.online) {
             statusClass = 'offline';
             statusText = 'Printer Offline';
         } else if (status.error || status.paperEmpty) {
@@ -317,6 +315,7 @@
         content.innerHTML = `
                 <strong>${statusText}</strong><br>
                 Online: ${status.online}<br>
+                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical printer)</span><br>' : ''}
                 Cover Open: ${status.coverOpen || false}<br>
                 Paper Empty: ${status.paperEmpty || false}<br>
                 Paper Near End: ${status.paperNearEnd || false}
