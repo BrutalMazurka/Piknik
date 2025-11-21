@@ -445,6 +445,10 @@
         } else if (status.initialized) {
             statusClass = 'warning';
             statusText = 'Reader Initialized (Not Operational)';
+        } else if (status.initState && status.initState !== 'DONE') {
+            // Reader is actively going through initialization sequence
+            statusClass = 'warning';
+            statusText = 'Reader Initializing...';
         }
 
         panel.className = 'status-panel ' + statusClass;
