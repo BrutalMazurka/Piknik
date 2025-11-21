@@ -887,9 +887,16 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                     logger.warn("Printer status query failed: {} - {}", e.getErrorCode(), e.getMessage());
                 }
             } else {
+                // Printer is not in READY state (stuck during initialization or transitioning)
                 newStatus.setOnline(false);
                 newStatus.setError(true);
-                newStatus.setErrorMessage("Printer not in READY state: " + state);
+                if (state == PrinterState.CONFIGURING || state == PrinterState.ENABLING ||
+                    state == PrinterState.CLAIMING || state == PrinterState.OPENING) {
+                    newStatus.setErrorMessage(String.format(
+                        "Printer initialization incomplete (state: %s). Restart Piknik with printer turned ON.", state));
+                } else {
+                    newStatus.setErrorMessage("Printer not in READY state: " + state);
+                }
             }
 
             newStatus.setLastUpdate(System.currentTimeMillis());
