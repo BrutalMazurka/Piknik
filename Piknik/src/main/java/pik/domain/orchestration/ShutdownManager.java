@@ -22,6 +22,8 @@ public class ShutdownManager {
     private final SSEManager sseManager;
     private final WebServerManager webServerManager;
     private final StatusMonitorService printerStatusMonitor;
+    private final pik.domain.vfd.VFDStatusMonitorService vfdStatusMonitor;
+    private final pik.domain.ingenico.IngenicoStatusMonitorService ingenicoStatusMonitor;
     private final ScheduledExecutorService executorService;
     private final IOGeneral ioGeneral;
     private final PrinterService printerService;
@@ -35,6 +37,8 @@ public class ShutdownManager {
      * @param sseManager SSE manager
      * @param webServerManager Web server manager
      * @param printerStatusMonitor Printer status monitor
+     * @param vfdStatusMonitor VFD status monitor
+     * @param ingenicoStatusMonitor Ingenico status monitor
      * @param executorService Executor service
      * @param ioGeneral IO general
      * @param printerService Printer service
@@ -45,6 +49,8 @@ public class ShutdownManager {
             SSEManager sseManager,
             WebServerManager webServerManager,
             StatusMonitorService printerStatusMonitor,
+            pik.domain.vfd.VFDStatusMonitorService vfdStatusMonitor,
+            pik.domain.ingenico.IngenicoStatusMonitorService ingenicoStatusMonitor,
             ScheduledExecutorService executorService,
             IOGeneral ioGeneral,
             PrinterService printerService,
@@ -53,6 +59,8 @@ public class ShutdownManager {
         this.sseManager = sseManager;
         this.webServerManager = webServerManager;
         this.printerStatusMonitor = printerStatusMonitor;
+        this.vfdStatusMonitor = vfdStatusMonitor;
+        this.ingenicoStatusMonitor = ingenicoStatusMonitor;
         this.executorService = executorService;
         this.ioGeneral = ioGeneral;
         this.printerService = printerService;
@@ -92,6 +100,16 @@ public class ShutdownManager {
             // Stop printer monitoring
             if (printerStatusMonitor != null) {
                 printerStatusMonitor.stopMonitoring();
+            }
+
+            // Stop VFD monitoring
+            if (vfdStatusMonitor != null) {
+                vfdStatusMonitor.stopMonitoring();
+            }
+
+            // Stop Ingenico monitoring
+            if (ingenicoStatusMonitor != null) {
+                ingenicoStatusMonitor.stopMonitoring();
             }
 
             // Shutdown executor service

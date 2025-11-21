@@ -26,6 +26,8 @@ public class ServiceOrchestrator {
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final StatusMonitorService printerStatusMonitor;
+    private final pik.domain.vfd.VFDStatusMonitorService vfdStatusMonitor;
+    private final pik.domain.ingenico.IngenicoStatusMonitorService ingenicoStatusMonitor;
     private final IOGeneral ioGeneral;
 
     private final Map<String, ServiceInitializationResult> initializationResults = new LinkedHashMap<>();
@@ -36,6 +38,8 @@ public class ServiceOrchestrator {
      * @param vfdService VFD service
      * @param ingenicoService Ingenico service
      * @param printerStatusMonitor Printer status monitor
+     * @param vfdStatusMonitor VFD status monitor
+     * @param ingenicoStatusMonitor Ingenico status monitor
      * @param ioGeneral IO general
      */
     public ServiceOrchestrator(
@@ -43,11 +47,15 @@ public class ServiceOrchestrator {
             VFDService vfdService,
             IngenicoService ingenicoService,
             StatusMonitorService printerStatusMonitor,
+            pik.domain.vfd.VFDStatusMonitorService vfdStatusMonitor,
+            pik.domain.ingenico.IngenicoStatusMonitorService ingenicoStatusMonitor,
             IOGeneral ioGeneral) {
         this.printerService = printerService;
         this.vfdService = vfdService;
         this.ingenicoService = ingenicoService;
         this.printerStatusMonitor = printerStatusMonitor;
+        this.vfdStatusMonitor = vfdStatusMonitor;
+        this.ingenicoStatusMonitor = ingenicoStatusMonitor;
         this.ioGeneral = ioGeneral;
     }
 
@@ -234,6 +242,24 @@ public class ServiceOrchestrator {
             printerStatusMonitor.startMonitoring(executorService);
         } else {
             logger.info("Printer monitoring skipped (printer not initialized)");
+        }
+
+        // Start VFD monitoring if VFD initialized
+        ServiceInitializationResult vfdResult = initializationResults.get("vfd");
+        if (vfdResult != null && vfdResult.isSuccess()) {
+            logger.info("Starting VFD status monitoring...");
+            vfdStatusMonitor.startMonitoring(executorService);
+        } else {
+            logger.info("VFD monitoring skipped (VFD not initialized)");
+        }
+
+        // Start Ingenico monitoring if Ingenico initialized
+        ServiceInitializationResult ingenicoResult = initializationResults.get("ingenico");
+        if (ingenicoResult != null && ingenicoResult.isSuccess()) {
+            logger.info("Starting Ingenico status monitoring...");
+            ingenicoStatusMonitor.startMonitoring(executorService);
+        } else {
+            logger.info("Ingenico monitoring skipped (Ingenico not initialized)");
         }
     }
 

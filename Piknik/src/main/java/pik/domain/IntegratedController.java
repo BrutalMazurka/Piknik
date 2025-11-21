@@ -51,6 +51,8 @@ public class IntegratedController {
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final StatusMonitorService printerStatusMonitor;
+    private final pik.domain.vfd.VFDStatusMonitorService vfdStatusMonitor;
+    private final pik.domain.ingenico.IngenicoStatusMonitorService ingenicoStatusMonitor;
 
     // Managers
     private final ServiceOrchestrator serviceOrchestrator;
@@ -110,11 +112,23 @@ public class IntegratedController {
                 sseManager::broadcastToPrinterSSE,
                 serverConfig.statusCheckInterval()
         );
+        this.vfdStatusMonitor = new pik.domain.vfd.VFDStatusMonitorService(
+                vfdService,
+                sseManager::broadcastToVFDSSE,
+                serverConfig.statusCheckInterval()
+        );
+        this.ingenicoStatusMonitor = new pik.domain.ingenico.IngenicoStatusMonitorService(
+                ingenicoService,
+                sseManager::broadcastToIngenicoSSE,
+                serverConfig.statusCheckInterval()
+        );
         this.serviceOrchestrator = new ServiceOrchestrator(
                 printerService,
                 vfdService,
                 ingenicoService,
                 printerStatusMonitor,
+                vfdStatusMonitor,
+                ingenicoStatusMonitor,
                 ioGeneral
         );
         this.webServerManager = new WebServerManager(
@@ -128,6 +142,8 @@ public class IntegratedController {
                 sseManager,
                 webServerManager,
                 printerStatusMonitor,
+                vfdStatusMonitor,
+                ingenicoStatusMonitor,
                 executorService,
                 ioGeneral,
                 printerService,
