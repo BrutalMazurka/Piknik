@@ -72,11 +72,11 @@ public class IngenicoController {
 
         HealthCheckResponse health = new HealthCheckResponse(
                 isHealthy,
-                status.isInitialized(),
+                status.initialized(),
                 status.isOperational(),
                 !status.hasErrors(),
                 !status.hasWarnings(),
-                status.getErrorMessage()
+                status.errorMessage()
         );
 
         if (isHealthy) {
@@ -196,7 +196,12 @@ public class IngenicoController {
             if (testResult.success()) {
                 ctx.json(ApiResponse.success("Reader test passed", testResult));
             } else {
-                ctx.status(503).json(ApiResponse.error("Reader test failed", testResult));
+                ApiResponse<TestResult> response = new ApiResponse<>(
+                        false,
+                        "Reader test failed",
+                        testResult
+                );
+                ctx.status(503).json(response);
             }
         } catch (Exception e) {
             logger.error("Error testing Ingenico reader", e);
