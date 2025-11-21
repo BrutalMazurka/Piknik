@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Test page for thermal printer and VFD</title>
+    <title>Test page for thermal printer, VFD and Ingenico Reader</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 1600px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
             background: #f0f0f0;
@@ -70,6 +70,8 @@
         button.secondary:hover { background: #5a6268; }
         button.danger { background: #dc3545; }
         button.danger:hover { background: #c82333; }
+        button.success { background: #28a745; }
+        button.success:hover { background: #218838; }
         .logs {
             background: #f8f9fa;
             padding: 10px;
@@ -97,10 +99,14 @@
             font-size: 12px;
             color: #666;
         }
+        .status-detail {
+            font-size: 12px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
-<h1>🖨️ Test page for Printer, VFD and Ingenico Reader 💳</h1>
+<h1>🖨️ Test page for thermal printer, VFD and Ingenico Reader 💳</h1>
 
 <div class="container">
     <!-- Printer Section -->
@@ -194,20 +200,43 @@
         </div>
     </div>
 
-    <!-- Ingenico Card Reader Section -->
+    <!-- Ingenico Reader Section -->
     <div class="section">
         <h2>Ingenico Card Reader</h2>
 
         <div id="ingenico-status" class="status-panel offline">
-            <h3>Reader Status</h3>
+            <h3>Reader status</h3>
             <div id="ingenico-status-content">Connecting...</div>
         </div>
 
         <div class="form-group">
+            <label>Reader Information:</label>
             <div class="button-group">
-                <button onclick="testIngenicoReader()">Test Reader</button>
-                <button class="secondary" onclick="checkIngenicoHealth()">Status check</button>
-                <button class="secondary" onclick="getIngenicoInfo()">Reader Info</button>
+                <button onclick="getIngenicoStatus()">Get Status</button>
+                <button onclick="getIngenicoInfo()">Get Info</button>
+                <button onclick="getIngenicoConfig()">Get Config</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Diagnostics & Testing:</label>
+            <div class="button-group">
+                <button class="success" onclick="testIngenicoReader()">Test Reader</button>
+                <button class="secondary" onclick="getIngenicoDiagnostics()">Diagnostics</button>
+                <button class="secondary" onclick="checkIngenicoHealth()">Health Check</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Status Details:</label>
+            <div id="ingenico-details" class="status-panel offline">
+                <div class="status-detail">
+                    <strong>Initialization:</strong> <span id="init-state">-</span><br>
+                    <strong>IFSF Connection:</strong> <span id="ifsf-status">-</span><br>
+                    <strong>Transit Connection:</strong> <span id="transit-status">-</span><br>
+                    <strong>SAM-DUK:</strong> <span id="sam-status">-</span><br>
+                    <strong>Terminal ID:</strong> <span id="terminal-id">-</span>
+                </div>
             </div>
         </div>
     </div>
@@ -219,6 +248,7 @@
             <button onclick="displayTotal()">Show total on VFD</button>
             <button onclick="printAndDisplay()">Print receipt and actualize VFD</button>
             <button onclick="welcomeMessage()">Welcome message</button>
+            <button onclick="posTransactionFlow()">Simulate POS Transaction</button>
             <button class="danger" onclick="resetAll()">Total RESET</button>
         </div>
     </div>
@@ -245,7 +275,7 @@
     // Initialize SSE connections
     function initSSE() {
         // Printer SSE
-        printerEventSource = new EventSource(`${API_BASE}/events/status`);
+        printerEventSource = new EventSource(`${API_BASE}/printer/events/status`);
 
         // Listen for 'status' events specifically
         printerEventSource.addEventListener('status', function(event) {
@@ -322,7 +352,7 @@
         ingenicoEventSource.onerror = function(err) {
             console.error('Ingenico SSE error:', err);
             logMessage('Ingenico SSE connection error', 'error');
-            updateIngenicoStatus({ initialized: false, error: true });
+            updateIngenicoStatus({ initialized: false, operational: false });
         };
 
         ingenicoEventSource.onopen = function() {
@@ -338,11 +368,13 @@
         let statusClass = 'success';
         let statusText = 'Printer Ready';
 
-        // Check if running in dummy mode (takes priority)
-        if (status.dummyMode) {
+        // Check if running in dummy mode
+        if (status.errorMessage && status.errorMessage.includes('dummy mode')) {
             statusClass = 'warning';
             statusText = 'Printer Dummy Mode';
-        } else if (!status.online) {
+        }
+
+        if (!status.online) {
             statusClass = 'offline';
             statusText = 'Printer Offline';
         } else if (status.error || status.paperEmpty) {
@@ -359,7 +391,6 @@
         content.innerHTML = `
                 <strong>${statusText}</strong><br>
                 Online: ${status.online}<br>
-                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical printer)</span><br>' : ''}
                 Cover Open: ${status.coverOpen || false}<br>
                 Paper Empty: ${status.paperEmpty || false}<br>
                 Paper Near End: ${status.paperNearEnd || false}
@@ -397,9 +428,10 @@
         console.log('Updating Ingenico status with:', status);
         const panel = document.getElementById('ingenico-status');
         const content = document.getElementById('ingenico-status-content');
+        const detailsPanel = document.getElementById('ingenico-details');
 
         let statusClass = 'offline';
-        let statusText = 'Reader Not Initialized';
+        let statusText = 'Reader Offline';
 
         if (status.dummyMode) {
             statusClass = 'warning';
@@ -407,26 +439,34 @@
         } else if (status.error) {
             statusClass = 'error';
             statusText = 'Reader Error';
-        } else if (status.initialized && status.isOperational) {
+        } else if (status.initialized && status.operational) {
             statusClass = 'success';
-            statusText = 'Reader Operational';
-        } else if (status.initialized && status.hasWarnings) {
-            statusClass = 'warning';
-            statusText = 'Reader Partial Connection';
+            statusText = 'Reader Ready';
         } else if (status.initialized) {
             statusClass = 'warning';
-            statusText = 'Reader Initialized';
+            statusText = 'Reader Initialized (Not Operational)';
         }
 
         panel.className = 'status-panel ' + statusClass;
         content.innerHTML = `
                 <strong>${statusText}</strong><br>
                 Initialized: ${status.initialized || false}<br>
-                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode (no physical reader)</span><br>' : ''}
-                IFSF Connected: ${status.ifsfConnected || false}<br>
-                Transit Connected: ${status.transitConnected || false}<br>
+                Operational: ${status.operational || false}<br>
+                ${status.dummyMode ? '<span style="color: orange;">⚠ Running in dummy mode</span><br>' : ''}
                 ${status.errorMessage ? 'Error: ' + status.errorMessage + '<br>' : ''}
             `;
+
+        // Update details panel
+        document.getElementById('init-state').textContent = status.initState || '-';
+        document.getElementById('ifsf-status').textContent =
+            (status.ifsfConnected && status.ifsfAppAlive) ? '✓ Connected' : '✗ Disconnected';
+        document.getElementById('transit-status').textContent =
+            (status.transitConnected && status.transitAppAlive) ? '✓ Connected' : '✗ Disconnected';
+        document.getElementById('sam-status').textContent =
+            status.samDukDetected ? '✓ Detected' : '✗ Not detected';
+        document.getElementById('terminal-id').textContent = status.terminalId || '-';
+
+        detailsPanel.className = 'status-panel ' + statusClass;
     }
 
     /**
@@ -622,25 +662,20 @@
     }
 
     /**
-     * Ingenico Reader Functions
+     * Ingenico Functions
      */
-    async function testIngenicoReader() {
+    async function getIngenicoStatus() {
         try {
-            const response = await fetch(`${API_BASE}/ingenico/test`, { method: 'POST' });
+            const response = await fetch(`${API_BASE}/ingenico/status`);
             const result = await response.json();
-            logMessage(`Ingenico test: ${result.message}`, response.ok ? 'success' : 'error');
+            if (response.ok && result.data) {
+                updateIngenicoStatus(result.data);
+                logMessage(`Ingenico status: ${result.message}`, 'success');
+            } else {
+                logMessage(`Ingenico status: ${result.message}`, 'error');
+            }
         } catch (error) {
-            logMessage(`Ingenico test error: ${error.message}`, 'error');
-        }
-    }
-
-    async function checkIngenicoHealth() {
-        try {
-            const response = await fetch(`${API_BASE}/ingenico/health`);
-            const result = await response.json();
-            logMessage(`Ingenico health: ${result.message}`, response.ok ? 'success' : 'warning');
-        } catch (error) {
-            logMessage(`Ingenico health check error: ${error.message}`, 'error');
+            logMessage(`Ingenico status error: ${error.message}`, 'error');
         }
     }
 
@@ -648,9 +683,79 @@
         try {
             const response = await fetch(`${API_BASE}/ingenico/info`);
             const result = await response.json();
-            logMessage(`Ingenico info: ${result.data}`, response.ok ? 'success' : 'error');
+            if (response.ok) {
+                logMessage(`Ingenico info: ${result.data || result.message}`, 'success');
+            } else {
+                logMessage(`Ingenico info: ${result.message}`, 'error');
+            }
         } catch (error) {
             logMessage(`Ingenico info error: ${error.message}`, 'error');
+        }
+    }
+
+    async function getIngenicoConfig() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/config`);
+            const result = await response.json();
+            if (response.ok && result.data) {
+                const config = result.data;
+                logMessage(`Config - Type: ${config.connectionType}, IFSF: ${config.ifsfConnected}, Transit: ${config.transitConnected}, Terminal: ${config.terminalId}`, 'success');
+            } else {
+                logMessage(`Ingenico config: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            logMessage(`Ingenico config error: ${error.message}`, 'error');
+        }
+    }
+
+    async function testIngenicoReader() {
+        try {
+            logMessage('Testing Ingenico reader...', 'info');
+            const response = await fetch(`${API_BASE}/ingenico/test`, { method: 'POST' });
+            const result = await response.json();
+            if (response.ok && result.data) {
+                const test = result.data;
+                const status = test.success ? 'success' : 'warning';
+                logMessage(`Reader test: ${test.message} - Init: ${test.initialized}, IFSF: ${test.ifsfOperational}, Transit: ${test.transitOperational}, SAM: ${test.samDetected}`, status);
+            } else {
+                logMessage(`Reader test: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            logMessage(`Reader test error: ${error.message}`, 'error');
+        }
+    }
+
+    async function getIngenicoDiagnostics() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/diagnostics`);
+            const result = await response.json();
+            if (response.ok && result.data) {
+                const diag = result.data;
+                logMessage(`Diagnostics - ${diag.initState}: IFSF(${diag.ifsfConnected ? 'OK' : 'FAIL'}), Transit(${diag.transitConnected ? 'OK' : 'FAIL'}), SAM(${diag.samDukDetected ? 'OK' : 'FAIL'})`, 'success');
+                if (diag.errorMessage) {
+                    logMessage(`Error: ${diag.errorMessage}`, 'warning');
+                }
+            } else {
+                logMessage(`Diagnostics: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            logMessage(`Diagnostics error: ${error.message}`, 'error');
+        }
+    }
+
+    async function checkIngenicoHealth() {
+        try {
+            const response = await fetch(`${API_BASE}/ingenico/health`);
+            const result = await response.json();
+            const status = response.ok ? 'success' : 'warning';
+            if (result.data) {
+                const health = result.data;
+                logMessage(`Ingenico health: ${result.message} - Healthy: ${health.healthy}, Init: ${health.initialized}, Operational: ${health.operational}`, status);
+            } else {
+                logMessage(`Ingenico health: ${result.message}`, status);
+            }
+        } catch (error) {
+            logMessage(`Ingenico health error: ${error.message}`, 'error');
         }
     }
 
@@ -693,6 +798,50 @@
     async function welcomeMessage() {
         document.getElementById('vfd-text').value = 'Vítejte a nazdar!';
         await displayVFDText();
+    }
+
+    async function posTransactionFlow() {
+        logMessage('🔄 Starting POS transaction simulation...', 'info');
+
+        // Step 1: Check card reader health
+        logMessage('Step 1: Checking card reader...', 'info');
+        await checkIngenicoHealth();
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 2: Display amount on VFD
+        logMessage('Step 2: Displaying amount on VFD...', 'info');
+        document.getElementById('vfd-text').value = 'Amount: $25.00';
+        await displayVFDText();
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Step 3: Simulate payment processing
+        logMessage('Step 3: Processing payment...', 'info');
+        document.getElementById('vfd-text').value = 'Processing...';
+        await displayVFDText();
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Step 4: Print receipt
+        logMessage('Step 4: Printing receipt...', 'info');
+        document.getElementById('print-text').value = 'Transaction Receipt\nAmount: $25.00\nThank you!';
+        await printText();
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 5: Cut paper
+        logMessage('Step 5: Cutting paper...', 'info');
+        await cutPaper();
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 6: Display thank you message
+        logMessage('Step 6: Displaying thank you...', 'info');
+        document.getElementById('vfd-text').value = 'Thank you!';
+        await displayVFDText();
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Step 7: Clear VFD
+        logMessage('Step 7: Clearing VFD...', 'info');
+        await clearVFD();
+
+        logMessage('✅ Transaction flow completed!', 'success');
     }
 
     async function resetAll() {

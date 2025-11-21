@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Piknik" type="Application" factoryName="Application">
+    <envs>
+      <env name="LD_LIBRARY_PATH" value="$USER_HOME$/temp/piknik/res/bin" />
+    </envs>
+    <option name="INCLUDE_PROVIDED_SCOPE" value="true" />
+    <option name="MAIN_CLASS_NAME" value="pik.Piknik" />
+    <module name="piknik" />
+    <option name="VM_PARAMETERS" value="-Xms256m -Xmx512m -Dconfig.dir=$USER_HOME$/temp/piknik/config -Djpos.config.populatorFile=$USER_HOME$/temp/piknik/config/jpos.xml -Djpos.config.populator.class=jpos.config.simple.xml.SimpleXmlRegPopulator -Djava.library.path=$USER_HOME$/temp/piknik/res/bin -Dlog4j2.configurationFile=$USER_HOME$/temp/piknik/config/log4j2.xml --enable-native-access=ALL-UNNAMED" />
+    <option name="WORKING_DIRECTORY" value="$USER_HOME$/temp/piknik" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
