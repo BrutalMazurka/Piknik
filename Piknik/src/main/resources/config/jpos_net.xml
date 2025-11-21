@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE JposEntries PUBLIC "-//JavaPOS//DTD//EN"
-        "jpos/res/jcl.dtd">
+                             "jpos/res/jcl.dtd">
 <JposEntries>
-    <!--Saved by JavaPOS jpos.config/loader (JCL) version 2.2.0 on 30.10.25 13:56-->
-
+<!--Saved by JavaPOS jpos.config/loader (JCL) version 2.2.0 on 21.11.25 11:51-->
+    
     <JposEntry logicalName="Epson_TM_T20III">
         <creation factoryClass="jp.co.epson.uposcommon.creator.EpsonJposServiceInstanceFactory" serviceClass="jp.co.epson.upos.T20II.pntr.T20IIIService"/>
         <vendor name="SEIKO EPSON" url="http://www.epson.com"/>
@@ -14,7 +14,7 @@
         <prop name="Halftone" type="String" value="0"/>
         <prop name="PhysicalPrinterName" type="String" value="TM-T20III"/>
         <prop name="NVRAMControlLevel" type="String" value="1"/>
-        <prop name="LogicalPortName" type="String" value="ESDPRT001"/>
+        <prop name="LogicalPortName" type="String" value="ESDPRT002"/>
         <prop name="Stamp" type="String" value="0"/>
         <prop name="OutputCompleteType" type="String" value="2"/>
         <prop name="StatusThreadInterval" type="String" value="500"/>
@@ -27,7 +27,7 @@
         <prop name="UdpRetryIntervalTime" type="String" value="50"/>
         <prop name="ReceiveTimeout" type="String" value="1000"/>
         <prop name="SlpReverseEject" type="String" value="0"/>
-        <prop name="PortName" type="String" value="10.0.0.150"/>
+        <prop name="PortName" type="String" value="10.0.1.97"/>
         <prop name="OfflineRetryIntervalTime" type="String" value="100"/>
         <prop name="Upos.USB_Serial" type="String" value="false"/>
         <prop name="DefaultSlpClampTime" type="String" value="0"/>
@@ -96,6 +96,6 @@
         <prop name="TransmitRetryTime" type="String" value="100"/>
         <prop name="DirectIOEventTimeout" type="String" value="5000"/>
         <prop name="epson.trace.detail.info" type="String" value="0"/>
-    </JposEntry>
-
+</JposEntry>
+    
 </JposEntries>
