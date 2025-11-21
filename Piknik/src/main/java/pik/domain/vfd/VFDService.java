@@ -60,7 +60,13 @@ public class VFDService implements IVFDService {
      */
     private void updateStatus(boolean connected, String errorMessage) {
         currentStatus.setConnected(connected);
-        currentStatus.setError(errorMessage != null && !errorMessage.startsWith("Using dummy"));
+
+        // Set error flag: true if there's an error message indicating a real problem
+        // Dummy mode messages are informational, not errors
+        boolean isError = errorMessage != null &&
+                         !errorMessage.contains("dummy mode") &&
+                         !errorMessage.contains("Dummy mode");
+        currentStatus.setError(isError);
         currentStatus.setErrorMessage(errorMessage);
         currentStatus.setLastUpdate(System.currentTimeMillis());
 
@@ -81,7 +87,17 @@ public class VFDService implements IVFDService {
         try {
             logger.info("Initializing VFD display with config: {}", config);
 
-            // Create display instance
+            // If configured as NONE (dummy mode), initialize dummy display
+            if (config.displayType() == EDisplayType.NONE) {
+                display = VFDDisplayFactory.createDisplay(EDisplayType.NONE);
+                display.connect("DUMMY", 9600);
+                initialized = true;
+                updateStatus(true, "VFD configured for dummy mode");
+                logger.info("VFD display initialized in DUMMY mode");
+                return;
+            }
+
+            // Create display instance for real hardware
             display = VFDDisplayFactory.createDisplay(config.displayType());
             logger.debug("Created display instance: {}", display.getDisplayModel());
 
@@ -93,15 +109,37 @@ public class VFDService implements IVFDService {
                 updateStatus(true, null);
                 logger.info("VFD display initialized successfully");
             } else {
+                // Connection failed - do NOT fall back to dummy mode
                 initialized = false;
-                logger.warn("Failed to connect to VFD display, falling back to DummyDisplay");
-                fallbackToDummyDisplay("Connection failed - port may not be available");
+                logger.error("CRITICAL: VFD display initialization failed in {} mode", config.displayType());
+                logger.error("  Port: {}", config.portName());
+                logger.error("  Baud rate: {}", config.baudRate());
+                logger.error("  Change 'vfd.type=NONE' in application.properties to use dummy mode");
+
+                // Set status to offline with error
+                updateStatus(false, "VFD hardware unavailable: Connection failed");
+
+                // Throw exception - do NOT fall back to dummy mode
+                throw new RuntimeException("Failed to initialize VFD display in " + config.displayType() +
+                    " mode. Either fix the connection or set vfd.type=NONE for dummy mode.");
             }
 
+        } catch (RuntimeException e) {
+            // Re-throw RuntimeException (our own exception from above)
+            throw e;
         } catch (Exception e) {
+            // Unexpected error during initialization
             initialized = false;
-            logger.error("Error during VFD display initialization, falling back to DummyDisplay", e);
-            fallbackToDummyDisplay(e.getMessage());
+            logger.error("CRITICAL: Unexpected error during VFD display initialization", e);
+            logger.error("  Display type: {}", config.displayType());
+            logger.error("  Change 'vfd.type=NONE' in application.properties to use dummy mode");
+
+            // Set status to offline with error
+            updateStatus(false, "VFD initialization error: " + e.getMessage());
+
+            // Throw exception - do NOT fall back to dummy mode
+            throw new RuntimeException("Failed to initialize VFD display in " + config.displayType() +
+                " mode. Either fix the connection or set vfd.type=NONE for dummy mode.", e);
         } finally {
             displayLock.unlock();
         }

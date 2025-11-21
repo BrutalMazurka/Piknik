@@ -65,10 +65,28 @@ public class IngenicoController {
 
     /**
      * Health check endpoint
+     * Reports actual device status:
+     * - Online: Device is configured for hardware and is operational
+     * - Offline: Device is configured for hardware but is not operational
+     * - Dummy: Device is configured as NONE in application.properties
      */
     private void healthCheck(Context ctx) {
-        boolean isHealthy = ingenicoService.isReady();
         IngenicoStatus status = ingenicoService.getStatus();
+        boolean isHealthy = ingenicoService.isReady();
+
+        // Create health check response with clear status indication
+        String message;
+        if (status.dummyMode()) {
+            message = "Ingenico reader is running in dummy mode (configured as NONE)";
+        } else if (isHealthy && status.isOperational()) {
+            message = "Ingenico reader is healthy and operational";
+        } else if (!status.initialized()) {
+            message = "Ingenico reader failed to initialize (hardware unavailable)";
+        } else if (!status.isOperational()) {
+            message = "Ingenico reader is offline: " + (status.errorMessage() != null ? status.errorMessage() : "Not operational");
+        } else {
+            message = "Ingenico reader is not ready";
+        }
 
         HealthCheckResponse health = new HealthCheckResponse(
                 isHealthy,
@@ -80,11 +98,11 @@ public class IngenicoController {
         );
 
         if (isHealthy) {
-            ctx.json(ApiResponse.success("Ingenico reader is healthy", health));
+            ctx.json(ApiResponse.success(message, health));
         } else {
             ApiResponse<HealthCheckResponse> response = new ApiResponse<>(
                     false,
-                    "Ingenico reader is not healthy",
+                    message,
                     health
             );
             ctx.status(503).json(response);

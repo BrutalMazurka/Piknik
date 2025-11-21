@@ -70,17 +70,33 @@ public class VFDController {
 
     /**
      * Health check endpoint
+     * Reports actual device status:
+     * - Online: Device is configured for hardware and is connected
+     * - Offline: Device is configured for hardware but is not connected
+     * - Dummy: Device is configured as NONE in application.properties
      */
     private void healthCheck(Context ctx) {
-        boolean isHealthy = vfdService.isReady();
         VFDStatus status = vfdService.getStatus();
+        boolean isHealthy = vfdService.isReady();
+
+        // Create health check response with clear status indication
+        String message;
+        if (status.isDummyMode()) {
+            message = "VFD is running in dummy mode (configured as NONE)";
+        } else if (isHealthy && status.isConnected()) {
+            message = "VFD is healthy and online";
+        } else if (!status.isConnected()) {
+            message = "VFD is offline (hardware unavailable)";
+        } else {
+            message = "VFD has errors";
+        }
 
         if (isHealthy) {
-            ctx.json(ApiResponse.success("VFD is healthy", status));
+            ctx.json(ApiResponse.success(message, status));
         } else {
             ApiResponse<VFDStatus> response = new ApiResponse<>(
                     false,
-                    "VFD is not healthy",
+                    message,
                     status
             );
             ctx.status(503).json(response);

@@ -191,10 +191,28 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 logger.info("Printer service initialized successfully");
 
             } catch (JposException e) {
-                logger.error("Failed to initialize printer: {} - {}", e.getErrorCode(), e.getMessage());
-                logger.warn("Falling back to DUMMY mode");
+                logger.error("CRITICAL: Printer initialization failed in {} mode", config.getConnectionType());
+                logger.error("  Error code: {}", e.getErrorCode());
+                logger.error("  Error message: {}", e.getMessage());
+                logger.error("  Logical name: {}", config.getLogicalName());
+                logger.error("  Change 'printer.connection.type=NONE' in application.properties to use dummy mode");
+
+                // Clean up any partial initialization
                 cleanup();
-                initializeDummyMode("Hardware connection failed: " + e.getMessage());
+
+                // Set status to offline with error
+                currentStatus.setOnline(false);
+                currentStatus.setError(true);
+                currentStatus.setErrorMessage("Printer hardware unavailable: " + e.getMessage());
+                currentStatus.setLastUpdate(System.currentTimeMillis());
+                currentStatus.setDummyMode(false);
+
+                // Notify listeners about the error
+                notifyStatusChanged("init_failed");
+
+                // Re-throw the exception - do NOT fall back to dummy mode
+                throw new RuntimeException("Failed to initialize printer in " + config.getConnectionType() +
+                    " mode. Either fix the connection or set printer.connection.type=NONE for dummy mode.", e);
             }
 
         } finally {

@@ -75,6 +75,19 @@ public class VFDStatus {
         this.dummyMode = dummyMode;
     }
 
+    /**
+     * Check if VFD has errors
+     * @return true if error flag is set or not connected (when not in dummy mode)
+     */
+    public boolean hasError() {
+        // If in dummy mode, check only the error flag
+        if (dummyMode) {
+            return error;
+        }
+        // If not in dummy mode, not connected is also an error
+        return error || !connected;
+    }
+
     @Override
     public String toString() {
         return String.format("VFDStatus{connected=%s, displayModel=%s, isDummyMode=%s, error=%s}",

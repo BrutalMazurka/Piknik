@@ -62,10 +62,30 @@ public class PrinterController {
 
     /**
      * Health check endpoint
+     * Reports actual device status:
+     * - Online: Device is configured for hardware and is available
+     * - Offline: Device is configured for hardware but is not available
+     * - Dummy: Device is configured as NONE in application.properties
      */
     private void healthCheck(Context ctx) {
-        boolean isHealthy = printerService.isReady();
         PrinterStatus status = printerService.getStatus();
+        boolean isHealthy = printerService.isReady();
+
+        // Create health check response with clear status indication
+        String message;
+        if (status.isDummyMode()) {
+            message = "Printer is running in dummy mode (configured as NONE)";
+        } else if (isHealthy && status.isOnline()) {
+            message = "Printer is healthy and online";
+        } else if (!status.isOnline()) {
+            message = "Printer is offline (hardware unavailable)";
+        } else if (status.hasErrors()) {
+            message = "Printer has errors: " + status.getErrorMessage();
+        } else if (status.hasWarnings()) {
+            message = "Printer has warnings";
+        } else {
+            message = "Printer is not ready";
+        }
 
         HealthCheckResponse health = new HealthCheckResponse(
                 isHealthy,
@@ -76,11 +96,11 @@ public class PrinterController {
         );
 
         if (isHealthy) {
-            ctx.json(ApiResponse.success("Printer is healthy", health));
+            ctx.json(ApiResponse.success(message, health));
         } else {
             ApiResponse<HealthCheckResponse> response = new ApiResponse<>(
                     false,
-                    "Printer is not healthy",
+                    message,
                     health
             );
             ctx.status(503).json(response);
