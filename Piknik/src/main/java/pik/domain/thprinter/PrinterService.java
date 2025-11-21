@@ -842,6 +842,7 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
     /**
      * Update printer status by querying device
+     * Also performs active health check to detect offline printers
      */
     public void updatePrinterStatus() {
         printerLock.lock();
@@ -859,6 +860,12 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 newStatus.setErrorMessage("Running in dummy mode");
             } else if (state == PrinterState.READY && printer != null) {
                 try {
+                    // Perform active health check to detect offline printers
+                    // clearOutput() forces JavaPOS to communicate with hardware
+                    // without affecting print jobs (safe to call even when nothing queued)
+                    printer.clearOutput();
+
+                    // Now query status - if clearOutput() succeeded, printer is online
                     newStatus.setOnline(printer.getDeviceEnabled());
                     newStatus.setCoverOpen(printer.getCoverOpen());
                     newStatus.setPaperEmpty(printer.getRecEmpty());
@@ -867,9 +874,11 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                     newStatus.setError(false);
                     newStatus.setErrorMessage(null);
                 } catch (JposException e) {
+                    // clearOutput() or status query failed - printer is offline
                     newStatus.setOnline(false);
                     newStatus.setError(true);
                     newStatus.setErrorMessage(e.getMessage());
+                    logger.debug("Printer health check failed: {} - {}", e.getErrorCode(), e.getMessage());
                 }
             } else {
                 newStatus.setOnline(false);
