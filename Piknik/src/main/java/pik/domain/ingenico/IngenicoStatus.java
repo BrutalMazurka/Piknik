@@ -33,6 +33,7 @@ public record IngenicoStatus(
         String samDukStatus,
 
         // General status
+        boolean operational,  // Computed field: true when fully operational
         boolean error,
         String errorMessage,
         long lastUpdate,
@@ -62,6 +63,7 @@ public record IngenicoStatus(
                 null,
                 false,
                 null,
+                false,  // operational
                 false,
                 null,
                 System.currentTimeMillis(),
@@ -70,11 +72,22 @@ public record IngenicoStatus(
     }
 
     /**
-     * Check if reader is fully operational
+     * Check if reader is fully operational (deprecated - use operational field instead)
      * A reader is operational when it's initialized, both protocols are connected and alive,
      * SAM DUK is detected, and there are no errors.
+     * @deprecated Use the operational field directly instead
      */
+    @Deprecated
     public boolean isOperational() {
+        return operational;
+    }
+
+    /**
+     * Compute operational status from current state
+     */
+    private static boolean computeOperational(boolean initialized, boolean ifsfConnected, boolean ifsfAppAlive,
+                                              boolean transitConnected, boolean transitAppAlive,
+                                              boolean samDukDetected, boolean error) {
         return initialized &&
                ifsfConnected && ifsfAppAlive &&
                transitConnected && transitAppAlive &&
@@ -113,6 +126,7 @@ public record IngenicoStatus(
 
     /**
      * Builder for creating new IngenicoStatus instances
+     * The operational field is computed automatically from other fields when build() is called
      */
     public static class Builder {
         private EReaderInitState initState = EReaderInitState.STARTING;
@@ -150,6 +164,7 @@ public record IngenicoStatus(
             this.errorMessage = status.errorMessage;
             this.lastUpdate = status.lastUpdate;
             this.dummyMode = status.dummyMode;
+            // Note: operational is not copied - it will be computed in build()
         }
 
         public Builder initState(EReaderInitState initState) {
@@ -228,6 +243,11 @@ public record IngenicoStatus(
         }
 
         public IngenicoStatus build() {
+            // Compute operational status based on current field values
+            boolean operational = computeOperational(
+                    initialized, ifsfConnected, ifsfAppAlive,
+                    transitConnected, transitAppAlive, samDukDetected, error);
+
             return new IngenicoStatus(
                     initState,
                     initialized,
@@ -240,6 +260,7 @@ public record IngenicoStatus(
                     transitTerminalStatus,
                     samDukDetected,
                     samDukStatus,
+                    operational,  // Computed value
                     error,
                     errorMessage,
                     lastUpdate,
@@ -251,7 +272,7 @@ public record IngenicoStatus(
     @Override
     public String toString() {
         return String.format(
-            "IngenicoStatus{initState=%s, initialized=%s, ifsfConn=%s, ifsfAlive=%s, transitConn=%s, transitAlive=%s, samDuk=%s, error=%s, dummy=%s}",
-            initState, initialized, ifsfConnected, ifsfAppAlive, transitConnected, transitAppAlive, samDukDetected, error, dummyMode);
+            "IngenicoStatus{initState=%s, initialized=%s, operational=%s, ifsfConn=%s, ifsfAlive=%s, transitConn=%s, transitAlive=%s, samDuk=%s, error=%s, dummy=%s}",
+            initState, initialized, operational, ifsfConnected, ifsfAppAlive, transitConnected, transitAppAlive, samDukDetected, error, dummyMode);
     }
 }
