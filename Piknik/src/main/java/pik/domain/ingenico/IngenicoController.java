@@ -67,7 +67,7 @@ public class IngenicoController {
      * Health check endpoint
      * Reports actual device status:
      * - Online: Device is fully operational (all connections established)
-     * - Initializing: Device is connecting (partial connectivity)
+     * - Initializing: Device is connecting (partial connectivity or in init sequence)
      * - Offline: Device failed to initialize (hardware unavailable)
      * - Dummy: Device is configured as NONE in application.properties
      */
@@ -81,8 +81,11 @@ public class IngenicoController {
             message = "Ingenico reader is running in dummy mode (configured as NONE)";
         } else if (status.isOperational()) {
             message = "Ingenico reader is online and fully operational";
+        } else if (status.initState() != EReaderInitState.DONE) {
+            // Still going through initialization sequence
+            message = "Ingenico reader is initializing: " + status.initState().getDescription();
         } else if (status.initialized() && status.hasWarnings()) {
-            // Initialized but connections are still establishing
+            // Initialization sequence complete but connections are still establishing
             StringBuilder details = new StringBuilder("Ingenico reader is initializing (partial connectivity): ");
             if (!status.ifsfConnected()) {
                 details.append("IFSF not connected; ");
@@ -98,10 +101,8 @@ public class IngenicoController {
                 details.append("SAM DUK not detected; ");
             }
             message = details.toString().replaceAll("; $", "");
-        } else if (!status.initialized()) {
-            message = "Ingenico reader is offline (hardware unavailable)";
         } else {
-            message = "Ingenico reader status unknown";
+            message = "Ingenico reader is offline (hardware unavailable)";
         }
 
         HealthCheckResponse health = new HealthCheckResponse(
@@ -113,11 +114,11 @@ public class IngenicoController {
                 status.errorMessage()
         );
 
-        if (isHealthy || (status.initialized() && status.hasWarnings())) {
-            // Return 200 OK for both operational and initializing states
+        // Return 200 OK for operational and initializing states
+        // Return 503 for offline/failed states
+        if (isHealthy || status.initState() != EReaderInitState.DONE || (status.initialized() && status.hasWarnings())) {
             ctx.json(ApiResponse.success(message, health));
         } else {
-            // Return 503 Service Unavailable for failed/offline states
             ApiResponse<HealthCheckResponse> response = new ApiResponse<>(
                     false,
                     message,
