@@ -32,19 +32,17 @@ public class PrinterController {
      * Register all REST API routes
      */
     public void registerRoutes() {
-        path("/api", () -> {
-            path("/printer", () -> {
-                get("/status", this::getStatus);
-                get("/health", this::healthCheck);
-                post("/print", this::printContent);
-                post("/print/text", this::printText);
-                post("/cut", this::cutPaper);
-                post("/test", this::testPrint);
-            });
+        path("/api/printer", () -> {
+            get("/status", this::getStatus);
+            get("/health", this::healthCheck);
+            post("/print", this::printContent);
+            post("/print/text", this::printText);
+            post("/cut", this::cutPaper);
+            post("/test", this::testPrint);
+        });
 
-            path("/events", () -> {
-                sse("/status", this::sseStatusUpdates);  // Changed to use sse() instead of get()
-            });
+        path("/api/printer/events", () -> {
+            sse("/status", this::sseStatusUpdates);  // Changed to use sse() instead of get()
         });
     }
 
