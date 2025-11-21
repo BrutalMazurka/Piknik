@@ -66,8 +66,9 @@ public class IngenicoController {
     /**
      * Health check endpoint
      * Reports actual device status:
-     * - Online: Device is configured for hardware and is operational
-     * - Offline: Device is configured for hardware but is not operational
+     * - Online: Device is fully operational (all connections established)
+     * - Initializing: Device is connecting (partial connectivity)
+     * - Offline: Device failed to initialize (hardware unavailable)
      * - Dummy: Device is configured as NONE in application.properties
      */
     private void healthCheck(Context ctx) {
@@ -78,14 +79,29 @@ public class IngenicoController {
         String message;
         if (status.dummyMode()) {
             message = "Ingenico reader is running in dummy mode (configured as NONE)";
-        } else if (isHealthy && status.isOperational()) {
-            message = "Ingenico reader is healthy and operational";
+        } else if (status.isOperational()) {
+            message = "Ingenico reader is online and fully operational";
+        } else if (status.initialized() && status.hasWarnings()) {
+            // Initialized but connections are still establishing
+            StringBuilder details = new StringBuilder("Ingenico reader is initializing (partial connectivity): ");
+            if (!status.ifsfConnected()) {
+                details.append("IFSF not connected; ");
+            } else if (!status.ifsfAppAlive()) {
+                details.append("IFSF app not alive; ");
+            }
+            if (!status.transitConnected()) {
+                details.append("Transit not connected; ");
+            } else if (!status.transitAppAlive()) {
+                details.append("Transit app not alive; ");
+            }
+            if (!status.samDukDetected()) {
+                details.append("SAM DUK not detected; ");
+            }
+            message = details.toString().replaceAll("; $", "");
         } else if (!status.initialized()) {
-            message = "Ingenico reader failed to initialize (hardware unavailable)";
-        } else if (!status.isOperational()) {
-            message = "Ingenico reader is offline: " + (status.errorMessage() != null ? status.errorMessage() : "Not operational");
+            message = "Ingenico reader is offline (hardware unavailable)";
         } else {
-            message = "Ingenico reader is not ready";
+            message = "Ingenico reader status unknown";
         }
 
         HealthCheckResponse health = new HealthCheckResponse(
@@ -97,9 +113,11 @@ public class IngenicoController {
                 status.errorMessage()
         );
 
-        if (isHealthy) {
+        if (isHealthy || (status.initialized() && status.hasWarnings())) {
+            // Return 200 OK for both operational and initializing states
             ctx.json(ApiResponse.success(message, health));
         } else {
+            // Return 503 Service Unavailable for failed/offline states
             ApiResponse<HealthCheckResponse> response = new ApiResponse<>(
                     false,
                     message,
