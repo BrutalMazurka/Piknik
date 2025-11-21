@@ -953,8 +953,6 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
         int errorCode = e.getErrorCode();
         int errorCodeExtended = e.getErrorCodeExtended();
 
-        logger.error("Printer error occurred: {} - {}", errorCode, errorCodeExtended);
-
         printerLock.lock();
         try {
             // Check if this is a new error (prevent infinite loop from repeated events)
@@ -962,20 +960,23 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
             boolean errorStateChanged = !currentStatus.isError() ||
                                        !newErrorMessage.equals(currentStatus.getErrorMessage());
 
-            // Set error state
-            currentStatus.setError(true);
-            currentStatus.setErrorMessage(newErrorMessage);
-            currentStatus.setLastUpdate(System.currentTimeMillis());
-
-            // Error 107 = Communication error (JposConst.JPOS_E_OFFLINE)
-            // This means the device is unreachable/powered off
-            if (errorCode == 107) {
-                currentStatus.setOnline(false);
-                logger.error("Printer communication lost - marking as offline");
-            }
-
-            // Only notify listeners if error state actually changed (debouncing)
+            // Only process and log if error state actually changed (debouncing)
             if (errorStateChanged) {
+                logger.error("Printer error occurred: {} - {}", errorCode, errorCodeExtended);
+
+                // Set error state
+                currentStatus.setError(true);
+                currentStatus.setErrorMessage(newErrorMessage);
+                currentStatus.setLastUpdate(System.currentTimeMillis());
+
+                // Error 107 = Communication error (JposConst.JPOS_E_OFFLINE)
+                // This means the device is unreachable/powered off
+                if (errorCode == 107) {
+                    currentStatus.setOnline(false);
+                    logger.error("Printer communication lost - marking as offline");
+                }
+
+                // Notify listeners about the error
                 notifyStatusChanged("error_event");
             }
         } finally {
