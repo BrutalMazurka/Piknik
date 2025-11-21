@@ -842,11 +842,20 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
 
     /**
      * Update printer status by querying device
-     * Also performs active health check to detect offline printers
+     * NOTE: JavaPOS getters return CACHED state - they don't detect when printer is turned off.
+     * Once in error state (offline), status remains offline until cleared by statusUpdateEvent.
      */
     public void updatePrinterStatus() {
         printerLock.lock();
         try {
+            // If printer is currently in offline error state, don't override with cached getters
+            // JavaPOS getters return cached values and won't detect printer was turned off
+            // Wait for statusUpdateEvent to clear error state when printer comes back online
+            if (currentStatus.isError() && !currentStatus.isOnline()) {
+                logger.debug("Printer is in offline error state, skipping periodic check (waiting for recovery event)");
+                return;
+            }
+
             PrinterStatus newStatus = new PrinterStatus();
 
             if (dummyMode) {
@@ -860,12 +869,9 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                 newStatus.setErrorMessage("Running in dummy mode");
             } else if (state == PrinterState.READY && printer != null) {
                 try {
-                    // Perform active health check to detect offline printers
-                    // clearOutput() forces JavaPOS to communicate with hardware
-                    // without affecting print jobs (safe to call even when nothing queued)
-                    printer.clearOutput();
-
-                    // Now query status - if clearOutput() succeeded, printer is online
+                    // Query status from device
+                    // WARNING: These getters return CACHED state from last successful operation
+                    // They will NOT detect if printer was turned off since last operation
                     newStatus.setOnline(printer.getDeviceEnabled());
                     newStatus.setCoverOpen(printer.getCoverOpen());
                     newStatus.setPaperEmpty(printer.getRecEmpty());
@@ -874,11 +880,11 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
                     newStatus.setError(false);
                     newStatus.setErrorMessage(null);
                 } catch (JposException e) {
-                    // clearOutput() or status query failed - printer is offline
+                    // Getter failed - printer is offline
                     newStatus.setOnline(false);
                     newStatus.setError(true);
                     newStatus.setErrorMessage(e.getMessage());
-                    logger.debug("Printer health check failed: {} - {}", e.getErrorCode(), e.getMessage());
+                    logger.warn("Printer status query failed: {} - {}", e.getErrorCode(), e.getMessage());
                 }
             } else {
                 newStatus.setOnline(false);
@@ -952,6 +958,21 @@ public class PrinterService implements IPrinterService, StatusUpdateListener, Er
     public void statusUpdateOccurred(StatusUpdateEvent e) {
         if (dummyMode) return;
         logger.debug("Status update event: {}", e.getStatus());
+
+        printerLock.lock();
+        try {
+            // Status update event indicates printer is communicating
+            // Clear any previous offline error state
+            if (currentStatus.isError() && !currentStatus.isOnline()) {
+                logger.info("Printer status update event received - clearing offline error state");
+                currentStatus.setError(false);
+                currentStatus.setOnline(true);
+                currentStatus.setErrorMessage(null);
+            }
+        } finally {
+            printerLock.unlock();
+        }
+
         updatePrinterStatus();
     }
 
