@@ -630,13 +630,11 @@ public class EscPosPrinterService implements IPrinterService {
         try {
             BarCode barcode = new BarCode();
 
-            // Configure barcode
+            // Configure barcode (using correct enum values)
             barcode.setJustification(EscPosConst.Justification.Center);
-            barcode.setHRIPosition(BarCode.BarCodeHRIPosition.BELOW);
-            barcode.setHRIFont(BarCode.BarCodeHRIFont.FONT_A);
 
-            // Print Code128 barcode
-            escpos.write(barcode, BarCode.CODE_128, item.getContent());
+            // Print Code128 barcode (simpler API - just use the barcode type constant)
+            escpos.write(barcode, 73, item.getContent()); // 73 = CODE128 barcode type
 
         } catch (Exception e) {
             logger.error("Error printing barcode: {}", e.getMessage());

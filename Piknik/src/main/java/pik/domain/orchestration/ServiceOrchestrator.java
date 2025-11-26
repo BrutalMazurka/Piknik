@@ -6,7 +6,7 @@ import pik.dal.StartupMode;
 import pik.domain.ServiceInitializationResult;
 import pik.domain.StartupException;
 import pik.domain.io.IOGeneral;
-import pik.domain.thprinter.PrinterService;
+import pik.domain.thprinter.EscPosPrinterService;
 import pik.domain.thprinter.StatusMonitorService;
 import pik.domain.vfd.VFDService;
 import pik.domain.ingenico.IngenicoService;
@@ -22,7 +22,7 @@ import java.util.concurrent.ScheduledExecutorService;
 public class ServiceOrchestrator {
     private static final Logger logger = LoggerFactory.getLogger(ServiceOrchestrator.class);
 
-    private final PrinterService printerService;
+    private final EscPosPrinterService printerService;
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final StatusMonitorService printerStatusMonitor;
@@ -39,7 +39,7 @@ public class ServiceOrchestrator {
      * @param ioGeneral IO general
      */
     public ServiceOrchestrator(
-            PrinterService printerService,
+            EscPosPrinterService printerService,
             VFDService vfdService,
             IngenicoService ingenicoService,
             StatusMonitorService printerStatusMonitor,

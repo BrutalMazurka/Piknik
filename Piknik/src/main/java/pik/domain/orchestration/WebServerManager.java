@@ -12,7 +12,7 @@ import pik.dal.ServerConfig;
 import pik.domain.ingenico.IngenicoController;
 import pik.domain.ingenico.IngenicoService;
 import pik.domain.thprinter.PrinterController;
-import pik.domain.thprinter.PrinterService;
+import pik.domain.thprinter.EscPosPrinterService;
 import pik.domain.vfd.VFDController;
 import pik.domain.vfd.VFDService;
 
@@ -35,7 +35,7 @@ public class WebServerManager {
     private static final Logger logger = LoggerFactory.getLogger(WebServerManager.class);
 
     private final ServerConfig serverConfig;
-    private final PrinterService printerService;
+    private final EscPosPrinterService printerService;
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final IntegratedController controller;
@@ -57,7 +57,7 @@ public class WebServerManager {
      */
     public WebServerManager(
             ServerConfig serverConfig,
-            PrinterService printerService,
+            EscPosPrinterService printerService,
             VFDService vfdService,
             IngenicoService ingenicoService,
             IntegratedController controller) {
