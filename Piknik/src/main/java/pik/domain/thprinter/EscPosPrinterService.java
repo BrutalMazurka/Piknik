@@ -8,8 +8,8 @@ import com.github.anastaciocintra.escpos.image.BitonalOrderedDither;
 import com.github.anastaciocintra.escpos.image.BitonalThreshold;
 import com.github.anastaciocintra.escpos.image.EscPosImage;
 import com.github.anastaciocintra.escpos.image.RasterBitImageWrapper;
-import com.github.anastaciocintra.output.TcpOutputStream;
-import com.github.anastaciocintra.output.SerialOutputStream;
+import com.github.anastaciocintra.output.TcpIpOutputStream;
+import com.github.anastaciocintra.output.PrinterOutputStream;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,11 +166,12 @@ public class EscPosPrinterService implements IPrinterService {
         return switch (config.connectionType()) {
             case NETWORK -> {
                 logger.info("Connecting to network printer: {}:{}", config.ipAddress(), config.networkPort());
-                yield new TcpOutputStream(config.ipAddress(), config.networkPort(), config.connectionTimeout());
+                yield new TcpIpOutputStream(config.ipAddress(), config.networkPort());
             }
             case USB -> {
                 logger.info("Connecting to USB/Serial printer: {} at {} baud", config.comPort(), config.baudRate());
-                yield new SerialOutputStream(config.comPort(), config.baudRate());
+                // Use PrinterOutputStream with jSerialComm for serial/USB connections
+                yield PrinterOutputStream.getPrinterOutputStreamFromSerialPort(config.comPort());
             }
             case NONE -> throw new IOException("Cannot create output stream for NONE connection type");
         };
