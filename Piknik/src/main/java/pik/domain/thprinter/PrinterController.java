@@ -2,12 +2,12 @@ package pik.domain.thprinter;
 
 import io.javalin.http.Context;
 import io.javalin.http.sse.SseClient;
-import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.domain.IntegratedController;
 import pik.domain.SSEClient;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import static io.javalin.apibuilder.ApiBuilder.*;
@@ -23,7 +23,7 @@ public class PrinterController {
     private final IPrinterService printerService;
     private final IntegratedController integratedController;
 
-    public PrinterController(PrinterService printerService, IntegratedController integratedController) {
+    public PrinterController(IPrinterService printerService, IntegratedController integratedController) {
         this.printerService = printerService;
         this.integratedController = integratedController;
     }
@@ -141,8 +141,8 @@ public class PrinterController {
             logger.info("Received print request for {} copies", printRequest.getCopies());
             printerService.print(printRequest);
             ctx.json(ApiResponse.success("Print job completed successfully"));
-        } catch (JposException e) {
-            logger.error("JavaPOS error during printing: {} - {}", e.getErrorCode(), e.getMessage());
+        } catch (IOException e) {
+            logger.error("Printer I/O error during printing: {}", e.getMessage());
             ctx.status(500).json(ApiResponse.error("Print failed: " + e.getMessage()));
 
         } catch (Exception e) {
@@ -188,8 +188,8 @@ public class PrinterController {
 
             ctx.json(ApiResponse.success("Text printed successfully"));
 
-        } catch (JposException e) {
-            logger.error("JavaPOS error during text printing: {} - {}", e.getErrorCode(), e.getMessage());
+        } catch (IOException e) {
+            logger.error("Printer I/O error during text printing: {}", e.getMessage());
             ctx.status(500).json(ApiResponse.error("Print failed: " + e.getMessage()));
 
         } catch (Exception e) {
@@ -209,8 +209,8 @@ public class PrinterController {
             printerService.cutPaper();
             ctx.json(ApiResponse.success("Paper cut successfully"));
 
-        } catch (JposException e) {
-            logger.error("JavaPOS error during paper cut: {} - {}", e.getErrorCode(), e.getMessage());
+        } catch (IOException e) {
+            logger.error("Printer I/O error during paper cut: {}", e.getMessage());
             ctx.status(500).json(ApiResponse.error("Paper cut failed: " + e.getMessage()));
 
         } catch (Exception e) {
@@ -243,8 +243,8 @@ public class PrinterController {
 
             ctx.json(ApiResponse.success("Test print completed"));
 
-        } catch (JposException e) {
-            logger.error("JavaPOS error during test print: {} - {}", e.getErrorCode(), e.getMessage());
+        } catch (IOException e) {
+            logger.error("Printer I/O error during test print: {}", e.getMessage());
             ctx.status(500).json(ApiResponse.error("Test print failed: " + e.getMessage()));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

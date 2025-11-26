@@ -23,7 +23,7 @@ import pik.dal.VFDConfig;
 import pik.domain.ingenico.IngenicoReaderDevice;
 import pik.domain.ingenico.IngenicoService;
 import pik.domain.io.IOGeneral;
-import pik.domain.thprinter.PrinterService;
+import pik.domain.thprinter.EscPosPrinterService;
 import pik.domain.thprinter.StatusMonitorService;
 import pik.domain.vfd.VFDService;
 import pik.domain.orchestration.ServiceOrchestrator;
@@ -47,7 +47,7 @@ public class IntegratedController {
     private final IOGeneral ioGeneral;
 
     // Services
-    private final PrinterService printerService;
+    private final EscPosPrinterService printerService;
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final StatusMonitorService printerStatusMonitor;
@@ -79,8 +79,8 @@ public class IntegratedController {
 
         this.serverConfig = serverConfig;
 
-        // Initialize services
-        this.printerService = new PrinterService(printerConfig);
+        // Initialize services (migrated to ESC/POS Coffee library)
+        this.printerService = new EscPosPrinterService(printerConfig);
         this.vfdService = new VFDService(vfdConfig);
         this.ingenicoService = new IngenicoService(ingenicoConfig, injector.getInstance(IngenicoReaderDevice.class));
 

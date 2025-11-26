@@ -1,10 +1,10 @@
 package pik.domain.thprinter;
 
-import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.TM_T20IIIConstants;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -28,7 +28,7 @@ public class DummyPrinter implements IPrinterService {
     }
 
     @Override
-    public void initialize() throws JposException {
+    public void initialize() throws IOException {
         logger.info("DummyPrinter initialized (no physical hardware)");
         initialized = true;
         currentStatus.setOnline(true);
@@ -47,9 +47,9 @@ public class DummyPrinter implements IPrinterService {
     }
 
     @Override
-    public void printText(String text) throws JposException, InterruptedException {
+    public void printText(String text) throws IOException, InterruptedException {
         if (!initialized) {
-            throw new JposException(0, "DummyPrinter not initialized");
+            throw new IOException("DummyPrinter not initialized");
         }
         logger.debug("DummyPrinter.printText: {}", text.substring(0, Math.min(50, text.length())));
         // Simulate print delay
@@ -57,9 +57,9 @@ public class DummyPrinter implements IPrinterService {
     }
 
     @Override
-    public void print(PrintRequest request) throws JposException {
+    public void print(PrintRequest request) throws IOException {
         if (!initialized) {
-            throw new JposException(0, "DummyPrinter not initialized");
+            throw new IOException("DummyPrinter not initialized");
         }
 
         logger.debug("DummyPrinter.print: Processing request with {} copies", request.getCopies());
@@ -91,9 +91,9 @@ public class DummyPrinter implements IPrinterService {
     }
 
     @Override
-    public void cutPaper() throws JposException {
+    public void cutPaper() throws IOException {
         if (!initialized) {
-            throw new JposException(0, "DummyPrinter not initialized");
+            throw new IOException("DummyPrinter not initialized");
         }
         logger.debug("DummyPrinter.cutPaper");
     }
