@@ -4,12 +4,10 @@ import com.github.anastaciocintra.escpos.EscPos;
 import com.github.anastaciocintra.escpos.EscPosConst;
 import com.github.anastaciocintra.escpos.Style;
 import com.github.anastaciocintra.escpos.barcode.BarCode;
-import com.github.anastaciocintra.escpos.image.BitonalOrderedDither;
-import com.github.anastaciocintra.escpos.image.BitonalThreshold;
-import com.github.anastaciocintra.escpos.image.EscPosImage;
-import com.github.anastaciocintra.escpos.image.RasterBitImageWrapper;
+import com.github.anastaciocintra.escpos.image.*;
 import com.github.anastaciocintra.output.TcpIpOutputStream;
 import com.github.anastaciocintra.output.PrinterOutputStream;
+import com.fazecast.jSerialComm.SerialPort;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,8 +168,18 @@ public class EscPosPrinterService implements IPrinterService {
             }
             case USB -> {
                 logger.info("Connecting to USB/Serial printer: {} at {} baud", config.comPort(), config.baudRate());
-                // Use PrinterOutputStream with jSerialComm for serial/USB connections
-                yield PrinterOutputStream.getPrinterOutputStreamFromSerialPort(config.comPort());
+                // Use jSerialComm to open serial port
+                SerialPort serialPort = SerialPort.getCommPort(config.comPort());
+                serialPort.setBaudRate(config.baudRate());
+                serialPort.setNumDataBits(8);
+                serialPort.setNumStopBits(1);
+                serialPort.setParity(SerialPort.NO_PARITY);
+
+                if (!serialPort.openPort()) {
+                    throw new IOException("Failed to open serial port: " + config.comPort());
+                }
+
+                yield serialPort.getOutputStream();
             }
             case NONE -> throw new IOException("Cannot create output stream for NONE connection type");
         };
@@ -389,9 +397,10 @@ public class EscPosPrinterService implements IPrinterService {
             return;
         }
 
-        // Apply line spacing if specified
+        // Apply line spacing if specified using raw ESC/POS commands
         if (options != null && options.getLineSpacing() != 30) {
-            escpos.setLineSpacing(options.getLineSpacing());
+            // ESC 3 n - Set line spacing to n/180 inch
+            outputStream.write(new byte[]{0x1B, 0x33, (byte) options.getLineSpacing()});
         }
 
         escpos.write(text);
@@ -399,9 +408,9 @@ public class EscPosPrinterService implements IPrinterService {
             escpos.feed(1);
         }
 
-        // Reset line spacing to default
+        // Reset line spacing to default using raw ESC/POS commands
         if (options != null && options.getLineSpacing() != 30) {
-            escpos.setLineSpacing(30);
+            outputStream.write(new byte[]{0x1B, 0x33, 0x1E}); // Reset to 30
         }
     }
 
@@ -467,12 +476,22 @@ public class EscPosPrinterService implements IPrinterService {
                     style.setJustification(EscPosConst.Justification.Left_Default);
             }
 
-            // Apply font size (ESC/POS uses width and height multipliers)
+            // Apply font size (map 1-8 to Style.FontSize enum)
             if (opts.getFontSize() > TM_T20IIIConstants.MIN_FONT_SIZE) {
                 int size = Math.min(opts.getFontSize(), TM_T20IIIConstants.MAX_FONT_SIZE);
-                // Map 1-8 to width/height multipliers (0-7 in ESC/POS)
-                int multiplier = size - 1;
-                style.setFontSize(multiplier, multiplier);
+                // Map 1-8 to Style.FontSize enum values
+                Style.FontSize fontSize = switch (size) {
+                    case 1 -> Style.FontSize._1;
+                    case 2 -> Style.FontSize._2;
+                    case 3 -> Style.FontSize._3;
+                    case 4 -> Style.FontSize._4;
+                    case 5 -> Style.FontSize._5;
+                    case 6 -> Style.FontSize._6;
+                    case 7 -> Style.FontSize._7;
+                    case 8 -> Style.FontSize._8;
+                    default -> Style.FontSize._1;
+                };
+                style.setFontSize(fontSize, fontSize);
             }
         }
 
@@ -563,8 +582,12 @@ public class EscPosPrinterService implements IPrinterService {
                 image = resized;
             }
 
-            // STEP 3: Create EscPosImage
-            EscPosImage escposImage = new EscPosImage(image, image.getWidth());
+            // STEP 3: Convert BufferedImage to CoffeeImage using Bitonal algorithm
+            CoffeeImageImpl coffeeImage = new CoffeeImageImpl(image);
+
+            // Apply dithering algorithm (BitonalOrderedDither for better quality)
+            Bitonal algorithm = new BitonalOrderedDither();
+            EscPosImage escposImage = new EscPosImage(coffeeImage, algorithm);
 
             // STEP 4: Determine alignment
             RasterBitImageWrapper.Justification justification = RasterBitImageWrapper.Justification.Center;
@@ -585,13 +608,12 @@ public class EscPosPrinterService implements IPrinterService {
             logger.debug("Printing bitmap: {}x{} pixels, justification={}",
                     image.getWidth(), image.getHeight(), justification);
 
-            // STEP 5: Create wrapper with dithering algorithm
-            // Use BitonalOrderedDither for better quality (can also try BitonalThreshold)
+            // STEP 5: Create wrapper and print
             RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
             imageWrapper.setJustification(justification);
 
-            // Print the image using ordered dither algorithm
-            escpos.write(imageWrapper, escposImage, new BitonalOrderedDither());
+            // Print the image
+            escpos.write(imageWrapper, escposImage);
 
             logger.debug("Bitmap printed successfully");
 
@@ -610,13 +632,11 @@ public class EscPosPrinterService implements IPrinterService {
 
             // Configure barcode
             barcode.setJustification(EscPosConst.Justification.Center);
-            barcode.setBarWidth(3);  // Default width
-            barcode.setHeight(50);    // Default height
-            barcode.setHRIPosition(BarCode.BarCodeHRIPosition.Below);
-            barcode.setHRIFont(BarCode.BarCodeHRIFont.FontA);
+            barcode.setHRIPosition(BarCode.BarCodeHRIPosition.BELOW);
+            barcode.setHRIFont(BarCode.BarCodeHRIFont.FONT_A);
 
             // Print Code128 barcode
-            escpos.write(barcode, BarCode.BarCodeType.CODE128, item.getContent());
+            escpos.write(barcode, BarCode.CODE_128, item.getContent());
 
         } catch (Exception e) {
             logger.error("Error printing barcode: {}", e.getMessage());
