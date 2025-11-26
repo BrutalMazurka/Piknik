@@ -105,35 +105,11 @@ public class IntegratedController {
 
         // Initialize managers
         this.sseManager = new SSEManager();
-        this.printerStatusMonitor = new StatusMonitorService(
-                printerService,
-                sseManager::broadcastToPrinterSSE,
-                serverConfig.statusCheckInterval()
-        );
-        this.serviceOrchestrator = new ServiceOrchestrator(
-                printerService,
-                vfdService,
-                ingenicoService,
-                printerStatusMonitor,
-                ioGeneral
-        );
-        this.webServerManager = new WebServerManager(
-                serverConfig,
-                printerService,
-                vfdService,
-                ingenicoService,
-                this
-        );
-        this.shutdownManager = new ShutdownManager(
-                sseManager,
-                webServerManager,
-                printerStatusMonitor,
-                executorService,
-                ioGeneral,
-                printerService,
-                vfdService,
-                ingenicoService
-        );
+        this.printerStatusMonitor = new StatusMonitorService(printerService, sseManager::broadcastToPrinterSSE, serverConfig.statusCheckInterval());
+        this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
+        this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
+        this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
+                printerService, vfdService, ingenicoService);
 
         // Register observers AFTER manager construction
         setupStatusListeners();
