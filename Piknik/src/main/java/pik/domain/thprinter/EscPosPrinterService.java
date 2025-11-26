@@ -624,17 +624,38 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Print barcode
+     * Print barcode using raw ESC/POS commands
      */
     private void printBarcodeItem(PrintRequest.PrintItem item) throws IOException {
         try {
-            BarCode barcode = new BarCode();
+            String barcodeData = item.getContent();
 
-            // Configure barcode (using correct enum values)
-            barcode.setJustification(EscPosConst.Justification.Center);
+            // Center align
+            outputStream.write(new byte[]{0x1B, 0x61, 0x01}); // ESC a 1 (center)
 
-            // Print Code128 barcode (simpler API - just use the barcode type constant)
-            escpos.write(barcode, 73, item.getContent()); // 73 = CODE128 barcode type
+            // Set barcode height (default 162 dots = ~50mm)
+            outputStream.write(new byte[]{0x1D, 0x68, 0x50}); // GS h 80
+
+            // Set barcode width (default 3)
+            outputStream.write(new byte[]{0x1D, 0x77, 0x03}); // GS w 3
+
+            // Set HRI position (2 = below barcode)
+            outputStream.write(new byte[]{0x1D, 0x48, 0x02}); // GS H 2
+
+            // Print Code128 barcode
+            // GS k 73 n data (73 = CODE128)
+            byte[] data = barcodeData.getBytes();
+            outputStream.write(0x1D); // GS
+            outputStream.write(0x6B); // k
+            outputStream.write(73);   // CODE128
+            outputStream.write(data.length); // length
+            outputStream.write(data); // data
+
+            // Reset alignment to left
+            outputStream.write(new byte[]{0x1B, 0x61, 0x00}); // ESC a 0
+
+            outputStream.flush();
+            logger.debug("Barcode printed: {}", barcodeData);
 
         } catch (Exception e) {
             logger.error("Error printing barcode: {}", e.getMessage());
