@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -36,6 +38,11 @@ import java.util.concurrent.locks.ReentrantLock;
 public class EscPosPrinterService implements IPrinterService {
 
     private static final Logger logger = LoggerFactory.getLogger(EscPosPrinterService.class);
+
+    // Use CP852 (DOS Latin 2) for Czech and other Central European languages
+    // This code page is widely supported by ESC/POS printers
+    // Supports: Czech, Slovak, Polish, Hungarian, etc.
+    private static final Charset PRINTER_CHARSET = Charset.forName("cp852");
 
     private final PrinterConfig config;
     private final List<IPrinterStatusListener> statusListeners = new CopyOnWriteArrayList<>();
@@ -114,14 +121,17 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("Output stream created");
                 transitionTo(PrinterState.OPENED);
 
-                // Create EscPos instance
-                escpos = new EscPos(outputStream);
-                logger.debug("EscPos instance created");
+                // Create EscPos instance with CP852 encoding for Czech characters
+                escpos = new EscPos(outputStream, PRINTER_CHARSET);
+                logger.debug("EscPos instance created with CP852 encoding");
                 transitionTo(PrinterState.ENABLED);
 
                 // Initialize printer
                 escpos.initializePrinter();
                 logger.debug("Printer initialized");
+
+                // Configure character encoding for Czech/Central European characters
+                configureCharacterEncoding();
 
                 // Update status
                 updatePrinterStatus();
@@ -191,6 +201,24 @@ public class EscPosPrinterService implements IPrinterService {
             }
             case NONE -> throw new IOException("Cannot create output stream for NONE connection type");
         };
+    }
+
+    /**
+     * Configure character encoding for proper display of Czech and Central European characters
+     * Sets code page to Windows-1250 (CP1250) which supports: č, ř, š, ž, ý, á, í, é, etc.
+     */
+    private void configureCharacterEncoding() throws IOException {
+        try {
+            // ESC t n - Select character code table
+            // n = 18: Code page 852 (Latin 2) - better hardware support
+            // This supports Czech, Slovak, Polish, Hungarian characters
+            outputStream.write(new byte[]{0x1B, 0x74, 0x12}); // ESC t 18 (CP852)
+            outputStream.flush();
+            logger.debug("Character encoding configured to CP852 (Latin 2)");
+        } catch (IOException e) {
+            logger.warn("Failed to configure character encoding: {}", e.getMessage());
+            // Non-critical - continue without proper encoding
+        }
     }
 
     /**
@@ -672,7 +700,8 @@ public class EscPosPrinterService implements IPrinterService {
 
             // Print Code128 barcode
             // GS k 73 n data (73 = CODE128)
-            byte[] data = barcodeData.getBytes();
+            // Use CP852 encoding for barcode data
+            byte[] data = barcodeData.getBytes(PRINTER_CHARSET);
             outputStream.write(0x1D); // GS
             outputStream.write(0x6B); // k
             outputStream.write(73);   // CODE128
