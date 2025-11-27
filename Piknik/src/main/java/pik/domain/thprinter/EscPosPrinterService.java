@@ -5,6 +5,7 @@ import com.github.anastaciocintra.escpos.EscPosConst;
 import com.github.anastaciocintra.escpos.Style;
 import com.github.anastaciocintra.escpos.barcode.BarCode;
 import com.github.anastaciocintra.escpos.image.*;
+import com.github.anastaciocintra.output.CharacterCodeTable;
 import com.fazecast.jSerialComm.SerialPort;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -121,16 +122,20 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("Output stream created");
                 transitionTo(PrinterState.OPENED);
 
-                // Create EscPos instance with CP852 encoding for Czech characters
-                escpos = new EscPos(outputStream, PRINTER_CHARSET);
-                logger.debug("EscPos instance created with CP852 encoding");
+                // Create EscPos instance
+                escpos = new EscPos(outputStream);
+                logger.debug("EscPos instance created");
+
+                // Set character code table to CP852 for Czech/Central European characters
+                escpos.setCharacterCodeTable(CharacterCodeTable.CP852_Latin2);
+                logger.debug("Character code table set to CP852 (Latin 2)");
                 transitionTo(PrinterState.ENABLED);
 
                 // Initialize printer
                 escpos.initializePrinter();
                 logger.debug("Printer initialized");
 
-                // Configure character encoding for Czech/Central European characters
+                // Send additional ESC/POS command to ensure code page is selected
                 configureCharacterEncoding();
 
                 // Update status
