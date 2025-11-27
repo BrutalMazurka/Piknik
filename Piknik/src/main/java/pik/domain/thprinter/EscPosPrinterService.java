@@ -5,8 +5,6 @@ import com.github.anastaciocintra.escpos.EscPosConst;
 import com.github.anastaciocintra.escpos.Style;
 import com.github.anastaciocintra.escpos.barcode.BarCode;
 import com.github.anastaciocintra.escpos.image.*;
-import com.github.anastaciocintra.output.TcpIpOutputStream;
-import com.github.anastaciocintra.output.PrinterOutputStream;
 import com.fazecast.jSerialComm.SerialPort;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -21,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -43,6 +42,8 @@ public class EscPosPrinterService implements IPrinterService {
     private final ReentrantLock printerLock = new ReentrantLock();
     private final Gson gson = new Gson();
 
+    private Socket socket;
+    private SerialPort serialPort;
     private OutputStream outputStream;
     private EscPos escpos;
     private PrinterStatus currentStatus;
@@ -159,17 +160,24 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Create output stream based on connection type
+     * Uses direct socket connection instead of TcpIpOutputStream to avoid "pipe broken" errors
      */
     private OutputStream createOutputStream() throws IOException {
         return switch (config.connectionType()) {
             case NETWORK -> {
                 logger.info("Connecting to network printer: {}:{}", config.ipAddress(), config.networkPort());
-                yield new TcpIpOutputStream(config.ipAddress(), config.networkPort());
+                // Use direct Socket connection instead of TcpIpOutputStream
+                // This avoids the "Read end dead" / "Pipe broken" errors from TcpIpOutputStream's internal piping
+                socket = new Socket(config.ipAddress(), config.networkPort());
+                socket.setKeepAlive(true);
+                socket.setSoTimeout(config.connectionTimeout());
+                logger.debug("Socket connected successfully to {}:{}", config.ipAddress(), config.networkPort());
+                yield socket.getOutputStream();
             }
             case USB -> {
                 logger.info("Connecting to USB/Serial printer: {} at {} baud", config.comPort(), config.baudRate());
                 // Use jSerialComm to open serial port
-                SerialPort serialPort = SerialPort.getCommPort(config.comPort());
+                serialPort = SerialPort.getCommPort(config.comPort());
                 serialPort.setBaudRate(config.baudRate());
                 serialPort.setNumDataBits(8);
                 serialPort.setNumStopBits(1);
@@ -251,6 +259,26 @@ public class EscPosPrinterService implements IPrinterService {
                     logger.debug("Error closing output stream: {}", e.getMessage());
                 }
                 outputStream = null;
+            }
+
+            if (socket != null) {
+                try {
+                    socket.close();
+                    logger.debug("Socket closed");
+                } catch (Exception e) {
+                    logger.debug("Error closing socket: {}", e.getMessage());
+                }
+                socket = null;
+            }
+
+            if (serialPort != null) {
+                try {
+                    serialPort.closePort();
+                    logger.debug("Serial port closed");
+                } catch (Exception e) {
+                    logger.debug("Error closing serial port: {}", e.getMessage());
+                }
+                serialPort = null;
             }
 
         } catch (Exception e) {
