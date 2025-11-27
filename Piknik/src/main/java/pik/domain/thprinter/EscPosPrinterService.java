@@ -761,8 +761,7 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Update printer status
-     * Note: Basic implementation - will be enhanced with ESC/POS status queries in Phase 3
+     * Update printer status by querying device using ESC/POS DLE EOT commands
      */
     public void updatePrinterStatus() {
         printerLock.lock();
@@ -780,15 +779,16 @@ public class EscPosPrinterService implements IPrinterService {
                 newStatus.setErrorMessage("Running in dummy mode");
                 newStatus.setDummyMode(true);
             } else if (state == PrinterState.READY && escpos != null) {
-                // TODO Phase 3: Implement ESC/POS status queries (DLE EOT commands)
-                // For now, assume connected = online
-                newStatus.setOnline(true);
-                newStatus.setCoverOpen(false);
-                newStatus.setPaperEmpty(false);
-                newStatus.setPaperNearEnd(false);
-                newStatus.setPowerState(1);
-                newStatus.setError(false);
-                newStatus.setErrorMessage(null);
+                try {
+                    // Query printer status using DLE EOT commands
+                    queryPrinterStatus(newStatus);
+                } catch (Exception e) {
+                    logger.warn("Failed to query printer status: {}", e.getMessage());
+                    // Assume online but mark as unknown
+                    newStatus.setOnline(true);
+                    newStatus.setError(false);
+                    newStatus.setErrorMessage("Status query unavailable");
+                }
                 newStatus.setDummyMode(false);
             } else {
                 newStatus.setOnline(false);
@@ -808,6 +808,167 @@ public class EscPosPrinterService implements IPrinterService {
 
         } finally {
             printerLock.unlock();
+        }
+    }
+
+    /**
+     * Query printer status using ESC/POS DLE EOT real-time status commands
+     * DLE EOT n - Real-time status transmission
+     */
+    private void queryPrinterStatus(PrinterStatus status) throws IOException {
+        try {
+            // Query 1: Printer status (DLE EOT 1)
+            byte printerStatusByte = queryRealTimeStatus((byte) 0x01);
+            parsePrinterStatus(printerStatusByte, status);
+
+            // Query 2: Offline status (DLE EOT 2)
+            byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
+            parseOfflineStatus(offlineStatusByte, status);
+
+            // Query 3: Error status (DLE EOT 3)
+            byte errorStatusByte = queryRealTimeStatus((byte) 0x03);
+            parseErrorStatus(errorStatusByte, status);
+
+            // Query 4: Paper sensor status (DLE EOT 4)
+            byte paperStatusByte = queryRealTimeStatus((byte) 0x04);
+            parsePaperStatus(paperStatusByte, status);
+
+            // If no errors detected, set as online
+            if (!status.isError()) {
+                status.setOnline(true);
+                status.setPowerState(1);
+            }
+
+        } catch (IOException e) {
+            logger.error("I/O error during status query: {}", e.getMessage());
+            status.setOnline(false);
+            status.setError(true);
+            status.setErrorMessage("Communication error: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
+     * Send DLE EOT command and read response byte
+     * DLE EOT n (0x10 0x04 n)
+     */
+    private byte queryRealTimeStatus(byte statusType) throws IOException {
+        // Send: DLE EOT n
+        outputStream.write(0x10); // DLE
+        outputStream.write(0x04); // EOT
+        outputStream.write(statusType); // n (1-4)
+        outputStream.flush();
+
+        // Read 1 byte response (with timeout)
+        // Note: Some printers may not respond if everything is OK
+        // We'll use a short timeout and treat timeout as "no error"
+        try {
+            // Wait briefly for response
+            Thread.sleep(50);
+
+            // Check if data is available (non-blocking check)
+            if (socket != null && socket.getInputStream().available() > 0) {
+                return (byte) socket.getInputStream().read();
+            } else if (serialPort != null && serialPort.bytesAvailable() > 0) {
+                byte[] buffer = new byte[1];
+                serialPort.readBytes(buffer, 1);
+                return buffer[0];
+            }
+
+            // No response = normal operation
+            return 0x00;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return 0x00;
+        }
+    }
+
+    /**
+     * Parse printer status byte (DLE EOT 1)
+     * Bit 3: Paper end sensor - 0=paper present, 1=paper not present
+     * Bit 5,6: Not used (Fixed to 0)
+     */
+    private void parsePrinterStatus(byte statusByte, PrinterStatus status) {
+        // Bit 3: Paper end sensor
+        boolean paperEnd = (statusByte & 0x08) != 0;
+        if (paperEnd) {
+            status.setPaperEmpty(true);
+            status.setError(true);
+            status.setErrorMessage("Paper end detected");
+            logger.debug("Printer status: paper end detected");
+        }
+    }
+
+    /**
+     * Parse offline status byte (DLE EOT 2)
+     * Bit 2: Cover open - 0=closed, 1=open
+     * Bit 3: Paper feed button - 0=not pressed, 1=pressed
+     * Bit 6: Paper end - 0=paper present, 1=paper not present
+     */
+    private void parseOfflineStatus(byte statusByte, PrinterStatus status) {
+        // Bit 2: Cover open
+        boolean coverOpen = (statusByte & 0x04) != 0;
+        status.setCoverOpen(coverOpen);
+        if (coverOpen) {
+            status.setError(true);
+            status.setErrorMessage("Cover open");
+            logger.debug("Offline status: cover open");
+        }
+
+        // Bit 6: Paper end
+        boolean paperEnd = (statusByte & 0x40) != 0;
+        if (paperEnd) {
+            status.setPaperEmpty(true);
+            status.setError(true);
+            status.setErrorMessage("Paper end");
+            logger.debug("Offline status: paper end");
+        }
+    }
+
+    /**
+     * Parse error status byte (DLE EOT 3)
+     * Bit 5: Recoverable error - 0=no error, 1=error
+     * Bit 6: Unrecoverable error - 0=no error, 1=error
+     */
+    private void parseErrorStatus(byte statusByte, PrinterStatus status) {
+        // Bit 5: Recoverable error (e.g., paper jam)
+        boolean recoverableError = (statusByte & 0x20) != 0;
+
+        // Bit 6: Unrecoverable error (e.g., cutter error)
+        boolean unrecoverableError = (statusByte & 0x40) != 0;
+
+        if (recoverableError || unrecoverableError) {
+            status.setError(true);
+            status.setOnline(false);
+            String errorType = unrecoverableError ? "Unrecoverable" : "Recoverable";
+            status.setErrorMessage(errorType + " printer error detected");
+            logger.error("Error status: {} error detected", errorType);
+        }
+    }
+
+    /**
+     * Parse paper sensor status byte (DLE EOT 4)
+     * Bit 2,3: Paper near end sensor - 00=paper adequate, 11=paper near end
+     * Bit 5,6: Paper end sensor - 00=paper present, 11=paper not present
+     */
+    private void parsePaperStatus(byte statusByte, PrinterStatus status) {
+        // Bits 2-3: Paper near end sensor
+        int paperNearEndBits = (statusByte >> 2) & 0x03;
+        boolean paperNearEnd = (paperNearEndBits == 0x03);
+        status.setPaperNearEnd(paperNearEnd);
+        if (paperNearEnd) {
+            logger.debug("Paper status: paper near end");
+        }
+
+        // Bits 5-6: Paper end sensor
+        int paperEndBits = (statusByte >> 5) & 0x03;
+        boolean paperEnd = (paperEndBits == 0x03);
+        if (paperEnd) {
+            status.setPaperEmpty(true);
+            status.setError(true);
+            status.setErrorMessage("Paper end");
+            logger.debug("Paper status: paper end");
         }
     }
 
