@@ -15,24 +15,24 @@ import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.common.ELogger;
-import pik.dal.IngenicoConfig;
-import pik.dal.PrinterConfig;
-import pik.dal.ServerConfig;
-import pik.dal.StartupMode;
-import pik.dal.VFDConfig;
+import pik.dal.*;
 import pik.domain.ingenico.IngenicoReaderDevice;
 import pik.domain.ingenico.IngenicoService;
 import pik.domain.io.IOGeneral;
+import pik.domain.orchestration.SSEManager;
+import pik.domain.orchestration.ServiceOrchestrator;
+import pik.domain.orchestration.ShutdownManager;
+import pik.domain.orchestration.WebServerManager;
 import pik.domain.thprinter.EscPosPrinterService;
 import pik.domain.thprinter.StatusMonitorService;
 import pik.domain.vfd.VFDService;
-import pik.domain.orchestration.ServiceOrchestrator;
-import pik.domain.orchestration.SSEManager;
-import pik.domain.orchestration.WebServerManager;
-import pik.domain.orchestration.ShutdownManager;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * Integrated application managing Thermal Printer, VFD Display, and Ingenico Reader
