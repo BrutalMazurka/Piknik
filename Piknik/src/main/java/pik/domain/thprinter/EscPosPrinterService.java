@@ -5,7 +5,6 @@ import com.github.anastaciocintra.escpos.EscPosConst;
 import com.github.anastaciocintra.escpos.Style;
 import com.github.anastaciocintra.escpos.barcode.BarCode;
 import com.github.anastaciocintra.escpos.image.*;
-import com.github.anastaciocintra.output.CharacterCodeTable;
 import com.fazecast.jSerialComm.SerialPort;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
@@ -127,7 +126,7 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("EscPos instance created");
 
                 // Set character code table to CP852 for Czech/Central European characters
-                escpos.setCharacterCodeTable(CharacterCodeTable.CP852_Latin2);
+                escpos.setCharacterCodeTable(EscPos.CharacterCodeTable.CP852_Latin2);
                 logger.debug("Character code table set to CP852 (Latin 2)");
                 transitionTo(PrinterState.ENABLED);
 
