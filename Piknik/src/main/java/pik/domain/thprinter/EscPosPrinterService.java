@@ -1006,12 +1006,11 @@ public class EscPosPrinterService implements IPrinterService {
                         logger.debug("DLE EOT {} response: 0x{}", statusType, String.format("%02X", (byte)byteRead));
                         return (byte) byteRead;
                     } else {
-                        // No data available - could mean:
-                        // 1. Printer is OK and has nothing to report
-                        // 2. Printer is disconnected/off
-                        // We'll return 0x00 (no error) but this might cause false positives
-                        logger.debug("DLE EOT {} no response (assuming OK)", statusType);
-                        return 0x00;
+                        // No data available after waiting 200ms
+                        // According to ESC/POS spec, printer should respond immediately to DLE EOT
+                        // No response indicates printer is off, disconnected, or not responding
+                        logger.warn("DLE EOT {} no response - printer may be offline", statusType);
+                        throw new IOException("No response to DLE EOT " + statusType + " - printer offline or not responding");
                     }
 
                 } else if (serialPort != null) {
@@ -1025,8 +1024,8 @@ public class EscPosPrinterService implements IPrinterService {
                         logger.debug("DLE EOT {} response: 0x{}", statusType, String.format("%02X", buffer[0]));
                         return buffer[0];
                     } else {
-                        logger.debug("DLE EOT {} no response (assuming OK)", statusType);
-                        return 0x00;
+                        logger.warn("DLE EOT {} no response - printer may be offline", statusType);
+                        throw new IOException("No response to DLE EOT " + statusType + " - printer offline or not responding");
                     }
                 } else {
                     throw new IOException("No valid connection (socket and serialPort are both null)");
@@ -1070,18 +1069,20 @@ public class EscPosPrinterService implements IPrinterService {
         boolean coverOpen = (statusByte & 0x04) != 0;
         status.setCoverOpen(coverOpen);
         if (coverOpen) {
+            status.setOnline(false);  // Printer goes offline when cover is open
             status.setError(true);
             status.setErrorMessage("Cover open");
-            logger.debug("Offline status: cover open");
+            logger.debug("Offline status: cover open - printer offline");
         }
 
         // Bit 6: Paper end
         boolean paperEnd = (statusByte & 0x40) != 0;
         if (paperEnd) {
             status.setPaperEmpty(true);
+            status.setOnline(false);  // Printer goes offline when paper is empty
             status.setError(true);
             status.setErrorMessage("Paper end");
-            logger.debug("Offline status: paper end");
+            logger.debug("Offline status: paper end - printer offline");
         }
     }
 
