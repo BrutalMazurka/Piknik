@@ -319,6 +319,114 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
+     * Check if the current connection to the printer is healthy
+     * @return true if connection is healthy, false otherwise
+     */
+    private boolean isConnectionHealthy() {
+        if (dummyMode) {
+            return true;
+        }
+
+        try {
+            if (socket != null) {
+                // Check if socket is connected and not closed
+                if (socket.isClosed() || !socket.isConnected()) {
+                    logger.debug("Socket is closed or not connected");
+                    return false;
+                }
+
+                // Try to check if remote end is still reachable
+                // Send Keep-Alive probe by checking socket status
+                if (socket.isInputShutdown() || socket.isOutputShutdown()) {
+                    logger.debug("Socket input or output is shut down");
+                    return false;
+                }
+
+                return true;
+            } else if (serialPort != null) {
+                // Check if serial port is still open
+                return serialPort.isOpen();
+            }
+
+            // No valid connection
+            return false;
+
+        } catch (Exception e) {
+            logger.debug("Exception while checking connection health: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Attempt to reconnect to the printer
+     * @throws IOException if reconnection fails
+     */
+    private void attemptReconnection() throws IOException {
+        logger.info("Attempting to reconnect to printer...");
+
+        // Clean up existing connection
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (Exception e) {
+                logger.debug("Error closing old socket: {}", e.getMessage());
+            }
+            socket = null;
+        }
+
+        if (serialPort != null) {
+            try {
+                serialPort.closePort();
+            } catch (Exception e) {
+                logger.debug("Error closing old serial port: {}", e.getMessage());
+            }
+            serialPort = null;
+        }
+
+        if (outputStream != null) {
+            try {
+                outputStream.close();
+            } catch (Exception e) {
+                logger.debug("Error closing old output stream: {}", e.getMessage());
+            }
+            outputStream = null;
+        }
+
+        if (escpos != null) {
+            try {
+                escpos.close();
+            } catch (Exception e) {
+                logger.debug("Error closing old EscPos: {}", e.getMessage());
+            }
+            escpos = null;
+        }
+
+        // Attempt to create new connection
+        try {
+            outputStream = createOutputStream();
+            escpos = new EscPos(outputStream);
+
+            // Reconfigure character encoding
+            escpos.setCharacterCodeTable(EscPos.CharacterCodeTable.CP852_Latin2);
+            configureCharacterEncoding();
+
+            logger.info("Successfully reconnected to printer");
+        } catch (IOException e) {
+            logger.error("Failed to reconnect to printer: {}", e.getMessage());
+            // Clean up partial initialization
+            if (escpos != null) {
+                try { escpos.close(); } catch (Exception ex) {}
+                escpos = null;
+            }
+            if (outputStream != null) {
+                try { outputStream.close(); } catch (Exception ex) {}
+                outputStream = null;
+            }
+            throw e;
+        }
+    }
+
+    /**
      * Wait for output to complete
      * Note: ESC/POS is synchronous, so this just adds a small delay for buffer flushing
      */
@@ -780,14 +888,24 @@ public class EscPosPrinterService implements IPrinterService {
                 newStatus.setDummyMode(true);
             } else if (state == PrinterState.READY && escpos != null) {
                 try {
+                    // First check if connection is still healthy
+                    if (!isConnectionHealthy()) {
+                        logger.warn("Connection to printer is not healthy, attempting reconnect...");
+                        attemptReconnection();
+                    }
+
                     // Query printer status using DLE EOT commands
                     queryPrinterStatus(newStatus);
                 } catch (Exception e) {
-                    logger.warn("Failed to query printer status: {}", e.getMessage());
-                    // Assume online but mark as unknown
-                    newStatus.setOnline(true);
-                    newStatus.setError(false);
-                    newStatus.setErrorMessage("Status query unavailable");
+                    logger.error("Failed to query printer status: {}", e.getMessage());
+                    // Mark printer as offline when status query fails
+                    newStatus.setOnline(false);
+                    newStatus.setError(true);
+                    newStatus.setErrorMessage("Printer communication failed: " + e.getMessage());
+                    newStatus.setPowerState(0);
+
+                    // Attempt reconnection on next status check
+                    logger.debug("Will attempt reconnection on next status check");
                 }
                 newStatus.setDummyMode(false);
             } else {
@@ -851,36 +969,77 @@ public class EscPosPrinterService implements IPrinterService {
     /**
      * Send DLE EOT command and read response byte
      * DLE EOT n (0x10 0x04 n)
+     *
+     * @param statusType Type of status to query (1-4)
+     * @return Status byte response from printer
+     * @throws IOException if communication fails
      */
     private byte queryRealTimeStatus(byte statusType) throws IOException {
-        // Send: DLE EOT n
-        outputStream.write(0x10); // DLE
-        outputStream.write(0x04); // EOT
-        outputStream.write(statusType); // n (1-4)
-        outputStream.flush();
-
-        // Read 1 byte response (with timeout)
-        // Note: Some printers may not respond if everything is OK
-        // We'll use a short timeout and treat timeout as "no error"
         try {
-            // Wait briefly for response
-            Thread.sleep(50);
-
-            // Check if data is available (non-blocking check)
-            if (socket != null && socket.getInputStream().available() > 0) {
-                return (byte) socket.getInputStream().read();
-            } else if (serialPort != null && serialPort.bytesAvailable() > 0) {
-                byte[] buffer = new byte[1];
-                serialPort.readBytes(buffer, 1);
-                return buffer[0];
+            // Verify connection before attempting I/O
+            if (socket != null && (socket.isClosed() || !socket.isConnected())) {
+                throw new IOException("Socket is closed or not connected");
             }
 
-            // No response = normal operation
-            return 0x00;
+            // Send: DLE EOT n
+            outputStream.write(0x10); // DLE
+            outputStream.write(0x04); // EOT
+            outputStream.write(statusType); // n (1-4)
+            outputStream.flush();
 
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return 0x00;
+            // Read 1 byte response with timeout
+            // According to ESC/POS spec, printer should respond immediately to DLE EOT
+            try {
+                // Wait for response (increased from 50ms to 200ms for reliability)
+                Thread.sleep(200);
+
+                if (socket != null) {
+                    InputStream inputStream = socket.getInputStream();
+
+                    // Check if data is available
+                    int available = inputStream.available();
+                    if (available > 0) {
+                        int byteRead = inputStream.read();
+                        if (byteRead == -1) {
+                            throw new IOException("End of stream reached - printer disconnected");
+                        }
+                        logger.debug("DLE EOT {} response: 0x{}", statusType, String.format("%02X", (byte)byteRead));
+                        return (byte) byteRead;
+                    } else {
+                        // No data available - could mean:
+                        // 1. Printer is OK and has nothing to report
+                        // 2. Printer is disconnected/off
+                        // We'll return 0x00 (no error) but this might cause false positives
+                        logger.debug("DLE EOT {} no response (assuming OK)", statusType);
+                        return 0x00;
+                    }
+
+                } else if (serialPort != null) {
+                    int available = serialPort.bytesAvailable();
+                    if (available > 0) {
+                        byte[] buffer = new byte[1];
+                        int bytesRead = serialPort.readBytes(buffer, 1);
+                        if (bytesRead <= 0) {
+                            throw new IOException("Failed to read from serial port");
+                        }
+                        logger.debug("DLE EOT {} response: 0x{}", statusType, String.format("%02X", buffer[0]));
+                        return buffer[0];
+                    } else {
+                        logger.debug("DLE EOT {} no response (assuming OK)", statusType);
+                        return 0x00;
+                    }
+                } else {
+                    throw new IOException("No valid connection (socket and serialPort are both null)");
+                }
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Status query interrupted", e);
+            }
+
+        } catch (IOException e) {
+            logger.error("Failed to query real-time status type {}: {}", statusType, e.getMessage());
+            throw e;
         }
     }
 
