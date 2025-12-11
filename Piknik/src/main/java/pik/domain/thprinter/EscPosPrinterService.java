@@ -49,7 +49,8 @@ public class EscPosPrinterService implements IPrinterService {
 
     private Socket socket;
     private SerialPort serialPort;
-    private OutputStream outputStream;
+    private OutputStream outputStream;      // Wrapped by EscPos library (for printing)
+    private OutputStream rawOutputStream;   // Direct stream (for status queries)
     private EscPos escpos;
     private PrinterStatus currentStatus;
     private volatile PrinterState state = PrinterState.UNINITIALIZED;
@@ -115,13 +116,16 @@ public class EscPosPrinterService implements IPrinterService {
 
             try {
                 // Create connection based on type
-                outputStream = createOutputStream();
-                logger.debug("Output stream created");
+                rawOutputStream = createOutputStream();
+                logger.debug("Raw output stream created");
+
+                // Keep raw stream for status queries, wrap for printing
+                outputStream = rawOutputStream;
                 transitionTo(PrinterState.OPENED);
 
-                // Create EscPos instance
+                // Create EscPos instance (wraps the stream)
                 escpos = new EscPos(outputStream);
-                logger.debug("EscPos instance created");
+                logger.debug("EscPos instance created (stream is now wrapped)");
 
                 // Set character code table to CP852 for Czech/Central European characters
                 escpos.setCharacterCodeTable(EscPos.CharacterCodeTable.CP852_Latin2);
@@ -281,6 +285,8 @@ public class EscPosPrinterService implements IPrinterService {
                 escpos = null;
             }
 
+            // Note: outputStream and rawOutputStream point to same object
+            // Close via outputStream if EscPos was created, otherwise via rawOutputStream
             if (outputStream != null) {
                 try {
                     outputStream.close();
@@ -289,6 +295,15 @@ public class EscPosPrinterService implements IPrinterService {
                     logger.debug("Error closing output stream: {}", e.getMessage());
                 }
                 outputStream = null;
+                rawOutputStream = null;  // Same object, already closed
+            } else if (rawOutputStream != null) {
+                try {
+                    rawOutputStream.close();
+                    logger.debug("Raw output stream closed");
+                } catch (Exception e) {
+                    logger.debug("Error closing raw output stream: {}", e.getMessage());
+                }
+                rawOutputStream = null;
             }
 
             if (socket != null) {
@@ -390,6 +405,7 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("Error closing old output stream: {}", e.getMessage());
             }
             outputStream = null;
+            rawOutputStream = null;  // Same object
         }
 
         if (escpos != null) {
@@ -403,7 +419,8 @@ public class EscPosPrinterService implements IPrinterService {
 
         // Attempt to create new connection
         try {
-            outputStream = createOutputStream();
+            rawOutputStream = createOutputStream();
+            outputStream = rawOutputStream;  // Both point to same stream
             escpos = new EscPos(outputStream);
 
             // Reconfigure character encoding
@@ -421,6 +438,7 @@ public class EscPosPrinterService implements IPrinterService {
             if (outputStream != null) {
                 try { outputStream.close(); } catch (Exception ex) {}
                 outputStream = null;
+                rawOutputStream = null;
             }
             throw e;
         }
@@ -981,11 +999,14 @@ public class EscPosPrinterService implements IPrinterService {
                 throw new IOException("Socket is closed or not connected");
             }
 
-            // Send: DLE EOT n
-            outputStream.write(0x10); // DLE
-            outputStream.write(0x04); // EOT
-            outputStream.write(statusType); // n (1-4)
-            outputStream.flush();
+            // Send DLE EOT n through RAW stream (not EscPos-wrapped stream)
+            // This is critical - EscPos library might buffer/intercept wrapped stream
+            rawOutputStream.write(0x10); // DLE
+            rawOutputStream.write(0x04); // EOT
+            rawOutputStream.write(statusType); // n (1-4)
+            rawOutputStream.flush();
+
+            logger.trace("Sent DLE EOT {} via raw stream", statusType);
 
             // Read 1 byte response with timeout
             // According to ESC/POS spec, printer should respond immediately to DLE EOT
