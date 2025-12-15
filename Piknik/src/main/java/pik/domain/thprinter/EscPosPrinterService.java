@@ -1065,25 +1065,30 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Parse printer status byte (DLE EOT 1)
-     * Bit 3: Paper end sensor - 0=paper present, 1=paper not present
-     * Bit 5,6: Not used (Fixed to 0)
+     * Per TM-T20III spec:
+     * Bit 2: Drawer kick-out connector pin 3 status
+     * Bit 3: 0=Online | 1=Offline
+     * Bit 5: 0=Not waiting for recovery | 1=Waiting for recovery
+     * Bit 6: 0=Feed button not pressed | 1=Feed button pressed
      */
     private void parsePrinterStatus(byte statusByte, PrinterStatus status) {
-        // Bit 3: Paper end sensor
-        boolean paperEnd = (statusByte & 0x08) != 0;
-        if (paperEnd) {
-            status.setPaperEmpty(true);
+        // Bit 3: Online/Offline status
+        boolean offline = (statusByte & 0x08) != 0;
+        if (offline) {
+            status.setOnline(false);
             status.setError(true);
-            status.setErrorMessage("Paper end detected");
-            logger.debug("Printer status: paper end detected");
+            status.setErrorMessage("Printer offline");
+            logger.debug("Printer status: offline");
         }
     }
 
     /**
      * Parse offline status byte (DLE EOT 2)
-     * Bit 2: Cover open - 0=closed, 1=open
-     * Bit 3: Paper feed button - 0=not pressed, 1=pressed
-     * Bit 6: Paper end - 0=paper present, 1=paper not present
+     * Per TM-T20III spec:
+     * Bit 2: 0=Cover closed | 1=Cover open
+     * Bit 3: 0=No paper feed | 1=Paper feed active
+     * Bit 5: 0=Paper available | 1=Paper end detected
+     * Bit 6: 0=No error | 1=Error occurred
      */
     private void parseOfflineStatus(byte statusByte, PrinterStatus status) {
         // Bit 2: Cover open
@@ -1096,8 +1101,8 @@ public class EscPosPrinterService implements IPrinterService {
             logger.debug("Offline status: cover open - printer offline");
         }
 
-        // Bit 6: Paper end
-        boolean paperEnd = (statusByte & 0x40) != 0;
+        // Bit 5: Paper end (NOT bit 6!)
+        boolean paperEnd = (statusByte & 0x20) != 0;
         if (paperEnd) {
             status.setPaperEmpty(true);
             status.setOnline(false);  // Printer goes offline when paper is empty
@@ -1105,24 +1110,54 @@ public class EscPosPrinterService implements IPrinterService {
             status.setErrorMessage("Paper end");
             logger.debug("Offline status: paper end - printer offline");
         }
+
+        // Bit 6: Error occurred
+        boolean errorOccurred = (statusByte & 0x40) != 0;
+        if (errorOccurred) {
+            status.setError(true);
+            if (status.getErrorMessage() == null) {
+                status.setErrorMessage("Offline error");
+            }
+            logger.debug("Offline status: error occurred");
+        }
     }
 
     /**
      * Parse error status byte (DLE EOT 3)
-     * Bit 5: Recoverable error - 0=no error, 1=error
-     * Bit 6: Unrecoverable error - 0=no error, 1=error
+     * Per TM-T20III spec:
+     * Bit 2: 0=No recoverable error | 1=Recoverable error
+     * Bit 3: 0=No autocutter error | 1=Autocutter error
+     * Bit 5: 0=No unrecoverable error | 1=Unrecoverable error
+     * Bit 6: 0=No auto-recoverable error | 1=Auto-recoverable error
      */
     private void parseErrorStatus(byte statusByte, PrinterStatus status) {
-        // Bit 5: Recoverable error (e.g., paper jam)
-        boolean recoverableError = (statusByte & 0x20) != 0;
+        // Bit 2: Recoverable error (e.g., high head temp)
+        boolean recoverableError = (statusByte & 0x04) != 0;
 
-        // Bit 6: Unrecoverable error (e.g., cutter error)
-        boolean unrecoverableError = (statusByte & 0x40) != 0;
+        // Bit 3: Autocutter error
+        boolean autocutterError = (statusByte & 0x08) != 0;
 
-        if (recoverableError || unrecoverableError) {
+        // Bit 5: Unrecoverable error (e.g., ROM/RAM error)
+        boolean unrecoverableError = (statusByte & 0x20) != 0;
+
+        // Bit 6: Auto-recoverable error
+        boolean autoRecoverableError = (statusByte & 0x40) != 0;
+
+        if (recoverableError || autocutterError || unrecoverableError || autoRecoverableError) {
             status.setError(true);
             status.setOnline(false);
-            String errorType = unrecoverableError ? "Unrecoverable" : "Recoverable";
+
+            String errorType;
+            if (unrecoverableError) {
+                errorType = "Unrecoverable";
+            } else if (autocutterError) {
+                errorType = "Autocutter";
+            } else if (autoRecoverableError) {
+                errorType = "Auto-recoverable";
+            } else {
+                errorType = "Recoverable";
+            }
+
             status.setErrorMessage(errorType + " printer error detected");
             logger.error("Error status: {} error detected", errorType);
         }
