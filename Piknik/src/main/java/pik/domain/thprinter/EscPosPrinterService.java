@@ -948,18 +948,21 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Query printer status using ESC/POS DLE EOT real-time status commands
-     * DLE EOT n - Real-time status transmission
+     * Query printer status using ESC/POS commands
+     * Uses GS a (ASB) for cover detection, DLE EOT for other statuses
      */
     private void queryPrinterStatus(PrinterStatus status) throws IOException {
         try {
+            // Query cover status using GS a (more reliable than DLE EOT for TM-T20III)
+            queryCoverStatusASB(status);
+
             // Query 1: Printer status (DLE EOT 1)
             byte printerStatusByte = queryRealTimeStatus((byte) 0x01);
             parsePrinterStatus(printerStatusByte, status);
 
-            // Query 2: Offline status (DLE EOT 2)
+            // Query 2: Offline status (DLE EOT 2) - SKIP COVER BIT, use other bits
             byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
-            parseOfflineStatus(offlineStatusByte, status);
+            parseOfflineStatusNoCover(offlineStatusByte, status);
 
             // Query 3: Error status (DLE EOT 3)
             byte errorStatusByte = queryRealTimeStatus((byte) 0x03);
@@ -981,6 +984,78 @@ public class EscPosPrinterService implements IPrinterService {
             status.setError(true);
             status.setErrorMessage("Communication error: " + e.getMessage());
             throw e;
+        }
+    }
+
+    /**
+     * Query cover status using GS a (Automatic Status Back)
+     * This is more reliable than DLE EOT for cover detection on TM-T20III
+     *
+     * @param status PrinterStatus object to update
+     * @throws IOException if communication fails
+     */
+    private void queryCoverStatusASB(PrinterStatus status) throws IOException {
+        try {
+            // Enable ASB temporarily to get current status
+            // GS a n where n = 79 enables all statuses (bits 0,1,2,3,6)
+            rawOutputStream.write(0x1D); // GS
+            rawOutputStream.write(0x61); // a
+            rawOutputStream.write(79);   // n (enable all)
+            rawOutputStream.flush();
+
+            logger.trace("Sent GS a 79 to enable ASB");
+
+            // Wait for 4-byte ASB response
+            Thread.sleep(100);
+
+            // Read 4-byte ASB status
+            byte[] asbResponse = new byte[4];
+            int bytesRead = 0;
+
+            if (socket != null) {
+                InputStream inputStream = socket.getInputStream();
+                int available = inputStream.available();
+
+                if (available >= 4) {
+                    bytesRead = inputStream.read(asbResponse, 0, 4);
+                }
+            } else if (serialPort != null) {
+                int available = serialPort.bytesAvailable();
+                if (available >= 4) {
+                    bytesRead = serialPort.readBytes(asbResponse, 4);
+                }
+            }
+
+            if (bytesRead == 4) {
+                // Parse byte 1 (index 0), bit 5 for cover status
+                boolean coverOpen = (asbResponse[0] & 0x20) != 0;
+                status.setCoverOpen(coverOpen);
+
+                if (coverOpen) {
+                    status.setOnline(false);
+                    status.setError(true);
+                    status.setErrorMessage("Cover open");
+                    logger.debug("ASB: Cover open detected (byte1=0x{}, bit5=1)",
+                               String.format("%02X", asbResponse[0]));
+                } else {
+                    logger.debug("ASB: Cover closed (byte1=0x{}, bit5=0)",
+                               String.format("%02X", asbResponse[0]));
+                }
+            } else {
+                logger.debug("ASB: No response or incomplete response ({} bytes)", bytesRead);
+            }
+
+            // Disable ASB to prevent async transmissions
+            rawOutputStream.write(0x1D); // GS
+            rawOutputStream.write(0x61); // a
+            rawOutputStream.write(0);    // n=0 (disable)
+            rawOutputStream.flush();
+
+            logger.trace("Sent GS a 0 to disable ASB");
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("ASB query interrupted", e);
         }
     }
 
@@ -1083,23 +1158,17 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Parse offline status byte (DLE EOT 2)
+     * Parse offline status byte (DLE EOT 2) - WITHOUT cover bit
+     * Cover detection is handled by GS a (ASB) which is more reliable
      * Per TM-T20III spec:
-     * Bit 2: 0=Cover closed | 1=Cover open
+     * Bit 2: 0=Cover closed | 1=Cover open (IGNORED - use ASB instead)
      * Bit 3: 0=No paper feed | 1=Paper feed active
      * Bit 5: 0=Paper available | 1=Paper end detected
      * Bit 6: 0=No error | 1=Error occurred
      */
-    private void parseOfflineStatus(byte statusByte, PrinterStatus status) {
-        // Bit 2: Cover open
-        boolean coverOpen = (statusByte & 0x04) != 0;
-        status.setCoverOpen(coverOpen);
-        if (coverOpen) {
-            status.setOnline(false);  // Printer goes offline when cover is open
-            status.setError(true);
-            status.setErrorMessage("Cover open");
-            logger.debug("Offline status: cover open - printer offline");
-        }
+    private void parseOfflineStatusNoCover(byte statusByte, PrinterStatus status) {
+        // Bit 2: Cover open - IGNORED (unreliable on TM-T20III, use ASB instead)
+        // Cover detection is handled by queryCoverStatusASB()
 
         // Bit 5: Paper end (NOT bit 6!)
         boolean paperEnd = (statusByte & 0x20) != 0;
