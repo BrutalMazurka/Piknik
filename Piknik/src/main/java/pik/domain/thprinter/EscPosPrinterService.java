@@ -949,16 +949,14 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Query printer status using ESC/POS commands
-     * Uses GS a (ASB) for cover detection, DLE EOT for other statuses
+     * Uses GS a (ASB) for online/offline and cover detection (more reliable than DLE EOT for TM-T20III)
+     * Uses DLE EOT only for paper sensors and error details
      */
     private void queryPrinterStatus(PrinterStatus status) throws IOException {
         try {
-            // Query cover status using GS a (more reliable than DLE EOT for TM-T20III)
-            queryCoverStatusASB(status);
-
-            // Query 1: Printer status (DLE EOT 1)
-            byte printerStatusByte = queryRealTimeStatus((byte) 0x01);
-            parsePrinterStatus(printerStatusByte, status);
+            // Query online/offline and cover status using GS a (ASB)
+            // ASB is more reliable than DLE EOT for TM-T20III
+            queryStatusASB(status);
 
             // Query 2: Offline status (DLE EOT 2) - SKIP COVER BIT, use other bits
             byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
@@ -972,10 +970,11 @@ public class EscPosPrinterService implements IPrinterService {
             byte paperStatusByte = queryRealTimeStatus((byte) 0x04);
             parsePaperStatus(paperStatusByte, status);
 
-            // If no errors detected, set as online
-            if (!status.isError()) {
-                status.setOnline(true);
+            // Set power state based on final online status
+            if (status.isOnline() && !status.isError()) {
                 status.setPowerState(1);
+            } else {
+                status.setPowerState(0);
             }
 
         } catch (IOException e) {
@@ -988,13 +987,17 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Query cover status using GS a (Automatic Status Back)
-     * This is more reliable than DLE EOT for cover detection on TM-T20III
+     * Query printer status using GS a (Automatic Status Back)
+     * This is more reliable than DLE EOT for online/offline and cover detection on TM-T20III
+     *
+     * ASB Byte 1 bit mapping (per TM-T20III spec):
+     * Bit 3: 0=Online | 1=Offline
+     * Bit 5: 0=Cover closed | 1=Cover open
      *
      * @param status PrinterStatus object to update
      * @throws IOException if communication fails
      */
-    private void queryCoverStatusASB(PrinterStatus status) throws IOException {
+    private void queryStatusASB(PrinterStatus status) throws IOException {
         try {
             // Enable ASB temporarily to get current status
             // GS a n where n = 79 enables all statuses (bits 0,1,2,3,6)
@@ -1027,22 +1030,38 @@ public class EscPosPrinterService implements IPrinterService {
             }
 
             if (bytesRead == 4) {
-                // Parse byte 1 (index 0), bit 5 for cover status
-                boolean coverOpen = (asbResponse[0] & 0x20) != 0;
+                byte byte1 = asbResponse[0];
+
+                // Parse byte 1, bit 3 for online/offline status
+                boolean offline = (byte1 & 0x08) != 0;
+                status.setOnline(!offline);
+
+                // Parse byte 1, bit 5 for cover status
+                boolean coverOpen = (byte1 & 0x20) != 0;
                 status.setCoverOpen(coverOpen);
 
+                // Log combined status
+                logger.debug("ASB: byte1=0x{}, online={}, cover={}",
+                           String.format("%02X", byte1),
+                           !offline ? "yes" : "no",
+                           coverOpen ? "open" : "closed");
+
+                // Set error state based on cover
                 if (coverOpen) {
                     status.setOnline(false);
                     status.setError(true);
                     status.setErrorMessage("Cover open");
-                    logger.debug("ASB: Cover open detected (byte1=0x{}, bit5=1)",
-                               String.format("%02X", asbResponse[0]));
-                } else {
-                    logger.debug("ASB: Cover closed (byte1=0x{}, bit5=0)",
-                               String.format("%02X", asbResponse[0]));
+                } else if (offline) {
+                    // Offline but cover closed - some other issue
+                    status.setError(true);
+                    status.setErrorMessage("Printer offline");
                 }
             } else {
                 logger.debug("ASB: No response or incomplete response ({} bytes)", bytesRead);
+                // No ASB response - printer may be offline or not responding
+                status.setOnline(false);
+                status.setError(true);
+                status.setErrorMessage("No response to status query");
             }
 
             // Disable ASB to prevent async transmissions
