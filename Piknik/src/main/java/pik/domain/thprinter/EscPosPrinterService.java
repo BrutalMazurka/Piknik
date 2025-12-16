@@ -1057,11 +1057,16 @@ public class EscPosPrinterService implements IPrinterService {
                     status.setErrorMessage("Printer offline");
                 }
             } else {
-                logger.debug("ASB: No response or incomplete response ({} bytes)", bytesRead);
-                // No ASB response - printer may be offline or not responding
+                logger.warn("ASB: No response or incomplete response ({} bytes) - printer not responding", bytesRead);
+                // No ASB response - printer may be offline, cover open, or disconnected
+                // When cover is open, TM-T20III stops responding to all commands
                 status.setOnline(false);
+                status.setCoverOpen(true);  // Assume cover open (can't distinguish from power off)
                 status.setError(true);
-                status.setErrorMessage("No response to status query");
+                status.setErrorMessage("Printer not responding (cover may be open or printer disconnected)");
+
+                // Throw exception to stop further queries (DLE EOT will also fail)
+                throw new IOException("Printer not responding to ASB query - cover may be open or printer disconnected");
             }
 
             // Disable ASB to prevent async transmissions
