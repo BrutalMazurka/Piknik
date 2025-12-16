@@ -939,7 +939,23 @@ public class EscPosPrinterService implements IPrinterService {
             } else {
                 newStatus.setOnline(false);
                 newStatus.setError(true);
-                newStatus.setErrorMessage("Printer not in READY state: " + state);
+                newStatus.setPowerState(0);
+
+                // Handle inconsistent state: READY but escpos is null (from failed reconnection)
+                if (state == PrinterState.READY && escpos == null) {
+                    logger.info("Detected READY state with null escpos (failed reconnection), retrying...");
+                    try {
+                        attemptReconnection();
+                        logger.info("Reconnection successful - status will be updated on next check");
+                        newStatus.setErrorMessage("Reconnecting to printer...");
+                    } catch (Exception reconnectError) {
+                        logger.error("Reconnection attempt failed: {}", reconnectError.getMessage());
+                        newStatus.setErrorMessage("Printer disconnected: " + reconnectError.getMessage());
+                    }
+                } else {
+                    newStatus.setErrorMessage("Printer not in READY state: " + state);
+                }
+
                 newStatus.setDummyMode(false);
             }
 
