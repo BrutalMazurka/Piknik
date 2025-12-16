@@ -8,6 +8,7 @@ import com.github.anastaciocintra.escpos.image.*;
 import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import pik.common.EPrinterType;
 import pik.common.TM_T20IIIConstants;
 import pik.dal.PrinterConfig;
 
@@ -1150,7 +1151,7 @@ public class EscPosPrinterService implements IPrinterService {
                     // Cover is open - check if printer is network-reachable
                     // This distinguishes "cover open" from "printer powered off"
                     boolean networkReachable = false;
-                    if (config.connectionType() == PrinterConfig.ConnectionType.NETWORK) {
+                    if (config.connectionType() == EPrinterType.NETWORK) {
                         networkReachable = isNetworkReachable(config.ipAddress(), config.networkPort(), 500);
                     } else {
                         // For USB/serial, we can't test network, so assume reachable if we got ASB response
