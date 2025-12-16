@@ -17,7 +17,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.Base64;
@@ -897,6 +899,7 @@ public class EscPosPrinterService implements IPrinterService {
             if (dummyMode) {
                 // Dummy mode status
                 newStatus.setOnline(true);
+                newStatus.setReady(true);
                 newStatus.setCoverOpen(false);
                 newStatus.setPaperEmpty(false);
                 newStatus.setPaperNearEnd(false);
@@ -918,6 +921,7 @@ public class EscPosPrinterService implements IPrinterService {
                     logger.error("Failed to query printer status: {}", e.getMessage());
                     // Mark printer as offline when status query fails
                     newStatus.setOnline(false);
+                    newStatus.setReady(false);
                     newStatus.setError(true);
                     newStatus.setErrorMessage("Printer communication failed: " + e.getMessage());
                     newStatus.setPowerState(0);
@@ -938,6 +942,7 @@ public class EscPosPrinterService implements IPrinterService {
                 newStatus.setDummyMode(false);
             } else {
                 newStatus.setOnline(false);
+                newStatus.setReady(false);
                 newStatus.setError(true);
                 newStatus.setPowerState(0);
 
@@ -1013,6 +1018,14 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("DLE EOT 4 query failed (non-critical), skipping: {}", e.getMessage());
             }
 
+            // Calculate ready status: can printer accept print jobs?
+            // Ready = online (network reachable) + cover closed + paper available + no errors
+            boolean ready = status.isOnline()
+                         && !status.isCoverOpen()
+                         && !status.isPaperEmpty()
+                         && !status.isError();
+            status.setReady(ready);
+
             // Set power state based on final online status
             if (status.isOnline() && !status.isError()) {
                 status.setPowerState(1);
@@ -1020,10 +1033,15 @@ public class EscPosPrinterService implements IPrinterService {
                 status.setPowerState(0);
             }
 
+            logger.trace("Status calculation: online={}, ready={}, coverOpen={}, paperEmpty={}, error={}",
+                       status.isOnline(), status.isReady(), status.isCoverOpen(),
+                       status.isPaperEmpty(), status.isError());
+
         } catch (IOException e) {
             // Only ASB failures reach here (DLE EOT failures are caught above)
             logger.error("I/O error during status query: {}", e.getMessage());
             status.setOnline(false);
+            status.setReady(false);
             status.setError(true);
             status.setErrorMessage("Communication error: " + e.getMessage());
             throw e;
@@ -1127,15 +1145,36 @@ public class EscPosPrinterService implements IPrinterService {
                            !offline ? "yes" : "no",
                            coverOpen ? "open" : "closed");
 
-                // Set error state based on cover
+                // Set error state based on cover and online status
                 if (coverOpen) {
-                    status.setOnline(false);
+                    // Cover is open - check if printer is network-reachable
+                    // This distinguishes "cover open" from "printer powered off"
+                    boolean networkReachable = false;
+                    if (config.connectionType() == PrinterConfig.ConnectionType.NETWORK) {
+                        networkReachable = isNetworkReachable(config.ipAddress(), config.networkPort(), 500);
+                    } else {
+                        // For USB/serial, we can't test network, so assume reachable if we got ASB response
+                        networkReachable = true;
+                    }
+
+                    status.setOnline(networkReachable);
                     status.setError(true);
-                    status.setErrorMessage("Cover open");
+
+                    if (networkReachable) {
+                        status.setErrorMessage("Cover open (printer reachable)");
+                        logger.debug("Cover open but printer is network-reachable");
+                    } else {
+                        status.setErrorMessage("Cover open and printer disconnected");
+                        logger.debug("Cover open and printer is not network-reachable");
+                    }
                 } else if (offline) {
                     // Offline but cover closed - some other issue
+                    status.setOnline(false);
                     status.setError(true);
                     status.setErrorMessage("Printer offline");
+                } else {
+                    // Online and cover closed - normal state
+                    status.setOnline(true);
                 }
             } else {
                 logger.warn("ASB: No response or incomplete response ({} bytes) - printer not responding", bytesRead);
@@ -1243,6 +1282,28 @@ public class EscPosPrinterService implements IPrinterService {
         } catch (IOException e) {
             logger.error("Failed to query real-time status type {}: {}", statusType, e.getMessage());
             throw e;
+        }
+    }
+
+    /**
+     * Check if printer is network-reachable by testing TCP connection to ESC/POS port
+     * This is used to distinguish "cover open" from "printer powered off/disconnected"
+     *
+     * @param host Printer IP address
+     * @param port Printer port (typically 9100 for ESC/POS)
+     * @param timeoutMs Connection timeout in milliseconds
+     * @return true if port is reachable (printer is powered on and connected), false otherwise
+     */
+    private boolean isNetworkReachable(String host, int port, int timeoutMs) {
+        try {
+            Socket testSocket = new Socket();
+            testSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+            testSocket.close();
+            logger.trace("Network reachability check: {}:{} is reachable", host, port);
+            return true;
+        } catch (IOException e) {
+            logger.trace("Network reachability check: {}:{} is not reachable ({})", host, port, e.getMessage());
+            return false;
         }
     }
 
@@ -1367,10 +1428,11 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Check if printer is ready for operations
+     * Returns true if printer is ready to accept print jobs (online + cover closed + paper available + no errors)
      */
     @Override
     public boolean isReady() {
-        return state == PrinterState.READY && currentStatus.isOnline() && !currentStatus.hasErrors();
+        return state == PrinterState.READY && currentStatus.isReady();
     }
 
     /**

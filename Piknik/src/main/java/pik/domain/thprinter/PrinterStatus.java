@@ -7,7 +7,8 @@ import java.util.Objects;
  * @since 25/09/2025
  */
 public class PrinterStatus {
-    private boolean online;
+    private boolean online;      // Network reachable (printer powered on and connected)
+    private boolean ready;       // Ready to accept print jobs (online + cover closed + no errors)
     private boolean coverOpen;
     private boolean paperEmpty;
     private boolean paperNearEnd;
@@ -23,6 +24,7 @@ public class PrinterStatus {
 
     public PrinterStatus(PrinterStatus other) {
         this.online = other.online;
+        this.ready = other.ready;
         this.coverOpen = other.coverOpen;
         this.paperEmpty = other.paperEmpty;
         this.paperNearEnd = other.paperNearEnd;
@@ -39,6 +41,13 @@ public class PrinterStatus {
     }
     public void setOnline(boolean online) {
         this.online = online;
+    }
+
+    public boolean isReady() {
+        return ready;
+    }
+    public void setReady(boolean ready) {
+        this.ready = ready;
     }
 
     public boolean isCoverOpen() {
@@ -108,8 +117,8 @@ public class PrinterStatus {
 
     @Override
     public String toString() {
-        return String.format("PrinterStatus{online=%s, coverOpen=%s, paperEmpty=%s, paperNearEnd=%s, error=%s}",
-                online, coverOpen, paperEmpty, paperNearEnd, error);
+        return String.format("PrinterStatus{online=%s, ready=%s, coverOpen=%s, paperEmpty=%s, paperNearEnd=%s, error=%s}",
+                online, ready, coverOpen, paperEmpty, paperNearEnd, error);
     }
 
     @Override
@@ -118,6 +127,7 @@ public class PrinterStatus {
         if (o == null || getClass() != o.getClass()) return false;
         PrinterStatus that = (PrinterStatus) o;
         return online == that.online &&
+                ready == that.ready &&
                 coverOpen == that.coverOpen &&
                 paperEmpty == that.paperEmpty &&
                 paperNearEnd == that.paperNearEnd &&
@@ -128,7 +138,7 @@ public class PrinterStatus {
 
     @Override
     public int hashCode() {
-        return Objects.hash(online, coverOpen, paperEmpty, paperNearEnd, error, errorMessage, powerState);
+        return Objects.hash(online, ready, coverOpen, paperEmpty, paperNearEnd, error, errorMessage, powerState);
     }
 
 }
