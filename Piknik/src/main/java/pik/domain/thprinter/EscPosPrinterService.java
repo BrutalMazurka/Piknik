@@ -922,8 +922,18 @@ public class EscPosPrinterService implements IPrinterService {
                     newStatus.setErrorMessage("Printer communication failed: " + e.getMessage());
                     newStatus.setPowerState(0);
 
-                    // Attempt reconnection on next status check
-                    logger.debug("Will attempt reconnection on next status check");
+                    // Attempt immediate reconnection on connection errors
+                    // When printer turns off/on, socket becomes stale with "Connection reset by peer"
+                    if (e instanceof IOException) {
+                        try {
+                            logger.info("Connection error detected, attempting immediate reconnection...");
+                            attemptReconnection();
+                            logger.info("Reconnection successful - status will be updated on next check");
+                        } catch (Exception reconnectError) {
+                            logger.error("Reconnection failed: {}", reconnectError.getMessage());
+                            logger.debug("Will retry reconnection on next status check");
+                        }
+                    }
                 }
                 newStatus.setDummyMode(false);
             } else {
