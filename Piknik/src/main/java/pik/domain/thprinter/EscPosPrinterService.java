@@ -966,19 +966,36 @@ public class EscPosPrinterService implements IPrinterService {
         try {
             // Query online/offline and cover status using GS a (ASB)
             // ASB is more reliable than DLE EOT for TM-T20III
+            // This is CRITICAL - if ASB fails, we bail out
             queryStatusASB(status);
 
+            // DLE EOT queries are BEST-EFFORT only (not critical)
+            // TM-T20III often stops responding to certain DLE EOT commands after events like cover open
+            // If these fail, we log and continue rather than marking printer offline
+
             // Query 2: Offline status (DLE EOT 2) - SKIP COVER BIT, use other bits
-            byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
-            parseOfflineStatusNoCover(offlineStatusByte, status);
+            try {
+                byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
+                parseOfflineStatusNoCover(offlineStatusByte, status);
+            } catch (IOException e) {
+                logger.debug("DLE EOT 2 query failed (non-critical), skipping: {}", e.getMessage());
+            }
 
             // Query 3: Error status (DLE EOT 3)
-            byte errorStatusByte = queryRealTimeStatus((byte) 0x03);
-            parseErrorStatus(errorStatusByte, status);
+            try {
+                byte errorStatusByte = queryRealTimeStatus((byte) 0x03);
+                parseErrorStatus(errorStatusByte, status);
+            } catch (IOException e) {
+                logger.debug("DLE EOT 3 query failed (non-critical), skipping: {}", e.getMessage());
+            }
 
             // Query 4: Paper sensor status (DLE EOT 4)
-            byte paperStatusByte = queryRealTimeStatus((byte) 0x04);
-            parsePaperStatus(paperStatusByte, status);
+            try {
+                byte paperStatusByte = queryRealTimeStatus((byte) 0x04);
+                parsePaperStatus(paperStatusByte, status);
+            } catch (IOException e) {
+                logger.debug("DLE EOT 4 query failed (non-critical), skipping: {}", e.getMessage());
+            }
 
             // Set power state based on final online status
             if (status.isOnline() && !status.isError()) {
@@ -988,6 +1005,7 @@ public class EscPosPrinterService implements IPrinterService {
             }
 
         } catch (IOException e) {
+            // Only ASB failures reach here (DLE EOT failures are caught above)
             logger.error("I/O error during status query: {}", e.getMessage());
             status.setOnline(false);
             status.setError(true);
