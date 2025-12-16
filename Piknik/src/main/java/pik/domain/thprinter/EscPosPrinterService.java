@@ -1009,7 +1009,32 @@ public class EscPosPrinterService implements IPrinterService {
      */
     private void queryStatusASB(PrinterStatus status) throws IOException {
         try {
-            // Enable ASB temporarily to get current status
+            // Step 1: Disable ASB first to ensure clean state
+            rawOutputStream.write(0x1D); // GS
+            rawOutputStream.write(0x61); // a
+            rawOutputStream.write(0);    // n=0 (disable)
+            rawOutputStream.flush();
+            Thread.sleep(50); // Brief pause to ensure command is processed
+
+            // Step 2: Clear input buffer of any stale data
+            if (socket != null) {
+                InputStream inputStream = socket.getInputStream();
+                int available = inputStream.available();
+                if (available > 0) {
+                    byte[] discard = new byte[available];
+                    inputStream.read(discard);
+                    logger.trace("Cleared {} stale bytes from input buffer", available);
+                }
+            } else if (serialPort != null) {
+                int available = serialPort.bytesAvailable();
+                if (available > 0) {
+                    byte[] discard = new byte[available];
+                    serialPort.readBytes(discard, available);
+                    logger.trace("Cleared {} stale bytes from input buffer", available);
+                }
+            }
+
+            // Step 3: Enable ASB to get current status
             // GS a n where n = 79 enables all statuses (bits 0,1,2,3,6)
             rawOutputStream.write(0x1D); // GS
             rawOutputStream.write(0x61); // a
@@ -1041,6 +1066,19 @@ public class EscPosPrinterService implements IPrinterService {
 
             if (bytesRead == 4) {
                 byte byte1 = asbResponse[0];
+
+                // Validate ASB response pattern (should be 0xx1xx10 per spec)
+                // Bits 0, 1, 4, 7 should be: 0, 1, 1, 0 respectively
+                boolean validPattern = ((byte1 & 0x01) == 0) &&  // bit 0 = 0
+                                     ((byte1 & 0x02) != 0) &&  // bit 1 = 1
+                                     ((byte1 & 0x10) != 0) &&  // bit 4 = 1
+                                     ((byte1 & 0x80) == 0);    // bit 7 = 0
+
+                if (!validPattern) {
+                    logger.warn("ASB: Invalid response pattern byte1=0x{} (expected 0xx1xx10 pattern)",
+                               String.format("%02X", byte1));
+                    throw new IOException("Invalid ASB response pattern - input buffer may be corrupted");
+                }
 
                 // Parse byte 1, bit 3 for online/offline status
                 boolean offline = (byte1 & 0x08) != 0;
@@ -1079,17 +1117,20 @@ public class EscPosPrinterService implements IPrinterService {
                 throw new IOException("Printer not responding to ASB query - cover may be open or printer disconnected");
             }
 
-            // Disable ASB to prevent async transmissions
-            rawOutputStream.write(0x1D); // GS
-            rawOutputStream.write(0x61); // a
-            rawOutputStream.write(0);    // n=0 (disable)
-            rawOutputStream.flush();
-
-            logger.trace("Sent GS a 0 to disable ASB");
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("ASB query interrupted", e);
+        } finally {
+            // ALWAYS disable ASB, even on error, to prevent async transmissions
+            try {
+                rawOutputStream.write(0x1D); // GS
+                rawOutputStream.write(0x61); // a
+                rawOutputStream.write(0);    // n=0 (disable)
+                rawOutputStream.flush();
+                logger.trace("Sent GS a 0 to disable ASB");
+            } catch (Exception e) {
+                logger.debug("Failed to disable ASB (connection may be broken): {}", e.getMessage());
+            }
         }
     }
 
