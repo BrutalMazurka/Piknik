@@ -1067,15 +1067,14 @@ public class EscPosPrinterService implements IPrinterService {
             if (bytesRead == 4) {
                 byte byte1 = asbResponse[0];
 
-                // Validate ASB response pattern (should be 0xx1xx10 per spec)
-                // Bits 0, 1, 4, 7 should be: 0, 1, 1, 0 respectively
+                // Validate ASB response pattern (should be 0xxx1xx0 per spec)
+                // Bits 0, 4, 7 should be: 0, 1, 0 respectively (bit 1 varies with status)
                 boolean validPattern = ((byte1 & 0x01) == 0) &&  // bit 0 = 0
-                                     ((byte1 & 0x02) != 0) &&  // bit 1 = 1
                                      ((byte1 & 0x10) != 0) &&  // bit 4 = 1
                                      ((byte1 & 0x80) == 0);    // bit 7 = 0
 
                 if (!validPattern) {
-                    logger.warn("ASB: Invalid response pattern byte1=0x{} (expected 0xx1xx10 pattern)",
+                    logger.warn("ASB: Invalid response pattern byte1=0x{} (expected 0xxx1xx0 pattern, bits 0/4/7 fixed)",
                                String.format("%02X", byte1));
                     throw new IOException("Invalid ASB response pattern - input buffer may be corrupted");
                 }
