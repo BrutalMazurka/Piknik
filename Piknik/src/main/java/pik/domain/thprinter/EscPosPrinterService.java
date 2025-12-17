@@ -1190,6 +1190,8 @@ public class EscPosPrinterService implements IPrinterService {
                     status.setCoverOpen(true);  // Assume cover open (most common reason for no response)
                     status.setError(true);
                     status.setErrorMessage("Cover open (printer reachable but not responding)");
+                    // Don't throw exception - we successfully determined status
+                    // Just skip DLE EOT queries (they will fail anyway)
                 } else {
                     // Printer is truly offline (not network reachable)
                     logger.info("ASB: Setting Online=No (not network reachable)");
@@ -1197,10 +1199,9 @@ public class EscPosPrinterService implements IPrinterService {
                     status.setCoverOpen(false);  // Can't determine cover state
                     status.setError(true);
                     status.setErrorMessage("Printer offline (not responding)");
+                    // Throw exception to indicate communication failure
+                    throw new IOException("Printer not responding to ASB query - printer disconnected");
                 }
-
-                // Throw exception to stop further queries (DLE EOT will also fail)
-                throw new IOException("Printer not responding to ASB query - cover may be open or printer disconnected");
             }
 
         } catch (InterruptedException e) {
