@@ -1175,11 +1175,13 @@ public class EscPosPrinterService implements IPrinterService {
                 // To distinguish between "cover open" and "powered off", test network reachability
 
                 boolean networkReachable = false;
-                if (config.connectionType() == EPrinterType.NETWORK && socket != null && !socket.isClosed()) {
-                    // Socket is already connected - printer IS network reachable
-                    // (we just can't get ASB response, likely because cover is open)
-                    logger.info("ASB: No response but TCP socket is connected - printer likely has cover open");
-                    networkReachable = true;
+                if (config.connectionType() == EPrinterType.NETWORK) {
+                    // Can't trust socket.isClosed() - TCP sockets can appear "connected"
+                    // for 30+ seconds after remote host powers off
+                    // Instead, attempt a real connection test with short timeout
+                    logger.info("ASB: Testing actual network reachability (2 second timeout)...");
+                    networkReachable = isNetworkReachable(config.ipAddress(), config.port(), 2000);
+                    logger.info("ASB: Network reachability test result: {}", networkReachable ? "REACHABLE" : "UNREACHABLE");
                 }
 
                 if (networkReachable) {
