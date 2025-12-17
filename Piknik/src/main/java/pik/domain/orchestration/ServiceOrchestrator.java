@@ -227,13 +227,18 @@ public class ServiceOrchestrator {
      * Start monitoring for initialized services
      */
     public void startMonitoring(ScheduledExecutorService executorService) {
-        // Start printer monitoring if printer initialized
+        // Start printer monitoring even if initialization failed
+        // The monitoring loop will handle reconnection attempts
         ServiceInitializationResult printerResult = initializationResults.get("printer");
-        if (printerResult != null && printerResult.isSuccess()) {
-            logger.info("Starting printer status monitoring...");
+        if (printerResult != null) {
+            if (printerResult.isSuccess()) {
+                logger.info("Starting printer status monitoring (printer initialized)...");
+            } else {
+                logger.info("Starting printer status monitoring (printer failed init - will attempt reconnection)...");
+            }
             printerStatusMonitor.startMonitoring(executorService);
         } else {
-            logger.info("Printer monitoring skipped (printer not initialized)");
+            logger.info("Printer monitoring skipped (printer service not found)");
         }
     }
 

@@ -960,6 +960,18 @@ public class EscPosPrinterService implements IPrinterService {
                         logger.error("Reconnection attempt failed: {}", reconnectError.getMessage());
                         newStatus.setErrorMessage("Printer disconnected: " + reconnectError.getMessage());
                     }
+                } else if (state == PrinterState.UNINITIALIZED || state == PrinterState.OPENING) {
+                    // Printer failed initialization or is in opening state - try to reconnect
+                    logger.info("Printer in {} state, attempting reconnection...", state);
+                    try {
+                        attemptReconnection();
+                        transitionTo(PrinterState.READY);
+                        logger.info("Reconnection successful - printer now READY");
+                        newStatus.setErrorMessage("Reconnected to printer");
+                    } catch (Exception reconnectError) {
+                        logger.error("Reconnection attempt failed: {}", reconnectError.getMessage());
+                        newStatus.setErrorMessage("Printer offline: " + reconnectError.getMessage());
+                    }
                 } else {
                     newStatus.setErrorMessage("Printer not in READY state: " + state);
                 }
