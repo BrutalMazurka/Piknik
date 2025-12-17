@@ -187,7 +187,9 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.info("Connecting to network printer: {}:{}", config.ipAddress(), config.networkPort());
                 // Use direct Socket connection instead of TcpIpOutputStream
                 // This avoids the "Read end dead" / "Pipe broken" errors from TcpIpOutputStream's internal piping
-                socket = new Socket(config.ipAddress(), config.networkPort());
+                // Use 3-second connection timeout for fast failure when printer is unreachable
+                socket = new Socket();
+                socket.connect(new InetSocketAddress(config.ipAddress(), config.networkPort()), 3000);
                 socket.setKeepAlive(true);
                 socket.setSoTimeout(config.connectionTimeout());
                 logger.debug("Socket connected successfully to {}:{}", config.ipAddress(), config.networkPort());
