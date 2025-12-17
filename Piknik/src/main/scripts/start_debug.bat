@@ -37,6 +37,13 @@ REM Set Log4J2 configuration file (log4j2.xml) location
 set LOG4J2_CONFIG=%SCRIPT_DIR%config\log4j2.xml
 set JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.configurationFile=%LOG4J2_CONFIG%
 
+REM Set native library path for jSerialComm
+set NATIVE_LIB_DIR=%SCRIPT_DIR%res\bin
+if exist "%NATIVE_LIB_DIR%" (
+    set JAVA_OPTS=%JAVA_OPTS% -Djava.library.path="%NATIVE_LIB_DIR%"
+    echo Native libraries: %NATIVE_LIB_DIR%
+)
+
 REM Remote debugging connection
 set JAVA_OPTS=%JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
 
