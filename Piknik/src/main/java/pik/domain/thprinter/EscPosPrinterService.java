@@ -1180,7 +1180,7 @@ public class EscPosPrinterService implements IPrinterService {
                     // for 30+ seconds after remote host powers off
                     // Instead, attempt a real connection test with short timeout
                     logger.info("ASB: Testing actual network reachability (2 second timeout)...");
-                    networkReachable = isNetworkReachable(config.ipAddress(), config.port(), 2000);
+                    networkReachable = isNetworkReachable(config.ipAddress(), config.networkPort(), 2000);
                     logger.info("ASB: Network reachability test result: {}", networkReachable ? "REACHABLE" : "UNREACHABLE");
                 }
 
