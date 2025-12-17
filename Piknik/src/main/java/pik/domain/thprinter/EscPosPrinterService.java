@@ -1334,10 +1334,11 @@ public class EscPosPrinterService implements IPrinterService {
         boolean paperEnd = (statusByte & 0x20) != 0;
         if (paperEnd) {
             status.setPaperEmpty(true);
-            status.setOnline(false);  // Printer goes offline when paper is empty
+            // Note: Paper empty does NOT mean printer is offline (network unreachable)
+            // Online status is determined by ASB query only
             status.setError(true);
             status.setErrorMessage("Paper end");
-            logger.debug("Offline status: paper end - printer offline");
+            logger.debug("Offline status: paper end detected");
         }
 
         // Bit 6: Error occurred
@@ -1374,7 +1375,8 @@ public class EscPosPrinterService implements IPrinterService {
 
         if (recoverableError || autocutterError || unrecoverableError || autoRecoverableError) {
             status.setError(true);
-            status.setOnline(false);
+            // Note: Printer errors do NOT mean printer is offline (network unreachable)
+            // Online status is determined by ASB query only
 
             String errorType;
             if (unrecoverableError) {
