@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.domain.ingenico.IngenicoService;
 import pik.domain.io.IOGeneral;
-import pik.domain.thprinter.EscPosPrinterService;
+import pik.domain.thprinter.PrinterService;
 import pik.domain.thprinter.StatusMonitorService;
 import pik.domain.vfd.VFDService;
 
@@ -24,7 +24,7 @@ public class ShutdownManager {
     private final StatusMonitorService printerStatusMonitor;
     private final ScheduledExecutorService executorService;
     private final IOGeneral ioGeneral;
-    private final EscPosPrinterService printerService;
+    private final PrinterService printerService;
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
 
@@ -47,7 +47,7 @@ public class ShutdownManager {
             StatusMonitorService printerStatusMonitor,
             ScheduledExecutorService executorService,
             IOGeneral ioGeneral,
-            EscPosPrinterService printerService,
+            PrinterService printerService,
             VFDService vfdService,
             IngenicoService ingenicoService) {
         this.sseManager = sseManager;
