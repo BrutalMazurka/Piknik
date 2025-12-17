@@ -24,26 +24,6 @@
             </includes>
         </fileSet>
 
-        <!-- Include JavaPOS lib directory from external location -->
-        <fileSet>
-            <directory>${project.basedir}/../../JavaPOS/lib</directory>
-            <outputDirectory>res/lib</outputDirectory>
-            <includes>
-                <include>**/*.jar</include>
-                <include>**/*.txt</include>
-            </includes>
-        </fileSet>
-
-        <!-- Include LINUX native libraries from external location -->
-        <fileSet>
-            <directory>${project.basedir}/../../JavaPOS/bin/linux</directory>
-            <outputDirectory>res/bin</outputDirectory>
-            <includes>
-                <include>**/*.so</include>
-            </includes>
-            <fileMode>0755</fileMode>
-        </fileSet>
-
         <!-- Include bundled Java runtime for LINUX -->
         <fileSet>
             <directory>${project.basedir}/../../Java/linux</directory>
@@ -108,13 +88,4 @@
             </excludes>
         </fileSet>
     </fileSets>
-
-    <files>
-        <!-- Include jpos_vcp.xml renamed as jpos.xml -->
-        <file>
-            <source>${project.basedir}/src/main/resources/config/jpos_net.xml</source>
-            <outputDirectory>config</outputDirectory>
-            <destName>jpos.xml</destName>
-        </file>
-    </files>
 </assembly>
