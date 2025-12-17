@@ -1151,17 +1151,20 @@ public class EscPosPrinterService implements IPrinterService {
                     // Cover is open
                     // We successfully got ASB response, so printer IS network-reachable
                     // (we just communicated with it!)
+                    logger.info("Cover detected as OPEN - overriding online status to TRUE (got ASB response)");
                     status.setOnline(true);  // Network reachable (we got ASB response)
                     status.setError(true);
                     status.setErrorMessage("Cover open (printer reachable)");
                     logger.debug("Cover open but printer is network-reachable (got ASB response)");
                 } else if (offline) {
                     // Offline but cover closed - some other issue
+                    logger.info("ASB reports OFFLINE with cover closed");
                     status.setOnline(false);
                     status.setError(true);
                     status.setErrorMessage("Printer offline");
                 } else {
                     // Online and cover closed - normal state
+                    logger.debug("Printer online and cover closed - normal state");
                     status.setOnline(true);
                 }
             } else {
