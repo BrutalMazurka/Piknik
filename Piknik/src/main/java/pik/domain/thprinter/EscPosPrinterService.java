@@ -1148,26 +1148,13 @@ public class EscPosPrinterService implements IPrinterService {
 
                 // Set error state based on cover and online status
                 if (coverOpen) {
-                    // Cover is open - check if printer is network-reachable
-                    // This distinguishes "cover open" from "printer powered off"
-                    boolean networkReachable = false;
-                    if (config.connectionType() == EPrinterType.NETWORK) {
-                        networkReachable = isNetworkReachable(config.ipAddress(), config.networkPort(), 500);
-                    } else {
-                        // For USB/serial, we can't test network, so assume reachable if we got ASB response
-                        networkReachable = true;
-                    }
-
-                    status.setOnline(networkReachable);
+                    // Cover is open
+                    // We successfully got ASB response, so printer IS network-reachable
+                    // (we just communicated with it!)
+                    status.setOnline(true);  // Network reachable (we got ASB response)
                     status.setError(true);
-
-                    if (networkReachable) {
-                        status.setErrorMessage("Cover open (printer reachable)");
-                        logger.debug("Cover open but printer is network-reachable");
-                    } else {
-                        status.setErrorMessage("Cover open and printer disconnected");
-                        logger.debug("Cover open and printer is not network-reachable");
-                    }
+                    status.setErrorMessage("Cover open (printer reachable)");
+                    logger.debug("Cover open but printer is network-reachable (got ASB response)");
                 } else if (offline) {
                     // Offline but cover closed - some other issue
                     status.setOnline(false);
