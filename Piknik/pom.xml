@@ -26,14 +26,21 @@
     </properties>
 
     <dependencies>
-        <!-- JavaPOS - provided scope (Artifactory) -->
+        <!-- ESC/POS Coffee - Direct ESC/POS printing library -->
+        <dependency>
+            <groupId>com.github.anastaciocintra</groupId>
+            <artifactId>escpos-coffee</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+
+        <!-- JavaPOS - DEPRECATED - Will be removed after migration -->
         <dependency>
             <groupId>org.javapos</groupId>
             <artifactId>jpos</artifactId>
             <version>1.14.1</version>
         </dependency>
 
-        <!-- Epson JavaPOS - provided scope (Artifactory) -->
+        <!-- Epson JavaPOS - DEPRECATED - Will be removed after migration -->
         <dependency>
             <groupId>com.epson</groupId>
             <artifactId>epsonjpos</artifactId>

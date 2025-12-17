@@ -374,23 +374,39 @@
             statusText = 'Printer Dummy Mode';
         }
 
-        if (!status.online) {
-            statusClass = 'offline';
-            statusText = 'Printer Offline';
-        } else if (status.error || status.paperEmpty) {
-            statusClass = 'error';
-            statusText = 'Printer Error';
-            if (status.coverOpen) statusText += ' - Cover Open';
-            if (status.paperEmpty) statusText += ' - Paper Empty';
-        } else if (status.paperNearEnd) {
-            statusClass = 'warning';
-            statusText = 'Warning - Paper Near End';
+        // Determine overall status based on ready state
+        if (!status.ready) {
+            if (!status.online) {
+                statusClass = 'offline';
+                statusText = 'Printer Offline';
+            } else if (status.coverOpen) {
+                statusClass = 'warning';
+                statusText = 'Not Ready - Cover Open';
+            } else if (status.paperEmpty) {
+                statusClass = 'error';
+                statusText = 'Not Ready - Paper Empty';
+            } else if (status.error) {
+                statusClass = 'error';
+                statusText = 'Not Ready - Error';
+            } else if (status.paperNearEnd) {
+                statusClass = 'warning';
+                statusText = 'Not Ready - Paper Near End';
+            } else {
+                statusClass = 'warning';
+                statusText = 'Not Ready';
+            }
         }
+
+        // Format online/ready indicators with emoji
+        const onlineIndicator = status.online ? '✅ Yes' : '❌ No';
+        const readyIndicator = status.ready ? '✅ Yes' : '❌ No';
 
         panel.className = 'status-panel ' + statusClass;
         content.innerHTML = `
-                <strong>${statusText}</strong><br>
-                Online: ${status.online}<br>
+                <strong>${statusText}</strong><br><br>
+                <strong>Printer Online:</strong> ${onlineIndicator}<br>
+                <strong>Printer Ready:</strong> ${readyIndicator}<br>
+                <br>
                 Cover Open: ${status.coverOpen || false}<br>
                 Paper Empty: ${status.paperEmpty || false}<br>
                 Paper Near End: ${status.paperNearEnd || false}

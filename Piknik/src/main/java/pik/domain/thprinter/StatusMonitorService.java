@@ -16,13 +16,13 @@ import java.util.function.Consumer;
 public class StatusMonitorService {
     private static final Logger logger = LoggerFactory.getLogger(StatusMonitorService.class);
 
-    private final PrinterService printerService;
+    private final EscPosPrinterService printerService;
     private final Consumer<String> statusUpdateCallback;
     private ScheduledFuture<?> monitoringTask;
     private boolean monitoring = false;         // No need to be volatile because startMonitoring() is synchronized
     private final int checkIntervalMs;
 
-    public StatusMonitorService(PrinterService printerService, Consumer<String> statusUpdateCallback, int checkIntervalMs) {
+    public StatusMonitorService(EscPosPrinterService printerService, Consumer<String> statusUpdateCallback, int checkIntervalMs) {
         this.printerService = printerService;
         this.statusUpdateCallback = statusUpdateCallback;
         this.checkIntervalMs = checkIntervalMs;
