@@ -1168,13 +1168,36 @@ public class EscPosPrinterService implements IPrinterService {
                     status.setOnline(true);
                 }
             } else {
-                logger.warn("ASB: No response or incomplete response ({} bytes) - printer not responding", bytesRead);
+                logger.info("ASB: No response or incomplete response ({} bytes) - testing network reachability", bytesRead);
+
                 // No ASB response - printer may be offline, cover open, or disconnected
-                // When cover is open, TM-T20III stops responding to all commands
-                status.setOnline(false);
-                status.setCoverOpen(true);  // Assume cover open (can't distinguish from power off)
-                status.setError(true);
-                status.setErrorMessage("Printer not responding (cover may be open or printer disconnected)");
+                // TM-T20III stops responding to commands when cover is open
+                // To distinguish between "cover open" and "powered off", test network reachability
+
+                boolean networkReachable = false;
+                if (config.printerType() == EPrinterType.NETWORK && socket != null && !socket.isClosed()) {
+                    // Socket is already connected - printer IS network reachable
+                    // (we just can't get ASB response, likely because cover is open)
+                    logger.info("ASB: No response but TCP socket is connected - printer likely has cover open");
+                    networkReachable = true;
+                }
+
+                if (networkReachable) {
+                    // Printer is network reachable but not responding to commands
+                    // Most likely cause: cover is open
+                    logger.info("ASB: Setting Online=Yes (network reachable), Ready=No (not responding to commands)");
+                    status.setOnline(true);  // Network reachable
+                    status.setCoverOpen(true);  // Assume cover open (most common reason for no response)
+                    status.setError(true);
+                    status.setErrorMessage("Cover open (printer reachable but not responding)");
+                } else {
+                    // Printer is truly offline (not network reachable)
+                    logger.info("ASB: Setting Online=No (not network reachable)");
+                    status.setOnline(false);
+                    status.setCoverOpen(false);  // Can't determine cover state
+                    status.setError(true);
+                    status.setErrorMessage("Printer offline (not responding)");
+                }
 
                 // Throw exception to stop further queries (DLE EOT will also fail)
                 throw new IOException("Printer not responding to ASB query - cover may be open or printer disconnected");
