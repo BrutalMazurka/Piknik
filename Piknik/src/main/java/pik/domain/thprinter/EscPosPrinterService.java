@@ -1175,7 +1175,7 @@ public class EscPosPrinterService implements IPrinterService {
                 // To distinguish between "cover open" and "powered off", test network reachability
 
                 boolean networkReachable = false;
-                if (config.printerType() == EPrinterType.NETWORK && socket != null && !socket.isClosed()) {
+                if (config.connectionType() == EPrinterType.NETWORK && socket != null && !socket.isClosed()) {
                     // Socket is already connected - printer IS network reachable
                     // (we just can't get ASB response, likely because cover is open)
                     logger.info("ASB: No response but TCP socket is connected - printer likely has cover open");
