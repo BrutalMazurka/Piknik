@@ -37,6 +37,14 @@ JAVA_OPTS="-Xms256m -Xmx512m"
 # Set Log4J2 configuration file location
 JAVA_OPTS="$JAVA_OPTS -Dlog4j2.configurationFile=$LOG4J2_CONFIG"
 
+# Set native library path for jSerialComm
+NATIVE_LIB_DIR="$SCRIPT_DIR/res/bin"
+if [ -d "$NATIVE_LIB_DIR" ]; then
+  export LD_LIBRARY_PATH="$NATIVE_LIB_DIR:$LD_LIBRARY_PATH"
+  JAVA_OPTS="$JAVA_OPTS -Djava.library.path=$NATIVE_LIB_DIR"
+  echo "Native libraries: $NATIVE_LIB_DIR"
+fi
+
 echo "Log4J2 config: $LOG4J2_CONFIG"
 echo "HTML resources: $SCRIPT_DIR/res/html"
 echo "Main class: pik.Piknik"

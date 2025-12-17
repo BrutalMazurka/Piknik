@@ -24,6 +24,16 @@
             </includes>
         </fileSet>
 
+        <!-- Include LINUX native libraries (libjSerialComm.so) -->
+        <fileSet>
+            <directory>${project.basedir}/../../NativeLibs/linux</directory>
+            <outputDirectory>res/bin</outputDirectory>
+            <includes>
+                <include>**/*.so</include>
+            </includes>
+            <fileMode>0755</fileMode>
+        </fileSet>
+
         <!-- Include bundled Java runtime for LINUX -->
         <fileSet>
             <directory>${project.basedir}/../../Java/linux</directory>

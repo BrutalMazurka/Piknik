@@ -24,6 +24,16 @@
             </includes>
         </fileSet>
 
+        <!-- Include WINDOWS native libraries (jSerialComm.dll) -->
+        <fileSet>
+            <directory>${project.basedir}/../../NativeLibs/win</directory>
+            <outputDirectory>res/bin</outputDirectory>
+            <includes>
+                <include>**/*.dll</include>
+                <include>**/*.DLL</include>
+            </includes>
+        </fileSet>
+
         <!-- Include bundled Java runtime for WINDOWS -->
         <fileSet>
             <directory>${project.basedir}/../../Java/win</directory>
