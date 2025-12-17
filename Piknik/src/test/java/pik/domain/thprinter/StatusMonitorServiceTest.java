@@ -21,7 +21,7 @@ import static org.mockito.Mockito.lenient;
 class StatusMonitorServiceTest {
 
     @Mock
-    private EscPosPrinterService mockPrinterService;
+    private PrinterService mockPrinterService;
 
     @Mock
     private Consumer<String> mockStatusCallback;

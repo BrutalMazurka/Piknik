@@ -15,11 +15,7 @@ import pik.dal.PrinterConfig;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
@@ -31,18 +27,15 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * ESC/POS Coffee implementation of printer service
- * Supports direct ESC/POS printing without JavaPOS middleware
  *
  * @author Martin Sustik <sustik@herman.cz>
  * @since 26/11/2025
  */
-public class EscPosPrinterService implements IPrinterService {
+public class PrinterService implements IPrinterService {
 
-    private static final Logger logger = LoggerFactory.getLogger(EscPosPrinterService.class);
+    private static final Logger logger = LoggerFactory.getLogger(PrinterService.class);
 
-    // Use CP852 (DOS Latin 2) for Czech and other Central European languages
-    // This code page is widely supported by ESC/POS printers
-    // Supports: Czech, Slovak, Polish, Hungarian, etc.
+    // Use CP852 (DOS Latin 2) for Central European languages
     private static final Charset PRINTER_CHARSET = Charset.forName("cp852");
 
     private final PrinterConfig config;
@@ -52,14 +45,14 @@ public class EscPosPrinterService implements IPrinterService {
 
     private Socket socket;
     private SerialPort serialPort;
-    private OutputStream outputStream;      // Wrapped by EscPos library (for printing)
-    private OutputStream rawOutputStream;   // Direct stream (for status queries)
+    private OutputStream outputStream;          // Wrapped by EscPos library (for printing)
+    private OutputStream rawOutputStream;       // Direct stream (for status queries)
     private EscPos escpos;
     private PrinterStatus currentStatus;
     private volatile PrinterState state = PrinterState.UNINITIALIZED;
     private volatile boolean dummyMode = false;
 
-    public EscPosPrinterService(PrinterConfig config) {
+    public PrinterService(PrinterConfig config) {
         this.config = config;
         this.currentStatus = new PrinterStatus();
 
@@ -215,15 +208,13 @@ public class EscPosPrinterService implements IPrinterService {
     }
 
     /**
-     * Configure character encoding for proper display of Czech and Central European characters
-     * Sets code page to Windows-1250 (CP1250) which supports: č, ř, š, ž, ý, á, í, é, etc.
+     * Configure character encoding for proper display of Central European characters
      */
     private void configureCharacterEncoding() throws IOException {
         try {
             // ESC t n - Select character code table
-            // n = 18: Code page 852 (Latin 2) - better hardware support
-            // This supports Czech, Slovak, Polish, Hungarian characters
-            outputStream.write(new byte[]{0x1B, 0x74, 0x12}); // ESC t 18 (CP852)
+            // n = 18: Code page 852 (Latin 2)
+            outputStream.write(new byte[]{0x1B, 0x74, 0x12});   // ESC t 18 (CP852)
             outputStream.flush();
             logger.debug("Character encoding configured to CP852 (Latin 2)");
         } catch (IOException e) {
@@ -300,7 +291,7 @@ public class EscPosPrinterService implements IPrinterService {
                     logger.debug("Error closing output stream: {}", e.getMessage());
                 }
                 outputStream = null;
-                rawOutputStream = null;  // Same object, already closed
+                rawOutputStream = null;     // Same object, already closed
             } else if (rawOutputStream != null) {
                 try {
                     rawOutputStream.close();
@@ -733,10 +724,10 @@ public class EscPosPrinterService implements IPrinterService {
      */
     private void printBitmap(BufferedImage image, PrintRequest.PrintItemOptions options) throws IOException {
         try {
-            // STEP 1: Auto-scale to fit printer width (before any other processing)
+            // Auto-scale to fit printer width (before any other processing)
             image = GraphUtils.autoScaleToFitWidth(image, TM_T20IIIConstants.MAX_PRINT_WIDTH_DOTS);
 
-            // STEP 2: Apply manual resize if requested in options
+            // Apply manual resize if requested in options
             if (options != null && (options.getWidth() > 0 || options.getHeight() > 0)) {
                 int width, height;
 
@@ -771,14 +762,14 @@ public class EscPosPrinterService implements IPrinterService {
                 image = resized;
             }
 
-            // STEP 3: Convert BufferedImage to CoffeeImage using Bitonal algorithm
+            // Convert BufferedImage to CoffeeImage using Bitonal algorithm
             CoffeeImageImpl coffeeImage = new CoffeeImageImpl(image);
 
             // Apply dithering algorithm (BitonalOrderedDither for better quality)
             Bitonal algorithm = new BitonalOrderedDither();
             EscPosImage escposImage = new EscPosImage(coffeeImage, algorithm);
 
-            // STEP 4: Determine alignment
+            // Determine alignment
             RasterBitImageWrapper.Justification justification = RasterBitImageWrapper.Justification.Center;
             if (options != null && options.getAlignment() != null) {
                 switch (options.getAlignment().toUpperCase()) {
@@ -797,7 +788,7 @@ public class EscPosPrinterService implements IPrinterService {
             logger.debug("Printing bitmap: {}x{} pixels, justification={}",
                     image.getWidth(), image.getHeight(), justification);
 
-            // STEP 5: Create wrapper and print
+            // Create wrapper and print
             RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
             imageWrapper.setJustification(justification);
 
@@ -995,21 +986,19 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Query printer status using ESC/POS commands
-     * Uses GS a (ASB) for online/offline and cover detection (more reliable than DLE EOT for TM-T20III)
+     * Uses GS a (ASB) for online/offline and cover detection instead fo unreliable DLE EOT for TM-T20III
      * Uses DLE EOT only for paper sensors and error details
      */
     private void queryPrinterStatus(PrinterStatus status) throws IOException {
         try {
             // Query online/offline and cover status using GS a (ASB)
-            // ASB is more reliable than DLE EOT for TM-T20III
-            // This is CRITICAL - if ASB fails, we bail out
+            // CRITICAL - if ASB fails, we bail out
             queryStatusASB(status);
 
-            // DLE EOT queries are BEST-EFFORT only (not critical)
             // TM-T20III often stops responding to certain DLE EOT commands after events like cover open
             // If these fail, we log and continue rather than marking printer offline
 
-            // Query 2: Offline status (DLE EOT 2) - SKIP COVER BIT, use other bits
+            // Offline status (DLE EOT 2) - SKIP COVER BIT, use other bits
             try {
                 byte offlineStatusByte = queryRealTimeStatus((byte) 0x02);
                 parseOfflineStatusNoCover(offlineStatusByte, status);
@@ -1017,7 +1006,7 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("DLE EOT 2 query failed (non-critical), skipping: {}", e.getMessage());
             }
 
-            // Query 3: Error status (DLE EOT 3)
+            // Error status (DLE EOT 3)
             try {
                 byte errorStatusByte = queryRealTimeStatus((byte) 0x03);
                 parseErrorStatus(errorStatusByte, status);
@@ -1025,7 +1014,7 @@ public class EscPosPrinterService implements IPrinterService {
                 logger.debug("DLE EOT 3 query failed (non-critical), skipping: {}", e.getMessage());
             }
 
-            // Query 4: Paper sensor status (DLE EOT 4)
+            // Paper sensor status (DLE EOT 4)
             try {
                 byte paperStatusByte = queryRealTimeStatus((byte) 0x04);
                 parsePaperStatus(paperStatusByte, status);
@@ -1065,7 +1054,6 @@ public class EscPosPrinterService implements IPrinterService {
 
     /**
      * Query printer status using GS a (Automatic Status Back)
-     * This is more reliable than DLE EOT for online/offline and cover detection on TM-T20III
      *
      * ASB Byte 1 bit mapping (per TM-T20III spec):
      * Bit 3: 0=Online | 1=Offline
@@ -1076,14 +1064,14 @@ public class EscPosPrinterService implements IPrinterService {
      */
     private void queryStatusASB(PrinterStatus status) throws IOException {
         try {
-            // Step 1: Disable ASB first to ensure clean state
-            rawOutputStream.write(0x1D); // GS
-            rawOutputStream.write(0x61); // a
-            rawOutputStream.write(0);    // n=0 (disable)
+            // Disable ASB first to ensure clean state
+            rawOutputStream.write(0x1D);   // GS
+            rawOutputStream.write(0x61);   // a
+            rawOutputStream.write(0);      // n=0 (disable)
             rawOutputStream.flush();
-            Thread.sleep(50); // Brief pause to ensure command is processed
+            Thread.sleep(50);           // Brief pause to ensure command is processed
 
-            // Step 2: Clear input buffer of any stale data
+            // Clear input buffer of any stale data
             if (socket != null) {
                 InputStream inputStream = socket.getInputStream();
                 int available = inputStream.available();
@@ -1101,11 +1089,11 @@ public class EscPosPrinterService implements IPrinterService {
                 }
             }
 
-            // Step 3: Enable ASB to get current status
+            // Enable ASB to get current status
             // GS a n where n = 79 enables all statuses (bits 0,1,2,3,6)
-            rawOutputStream.write(0x1D); // GS
-            rawOutputStream.write(0x61); // a
-            rawOutputStream.write(79);   // n (enable all)
+            rawOutputStream.write(0x1D);    // GS
+            rawOutputStream.write(0x61);    // a
+            rawOutputStream.write(79);      // n (enable all)
             rawOutputStream.flush();
 
             logger.trace("Sent GS a 79 to enable ASB");
@@ -1136,13 +1124,12 @@ public class EscPosPrinterService implements IPrinterService {
 
                 // Validate ASB response pattern (should be 0xxx1xx0 per spec)
                 // Bits 0, 4, 7 should be: 0, 1, 0 respectively (bit 1 varies with status)
-                boolean validPattern = ((byte1 & 0x01) == 0) &&  // bit 0 = 0
-                                     ((byte1 & 0x10) != 0) &&  // bit 4 = 1
-                                     ((byte1 & 0x80) == 0);    // bit 7 = 0
+                boolean validPattern = ((byte1 & 0x01) == 0) &&     // bit 0 = 0
+                                     ((byte1 & 0x10) != 0) &&       // bit 4 = 1
+                                     ((byte1 & 0x80) == 0);         // bit 7 = 0
 
                 if (!validPattern) {
-                    logger.warn("ASB: Invalid response pattern byte1=0x{} (expected 0xxx1xx0 pattern, bits 0/4/7 fixed)",
-                               String.format("%02X", byte1));
+                    logger.warn("ASB: Invalid response pattern byte1=0x{} (expected 0xxx1xx0 pattern, bits 0/4/7 fixed)", String.format("%02X", byte1));
                     throw new IOException("Invalid ASB response pattern - input buffer may be corrupted");
                 }
 
@@ -1163,10 +1150,9 @@ public class EscPosPrinterService implements IPrinterService {
                 // Set error state based on cover and online status
                 if (coverOpen) {
                     // Cover is open
-                    // We successfully got ASB response, so printer IS network-reachable
-                    // (we just communicated with it!)
+                    // We successfully got ASB response, so printer IS network-reachable (we just communicated with it!)
                     logger.info("Cover detected as OPEN - overriding online status to TRUE (got ASB response)");
-                    status.setOnline(true);  // Network reachable (we got ASB response)
+                    status.setOnline(true);     // Network reachable (we got ASB response)
                     status.setError(true);
                     status.setErrorMessage("Cover open (printer reachable)");
                     logger.debug("Cover open but printer is network-reachable (got ASB response)");
@@ -1183,15 +1169,12 @@ public class EscPosPrinterService implements IPrinterService {
                 }
             } else {
                 logger.info("ASB: No response or incomplete response ({} bytes) - testing network reachability", bytesRead);
-
                 // No ASB response - printer may be offline, cover open, or disconnected
                 // TM-T20III stops responding to commands when cover is open
                 // To distinguish between "cover open" and "powered off", test network reachability
-
                 boolean networkReachable = false;
                 if (config.connectionType() == EPrinterType.NETWORK) {
-                    // Can't trust socket.isClosed() - TCP sockets can appear "connected"
-                    // for 30+ seconds after remote host powers off
+                    // Can't trust socket.isClosed() - TCP sockets can appear "connected" for 30+ seconds after remote host powers off
                     // Instead, attempt a real connection test with short timeout
                     logger.info("ASB: Testing actual network reachability (2 second timeout)...");
                     networkReachable = isNetworkReachable(config.ipAddress(), config.networkPort(), 2000);
@@ -1199,15 +1182,13 @@ public class EscPosPrinterService implements IPrinterService {
                 }
 
                 if (networkReachable) {
-                    // Printer is network reachable but not responding to commands
-                    // Most likely cause: cover is open
+                    // Printer is network reachable but not responding to commands. Most likely cause: cover is open
                     logger.info("ASB: Setting Online=Yes (network reachable), Ready=No (not responding to commands)");
-                    status.setOnline(true);  // Network reachable
+                    status.setOnline(true);     // Network reachable
                     status.setCoverOpen(true);  // Assume cover open (most common reason for no response)
                     status.setError(true);
                     status.setErrorMessage("Cover open (printer reachable but not responding)");
-                    // Don't throw exception - we successfully determined status
-                    // Just skip DLE EOT queries (they will fail anyway)
+                    // Don't throw exception - we successfully determined status. Just skip DLE EOT queries (they will fail anyway)
                 } else {
                     // Printer is truly offline (not network reachable)
                     logger.info("ASB: Setting Online=No (not network reachable)");
@@ -1224,7 +1205,7 @@ public class EscPosPrinterService implements IPrinterService {
             Thread.currentThread().interrupt();
             throw new IOException("ASB query interrupted", e);
         } finally {
-            // ALWAYS disable ASB, even on error, to prevent async transmissions
+            // ALWAYS disable ASB, even on error, to prevent async transmissions !!!
             try {
                 rawOutputStream.write(0x1D); // GS
                 rawOutputStream.write(0x61); // a
@@ -1252,10 +1233,10 @@ public class EscPosPrinterService implements IPrinterService {
                 throw new IOException("Socket is closed or not connected");
             }
 
-            // Send DLE EOT n through RAW stream (not EscPos-wrapped stream)
-            // This is critical - EscPos library might buffer/intercept wrapped stream
-            rawOutputStream.write(0x10); // DLE
-            rawOutputStream.write(0x04); // EOT
+            // Send DLE EOT n through RAW stream (not EscPos-wrapped stream) !
+            // CRITICAL - ESC/POS library might buffer/intercept wrapped stream
+            rawOutputStream.write(0x10);    // DLE
+            rawOutputStream.write(0x04);    // EOT
             rawOutputStream.write(statusType); // n (1-4)
             rawOutputStream.flush();
 
@@ -1341,10 +1322,10 @@ public class EscPosPrinterService implements IPrinterService {
     /**
      * Parse printer status byte (DLE EOT 1)
      * Per TM-T20III spec:
-     * Bit 2: Drawer kick-out connector pin 3 status
-     * Bit 3: 0=Online | 1=Offline
-     * Bit 5: 0=Not waiting for recovery | 1=Waiting for recovery
-     * Bit 6: 0=Feed button not pressed | 1=Feed button pressed
+     *  Bit 2: Drawer kick-out connector pin 3 status
+     *  Bit 3: 0=Online | 1=Offline
+     *  Bit 5: 0=Not waiting for recovery | 1=Waiting for recovery
+     *  Bit 6: 0=Feed button not pressed | 1=Feed button pressed
      */
     private void parsePrinterStatus(byte statusByte, PrinterStatus status) {
         // Bit 3: Online/Offline status
@@ -1361,10 +1342,10 @@ public class EscPosPrinterService implements IPrinterService {
      * Parse offline status byte (DLE EOT 2) - WITHOUT cover bit
      * Cover detection is handled by GS a (ASB) which is more reliable
      * Per TM-T20III spec:
-     * Bit 2: 0=Cover closed | 1=Cover open (IGNORED - use ASB instead)
-     * Bit 3: 0=No paper feed | 1=Paper feed active
-     * Bit 5: 0=Paper available | 1=Paper end detected
-     * Bit 6: 0=No error | 1=Error occurred
+     *  Bit 2: 0=Cover closed | 1=Cover open (IGNORED - use ASB instead)
+     *  Bit 3: 0=No paper feed | 1=Paper feed active
+     *  Bit 5: 0=Paper available | 1=Paper end detected
+     *  Bit 6: 0=No error | 1=Error occurred
      */
     private void parseOfflineStatusNoCover(byte statusByte, PrinterStatus status) {
         // Bit 2: Cover open - IGNORED (unreliable on TM-T20III, use ASB instead)
@@ -1395,10 +1376,10 @@ public class EscPosPrinterService implements IPrinterService {
     /**
      * Parse error status byte (DLE EOT 3)
      * Per TM-T20III spec:
-     * Bit 2: 0=No recoverable error | 1=Recoverable error
-     * Bit 3: 0=No autocutter error | 1=Autocutter error
-     * Bit 5: 0=No unrecoverable error | 1=Unrecoverable error
-     * Bit 6: 0=No auto-recoverable error | 1=Auto-recoverable error
+     *  Bit 2: 0=No recoverable error | 1=Recoverable error
+     *  Bit 3: 0=No autocutter error | 1=Autocutter error
+     *  Bit 5: 0=No unrecoverable error | 1=Unrecoverable error
+     *  Bit 6: 0=No auto-recoverable error | 1=Auto-recoverable error
      */
     private void parseErrorStatus(byte statusByte, PrinterStatus status) {
         // Bit 2: Recoverable error (e.g., high head temp)
