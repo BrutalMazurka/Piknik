@@ -87,7 +87,7 @@ public class IntegratedController {
         this.executorService = Executors.newScheduledThreadPool(serverConfig.threadPoolSize());
         this.ioGeneral = injector.getInstance(IOGeneral.class);
 
-        // Initialize protocol controllers
+        // Initialize protocol controllers with registrations
         IOAccessProxySett proxySett;
         proxySett = new IOAccessProxySett(loggerFactory.get(ELogger.INGENICO_IFSF), "IfsfProtProxy");
         ifsfProtProxy = new IfsfProtProxy(proxySett, ioGeneral.getIfsfTcpServerAccess());
@@ -102,6 +102,15 @@ public class IntegratedController {
         transitProtCtrl = new TransitProtCtrl(transitProtProxy,
                 injector.getInstance(IIngenicoTransitApp.class),
                 new TransitHeartBeatOutputter(ioGeneral.getTransitTcpServerAccess()));
+
+        // Build and register protocol control services (periodic checkers)
+        pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder ifsfRegBuilder =
+                new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(injector);
+        ifsfProtCtrl.init(ifsfRegBuilder.build());
+
+        pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder transitRegBuilder =
+                new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(injector);
+        transitProtCtrl.init(transitRegBuilder.build());
 
         // Initialize managers
         this.sseManager = new SSEManager();
