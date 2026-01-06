@@ -127,13 +127,18 @@ public class IntegratedController {
                 new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(childInjector);
         transitProtCtrl.init(transitRegBuilder.build());
 
+        // Open protocol proxies to enable message handling
+        ifsfProtProxy.open();
+        ifsfDevProxyProtProxy.open();
+        transitProtProxy.open();
+
         // Initialize managers
         this.sseManager = new SSEManager();
         this.printerStatusMonitor = new StatusMonitorService(printerService, sseManager::broadcastToPrinterSSE, serverConfig.statusCheckInterval());
         this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
         this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
         this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
-                printerService, vfdService, ingenicoService);
+                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl);
 
         // Register observers AFTER manager construction
         setupStatusListeners();
@@ -198,19 +203,33 @@ public class IntegratedController {
             // Step 2: Evaluate startup success based on mode
             serviceOrchestrator.evaluateStartupRequirements(mode, results);
 
-            // Step 3: Start monitoring for successfully initialized services
+            // Step 3: Start Ingenico protocol controllers execution loop
+            // This runs the protocol proxies and controllers periodically (every 15ms like EVK's MasterLoop)
+            executorService.scheduleAtFixedRate(() -> {
+                try {
+                    ifsfProtProxy.run();
+                    ifsfProtCtrl.run();
+                    transitProtProxy.run();
+                    transitProtCtrl.run();
+                } catch (Exception e) {
+                    logger.error("Error in protocol controllers execution loop", e);
+                }
+            }, 0, 15, java.util.concurrent.TimeUnit.MILLISECONDS);
+            logger.info("Started Ingenico protocol controllers execution loop");
+
+            // Step 4: Start monitoring for successfully initialized services
             serviceOrchestrator.startMonitoring(executorService);
 
-            // Step 4: Start SSE management
+            // Step 5: Start SSE management
             sseManager.startSSEManagementTasks(executorService);
 
-            // Step 5: Start web server
+            // Step 6: Start web server
             webServerManager.start();
 
-            // Step 6: Register shutdown hook
+            // Step 7: Register shutdown hook
             shutdownManager.registerShutdownHook();
 
-            // Step 7: Log final status
+            // Step 8: Log final status
             serviceOrchestrator.logStartupSummary(results, serverConfig.port(), serverConfig.host());
 
         } catch (StartupException e) {
