@@ -113,6 +113,11 @@ public class IntegratedController {
             }
         });
 
+        // Register Ingenico apps with TCP servers to receive connection events
+        IngenicoReaderDevice readerDevice = injector.getInstance(IngenicoReaderDevice.class);
+        readerDevice.getIfsfApp().registerToTcpServer(ioGeneral.getIfsfTcpServerAccess());
+        readerDevice.getTransitApp().registerToTcpServer(ioGeneral.getTransitTcpServerAccess());
+
         // Build and register protocol control services (periodic checkers)
         pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder ifsfRegBuilder =
                 new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(childInjector);
