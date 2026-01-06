@@ -79,10 +79,7 @@ public class StatusMonitorService {
             logger.error("Error during status check", e);
 
             // Send error notification via SSE
-            String errorMessage = String.format(
-                    "data: {\"error\": true, \"message\": \"Status check failed: %s\"}\n\n",
-                    e.getMessage()
-            );
+            String errorMessage = String.format("data: {\"error\": true, \"message\": \"Status check failed: %s\"}\n\n", e.getMessage());
             statusUpdateCallback.accept(errorMessage);
         }
     }

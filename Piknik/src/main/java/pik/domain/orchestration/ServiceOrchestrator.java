@@ -102,8 +102,7 @@ public class ServiceOrchestrator {
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
 
-            logger.error("✗ Printer service initialization failed after {}ms: {}",
-                    duration, e.getMessage());
+            logger.error("✗ Printer service initialization failed after {}ms: {}", duration, e.getMessage());
             logger.debug("Printer initialization error details", e);
 
             return ServiceInitializationResult.failure("Printer", e, duration);
@@ -133,8 +132,7 @@ public class ServiceOrchestrator {
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
 
-            logger.error("✗ VFD service initialization failed after {}ms: {}",
-                    duration, e.getMessage());
+            logger.error("✗ VFD service initialization failed after {}ms: {}", duration, e.getMessage());
             logger.debug("VFD initialization error details", e);
 
             return ServiceInitializationResult.failure("VFD", e, duration);
@@ -164,8 +162,7 @@ public class ServiceOrchestrator {
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
 
-            logger.error("✗ Ingenico service initialization failed after {}ms: {}",
-                    duration, e.getMessage());
+            logger.error("✗ Ingenico service initialization failed after {}ms: {}", duration, e.getMessage());
             logger.debug("Ingenico initialization error details", e);
 
             return ServiceInitializationResult.failure("Ingenico", e, duration);
@@ -190,8 +187,7 @@ public class ServiceOrchestrator {
             case STRICT:
                 if (successfulServices != totalServices) {
                     String message = String.format(
-                            "STRICT mode requires all services to initialize. " +
-                                    "Only %d/%d services initialized successfully.",
+                            "STRICT mode requires all services to initialize. " + "Only %d/%d services initialized successfully.",
                             successfulServices, totalServices
                     );
                     throw new StartupException(message, mode, results);

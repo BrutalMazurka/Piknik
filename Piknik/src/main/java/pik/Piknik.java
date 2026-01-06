@@ -2,17 +2,13 @@ package pik;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
+import epis.logging.Log4j2LoggerFactory;
 import jCommons.logging.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pik.dal.ConfigurationService;
-import pik.dal.IngenicoConfig;
-import pik.dal.PrinterConfig;
-import pik.dal.ServerConfig;
-import pik.dal.VFDConfig;
+import pik.dal.*;
 import pik.domain.IntegratedController;
 import pik.domain.StartupException;
-import epis.logging.Log4j2LoggerFactory;
 
 /**
  * Main entry point for Piknik POS Controller Application
