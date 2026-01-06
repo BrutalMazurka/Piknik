@@ -103,13 +103,23 @@ public class IntegratedController {
                 injector.getInstance(IIngenicoTransitApp.class),
                 new TransitHeartBeatOutputter(ioGeneral.getTransitTcpServerAccess()));
 
+        // Create child injector with protocol outputters bound
+        // This allows the registration builders to inject the services with their dependencies
+        Injector childInjector = injector.createChildInjector(new com.google.inject.AbstractModule() {
+            @Override
+            protected void configure() {
+                bind(epis5.ingenicoifsf.prot.IIfsfProtMsgOutputter.class).toInstance(ifsfProtCtrl);
+                bind(epis5.ingenico.transit.prot.ITransitProtMsgOutputter.class).toInstance(transitProtCtrl);
+            }
+        });
+
         // Build and register protocol control services (periodic checkers)
         pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder ifsfRegBuilder =
-                new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(injector);
+                new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(childInjector);
         ifsfProtCtrl.init(ifsfRegBuilder.build());
 
         pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder transitRegBuilder =
-                new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(injector);
+                new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(childInjector);
         transitProtCtrl.init(transitRegBuilder.build());
 
         // Initialize managers
