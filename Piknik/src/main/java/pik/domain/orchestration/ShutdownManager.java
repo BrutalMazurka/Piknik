@@ -27,6 +27,13 @@ public class ShutdownManager {
     private final PrinterService printerService;
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
+    private final Object ifsfProtProxy;
+    private final Object ifsfDevProxyProtProxy;
+    private final Object transitProtProxy;
+    private final Object ifsfProtCtrl;
+    private final Object transitProtCtrl;
+    private final Object ioCtrl;
+    private final Object masterLoop;
 
     private volatile boolean shutdownHookRegistered = false;
 
@@ -40,6 +47,13 @@ public class ShutdownManager {
      * @param printerService Printer service
      * @param vfdService VFD service
      * @param ingenicoService Ingenico service
+     * @param ifsfProtProxy IFSF protocol proxy
+     * @param ifsfDevProxyProtProxy IFSF device proxy
+     * @param transitProtProxy Transit protocol proxy
+     * @param ifsfProtCtrl IFSF protocol controller
+     * @param transitProtCtrl Transit protocol controller
+     * @param ioCtrl IO controller for periodic checkers
+     * @param masterLoop MasterLoop for running protocol controllers
      */
     public ShutdownManager(
             SSEManager sseManager,
@@ -49,7 +63,14 @@ public class ShutdownManager {
             IOGeneral ioGeneral,
             PrinterService printerService,
             VFDService vfdService,
-            IngenicoService ingenicoService) {
+            IngenicoService ingenicoService,
+            Object ifsfProtProxy,
+            Object ifsfDevProxyProtProxy,
+            Object transitProtProxy,
+            Object ifsfProtCtrl,
+            Object transitProtCtrl,
+            Object ioCtrl,
+            Object masterLoop) {
         this.sseManager = sseManager;
         this.webServerManager = webServerManager;
         this.printerStatusMonitor = printerStatusMonitor;
@@ -58,6 +79,13 @@ public class ShutdownManager {
         this.printerService = printerService;
         this.vfdService = vfdService;
         this.ingenicoService = ingenicoService;
+        this.ifsfProtProxy = ifsfProtProxy;
+        this.ifsfDevProxyProtProxy = ifsfDevProxyProtProxy;
+        this.transitProtProxy = transitProtProxy;
+        this.ifsfProtCtrl = ifsfProtCtrl;
+        this.transitProtCtrl = transitProtCtrl;
+        this.ioCtrl = ioCtrl;
+        this.masterLoop = masterLoop;
     }
 
     /**
@@ -79,6 +107,48 @@ public class ShutdownManager {
         try {
             // Stop SSE management tasks
             sseManager.stopSSEManagementTasks();
+
+            // Stop MasterLoop (stops running protocol controllers)
+            try {
+                if (masterLoop != null) {
+                    masterLoop.getClass().getMethod("stop").invoke(masterLoop);
+                    logger.info("MasterLoop stopped");
+                }
+            } catch (Exception e) {
+                logger.error("Error stopping MasterLoop", e);
+            }
+
+            // Deinitialize IoCtrl (stops periodic checker loop)
+            try {
+                if (ioCtrl != null) {
+                    ioCtrl.getClass().getMethod("deinit").invoke(ioCtrl);
+                    logger.info("IoCtrl shut down");
+                }
+            } catch (Exception e) {
+                logger.error("Error shutting down IoCtrl", e);
+            }
+
+            // Deinitialize Ingenico protocol controllers and proxies
+            try {
+                if (transitProtCtrl != null) {
+                    transitProtCtrl.getClass().getMethod("deinit").invoke(transitProtCtrl);
+                }
+                if (transitProtProxy != null) {
+                    transitProtProxy.getClass().getMethod("close").invoke(transitProtProxy);
+                }
+                if (ifsfProtCtrl != null) {
+                    ifsfProtCtrl.getClass().getMethod("deinit").invoke(ifsfProtCtrl);
+                }
+                if (ifsfDevProxyProtProxy != null) {
+                    ifsfDevProxyProtProxy.getClass().getMethod("close").invoke(ifsfDevProxyProtProxy);
+                }
+                if (ifsfProtProxy != null) {
+                    ifsfProtProxy.getClass().getMethod("close").invoke(ifsfProtProxy);
+                }
+                logger.info("Ingenico protocol controllers and proxies shut down");
+            } catch (Exception e) {
+                logger.error("Error shutting down Ingenico protocol controllers", e);
+            }
 
             // Deinitialize IO General
             ioGeneral.deinit();

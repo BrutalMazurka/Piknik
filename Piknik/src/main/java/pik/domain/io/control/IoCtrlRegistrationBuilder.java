@@ -23,6 +23,10 @@ public class IoCtrlRegistrationBuilder {
     public IoCtrlRegistrationBuilder build() {
         checkers.clear();
 
+        // IoCtrl is for other periodic checkers, NOT Ingenico services
+        // Ingenico services are registered with their protocol controllers
+        // and will be called when the controllers run
+
         return this;
     }
 }

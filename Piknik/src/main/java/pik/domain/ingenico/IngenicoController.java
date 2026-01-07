@@ -68,6 +68,7 @@ public class IngenicoController {
      * Reports actual device status:
      * - Online: Device is fully operational (all connections established)
      * - Initializing: Device is connecting (partial connectivity or in init sequence)
+     * - Online with errors: Device is connected but not operational (e.g., missing SAM DUK)
      * - Offline: Device failed to initialize (hardware unavailable)
      * - Dummy: Device is configured as NONE in application.properties
      */
@@ -101,6 +102,10 @@ public class IngenicoController {
                 details.append("SAM DUK not detected; ");
             }
             message = details.toString().replaceAll("; $", "");
+        } else if (status.initialized() && status.ifsfConnected() && status.transitConnected()) {
+            // Reader is connected and initialized but not operational (e.g., SAM DUK missing)
+            message = "Ingenico reader is online but not operational: " +
+                      (status.errorMessage() != null ? status.errorMessage() : "Unknown error");
         } else {
             message = "Ingenico reader is offline (hardware unavailable)";
         }

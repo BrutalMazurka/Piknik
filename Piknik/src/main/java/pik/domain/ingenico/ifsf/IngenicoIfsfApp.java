@@ -119,6 +119,9 @@ public class IngenicoIfsfApp implements IIngenicoIEmvTerminal {
         synchronized (this) {
             if (connected && socketAddress.equals(ev.getSocketAddress())) {
                 connected = false;
+                // Reset cached state when disconnected
+                setAppNotAlive();
+                setTerminalID("");
             }
         }
 

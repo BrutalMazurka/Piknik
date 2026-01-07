@@ -66,6 +66,8 @@ public class IntegratedController {
     private final IfsfProtProxy ifsfDevProxyProtProxy;
     private final TransitProtCtrl transitProtCtrl;
     private final TransitProtProxy transitProtProxy;
+    private final pik.domain.io.control.IoCtrl ioCtrl;
+    private final jCommons.master.MasterLoop masterLoop;
 
     /**
      * Constructor accepting configurations (no circular dependency)
@@ -87,7 +89,7 @@ public class IntegratedController {
         this.executorService = Executors.newScheduledThreadPool(serverConfig.threadPoolSize());
         this.ioGeneral = injector.getInstance(IOGeneral.class);
 
-        // Initialize protocol controllers
+        // Initialize protocol controllers with registrations
         IOAccessProxySett proxySett;
         proxySett = new IOAccessProxySett(loggerFactory.get(ELogger.INGENICO_IFSF), "IfsfProtProxy");
         ifsfProtProxy = new IfsfProtProxy(proxySett, ioGeneral.getIfsfTcpServerAccess());
@@ -103,13 +105,59 @@ public class IntegratedController {
                 injector.getInstance(IIngenicoTransitApp.class),
                 new TransitHeartBeatOutputter(ioGeneral.getTransitTcpServerAccess()));
 
+        // Create child injector with protocol outputters bound
+        // This allows the registration builders to inject the services with their dependencies
+        Injector childInjector = injector.createChildInjector(new com.google.inject.AbstractModule() {
+            @Override
+            protected void configure() {
+                bind(epis5.ingenicoifsf.prot.IIfsfProtMsgOutputter.class).toInstance(ifsfProtCtrl);
+                bind(epis5.ingenico.transit.prot.ITransitProtMsgOutputter.class).toInstance(transitProtCtrl);
+            }
+        });
+
+        // Register Ingenico apps with TCP servers to receive connection events
+        IngenicoReaderDevice readerDevice = injector.getInstance(IngenicoReaderDevice.class);
+        readerDevice.getIfsfApp().registerToTcpServer(ioGeneral.getIfsfTcpServerAccess());
+        readerDevice.getTransitApp().registerToTcpServer(ioGeneral.getTransitTcpServerAccess());
+
+        // Build and register protocol control services (periodic checkers)
+        pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder ifsfRegBuilder =
+                new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(childInjector);
+        ifsfProtCtrl.init(ifsfRegBuilder.build());
+
+        pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder transitRegBuilder =
+                new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(childInjector);
+        transitProtCtrl.init(transitRegBuilder.build());
+
+        // Open protocol proxies to enable message handling
+        ifsfProtProxy.open();
+        ifsfDevProxyProtProxy.open();
+        transitProtProxy.open();
+
+        // Initialize IoCtrl for other periodic checkers (not Ingenico services)
+        this.ioCtrl = new pik.domain.io.control.IoCtrl(childInjector);
+        this.ioCtrl.init(new pik.domain.io.control.IoCtrlRegistrationBuilder(childInjector).build());
+
+        // Create MasterLoop to run protocol controllers (like EVK)
+        this.masterLoop = new jCommons.master.MasterLoop(loggerFactory.get(ELogger.APP), 2, "MasterLoop_prot");
+
+        // Register protocol proxies and controllers with MasterLoop
+        // When MasterLoop runs, it calls run() on each registered Runnable
+        // The controllers' run() methods call periodicalCheck() on their registered services
+        masterLoop.registerRunnable(ifsfProtProxy);
+        masterLoop.registerRunnable(ifsfProtCtrl);
+        masterLoop.registerRunnable(transitProtProxy);
+        masterLoop.registerRunnable(transitProtCtrl);
+
+        logger.info("Protocol controllers registered with MasterLoop");
+
         // Initialize managers
         this.sseManager = new SSEManager();
         this.printerStatusMonitor = new StatusMonitorService(printerService, sseManager::broadcastToPrinterSSE, serverConfig.statusCheckInterval());
         this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
         this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
         this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
-                printerService, vfdService, ingenicoService);
+                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl, ioCtrl, masterLoop);
 
         // Register observers AFTER manager construction
         setupStatusListeners();
@@ -174,19 +222,23 @@ public class IntegratedController {
             // Step 2: Evaluate startup success based on mode
             serviceOrchestrator.evaluateStartupRequirements(mode, results);
 
-            // Step 3: Start monitoring for successfully initialized services
+            // Step 3: Start MasterLoop to run protocol controllers
+            masterLoop.start();
+            logger.info("MasterLoop started - protocol controllers are now running");
+
+            // Step 4: Start monitoring for successfully initialized services
             serviceOrchestrator.startMonitoring(executorService);
 
-            // Step 4: Start SSE management
+            // Step 5: Start SSE management
             sseManager.startSSEManagementTasks(executorService);
 
-            // Step 5: Start web server
+            // Step 6: Start web server
             webServerManager.start();
 
-            // Step 6: Register shutdown hook
+            // Step 7: Register shutdown hook
             shutdownManager.registerShutdownHook();
 
-            // Step 7: Log final status
+            // Step 8: Log final status
             serviceOrchestrator.logStartupSummary(results, serverConfig.port(), serverConfig.host());
 
         } catch (StartupException e) {
