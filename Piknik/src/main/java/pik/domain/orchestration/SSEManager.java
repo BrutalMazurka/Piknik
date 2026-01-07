@@ -3,6 +3,7 @@ package pik.domain.orchestration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.domain.SSEClient;
+import pik.common.ServerConstants;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -141,7 +142,7 @@ public class SSEManager {
         if (!printerSSEClients.isEmpty()) {
             logger.trace("Sending heartbeat to {} printer SSE clients", printerSSEClients.size());
             for (SSEClient client : printerSSEClients.values()) {
-                if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                if (client.needsHeartbeat(ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
                     if (!client.sendHeartbeat()) {
                         logger.debug("Heartbeat failed for printer client: {}", client);
                     }
@@ -153,7 +154,7 @@ public class SSEManager {
         if (!vfdSSEClients.isEmpty()) {
             logger.trace("Sending heartbeat to {} VFD SSE clients", vfdSSEClients.size());
             for (SSEClient client : vfdSSEClients.values()) {
-                if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                if (client.needsHeartbeat(ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
                     if (!client.sendHeartbeat()) {
                         logger.debug("Heartbeat failed for VFD client: {}", client);
                     }
@@ -165,7 +166,7 @@ public class SSEManager {
         if (!ingenicoSSEClients.isEmpty()) {
             logger.trace("Sending heartbeat to {} Ingenico SSE clients", ingenicoSSEClients.size());
             for (SSEClient client : ingenicoSSEClients.values()) {
-                if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                if (client.needsHeartbeat(ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
                     if (!client.sendHeartbeat()) {
                         logger.debug("Heartbeat failed for Ingenico client: {}", client);
                     }
@@ -191,7 +192,7 @@ public class SSEManager {
         // Clean printer clients
         for (var entry : printerSSEClients.entrySet()) {
             SSEClient client = entry.getValue();
-            if (!client.isActive() || client.isStale(pik.common.ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+            if (!client.isActive() || client.isStale(ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
                 String reason = !client.isActive() ? "inactive" : "stale";
                 logger.info("Removing {} printer SSE client: {}", reason, client.getClientId());
                 client.close();
@@ -203,7 +204,7 @@ public class SSEManager {
         // Clean VFD clients
         for (var entry : vfdSSEClients.entrySet()) {
             SSEClient client = entry.getValue();
-            if (!client.isActive() || client.isStale(pik.common.ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+            if (!client.isActive() || client.isStale(ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
                 String reason = !client.isActive() ? "inactive" : "stale";
                 logger.info("Removing {} VFD SSE client: {}", reason, client.getClientId());
                 client.close();
@@ -215,7 +216,7 @@ public class SSEManager {
         // Clean Ingenico clients
         for (var entry : ingenicoSSEClients.entrySet()) {
             SSEClient client = entry.getValue();
-            if (!client.isActive() || client.isStale(pik.common.ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
+            if (!client.isActive() || client.isStale(ServerConstants.SSE_CLIENT_TIMEOUT_MS)) {
                 String reason = !client.isActive() ? "inactive" : "stale";
                 logger.info("Removing {} Ingenico SSE client: {}", reason, client.getClientId());
                 client.close();
@@ -268,16 +269,16 @@ public class SSEManager {
     public void startSSEManagementTasks(ScheduledExecutorService executorService) {
         sseCleanupTask = executorService.scheduleWithFixedDelay(
                 this::cleanupStaleSSEClients,
-                pik.common.ServerConstants.SSE_CLEANUP_INTERVAL_MS,
-                pik.common.ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
+                ServerConstants.SSE_CLEANUP_INTERVAL_MS,
                 TimeUnit.MILLISECONDS
         );
         logger.info("SSE cleanup task started");
 
         sseHeartbeatTask = executorService.scheduleWithFixedDelay(
                 this::sendHeartbeatToAllClients,
-                pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
-                pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
+                ServerConstants.SSE_HEARTBEAT_INTERVAL_MS,
                 TimeUnit.MILLISECONDS
         );
         logger.info("SSE heartbeat task started");

@@ -18,7 +18,11 @@ import pik.common.ELogger;
 import pik.dal.*;
 import pik.domain.ingenico.IngenicoReaderDevice;
 import pik.domain.ingenico.IngenicoService;
+import pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder;
+import pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder;
 import pik.domain.io.IOGeneral;
+import pik.domain.io.control.IoCtrl;
+import pik.domain.io.control.IoCtrlRegistrationBuilder;
 import pik.domain.orchestration.SSEManager;
 import pik.domain.orchestration.ServiceOrchestrator;
 import pik.domain.orchestration.ShutdownManager;
@@ -76,7 +80,8 @@ public class IntegratedController {
      * @param ingenicoConfig Ingenico reader configuration
      * @param serverConfig Server configuration
      */
-    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, IngenicoConfig ingenicoConfig, ServerConfig serverConfig, Injector injector) {
+    public IntegratedController(PrinterConfig printerConfig, VFDConfig vfdConfig, IngenicoConfig ingenicoConfig, ServerConfig serverConfig,
+                                Injector injector) {
         ILoggerFactory loggerFactory = injector.getInstance(ILoggerFactory.class);
 
         this.serverConfig = serverConfig;
@@ -121,12 +126,10 @@ public class IntegratedController {
         readerDevice.getTransitApp().registerToTcpServer(ioGeneral.getTransitTcpServerAccess());
 
         // Build and register protocol control services (periodic checkers)
-        pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder ifsfRegBuilder =
-                new pik.domain.ingenico.ifsf.service.IfsfProtCtrlRegistrationBuilder(childInjector);
+        IfsfProtCtrlRegistrationBuilder ifsfRegBuilder = new IfsfProtCtrlRegistrationBuilder(childInjector);
         ifsfProtCtrl.init(ifsfRegBuilder.build());
 
-        pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder transitRegBuilder =
-                new pik.domain.ingenico.transit.service.TransitProtCtrlRegistrationBuilder(childInjector);
+        TransitProtCtrlRegistrationBuilder transitRegBuilder = new TransitProtCtrlRegistrationBuilder(childInjector);
         transitProtCtrl.init(transitRegBuilder.build());
 
         // Open protocol proxies to enable message handling
@@ -135,8 +138,8 @@ public class IntegratedController {
         transitProtProxy.open();
 
         // Initialize IoCtrl for other periodic checkers (not Ingenico services)
-        this.ioCtrl = new pik.domain.io.control.IoCtrl(childInjector);
-        this.ioCtrl.init(new pik.domain.io.control.IoCtrlRegistrationBuilder(childInjector).build());
+        this.ioCtrl = new IoCtrl(childInjector);
+        this.ioCtrl.init(new IoCtrlRegistrationBuilder(childInjector).build());
 
         // Create MasterLoop to run protocol controllers (like EVK)
         this.masterLoop = new jCommons.master.MasterLoop(loggerFactory.get(ELogger.APP), 2, "MasterLoop_prot");

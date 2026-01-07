@@ -5,7 +5,6 @@ import epis5.ingenico.transit.IIngenicoTransitApp;
 import epis5.ingenico.transit.TerminalStatus;
 import epis5.ingenico.transit.sam.SamSlotEventArgs;
 import epis5.ingenico.transit.sam.SamSlots;
-import pik.domain.ingenico.IngenicoReaderDevice;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 import jCommons.comm.io.access.ITcpServerState;

@@ -13,10 +13,6 @@ import pik.common.ELogger;
 import pik.dal.IngenicoConfig;
 import pik.domain.GoogleEventBus;
 
-/**
- * @author Martin Sustik <sustik@herman.cz>
- * @since 11/11/2025
- */
 public class IOGeneral {
     private final ILogger appLogger;
     private final IOTcpServerAccess ifsfTcpServerAccess;

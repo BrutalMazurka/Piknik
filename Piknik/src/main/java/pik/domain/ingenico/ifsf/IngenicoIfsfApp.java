@@ -5,7 +5,6 @@ import epis5.ingenicoifsf.EmvOfflineBufferState;
 import epis5.ingenicoifsf.IIngenicoIEmvTerminal;
 import epis5.ingenicoifsf.prot.xml.IfsfPrivateData;
 import epis5.ingenicoifsf.prot.xml.service.DiagnosisResponseDto;
-import pik.domain.ingenico.IngenicoReaderDevice;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 import jCommons.comm.io.access.ITcpServerState;
