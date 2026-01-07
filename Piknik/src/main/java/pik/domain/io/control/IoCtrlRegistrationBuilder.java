@@ -23,16 +23,9 @@ public class IoCtrlRegistrationBuilder {
     public IoCtrlRegistrationBuilder build() {
         checkers.clear();
 
-        // Register Ingenico protocol services (periodic checkers)
-        try {
-            checkers.add(injector.getInstance(pik.domain.ingenico.IngenicoReaderInitStateMachine.class));
-            checkers.add(injector.getInstance(pik.domain.ingenico.SamDukAuthStateMachine.class));
-            checkers.add(injector.getInstance(pik.domain.ingenico.transit.service.TransitServiceGetState.class));
-            checkers.add(injector.getInstance(pik.domain.ingenico.ifsf.service.IfsfServiceDiagnosis.class));
-            checkers.add(injector.getInstance(pik.domain.ingenico.tap.IngenicoCardTappingController.class));
-        } catch (Exception e) {
-            // Services might not be available in dummy mode, ignore
-        }
+        // IoCtrl is for other periodic checkers, NOT Ingenico services
+        // Ingenico services are registered with their protocol controllers
+        // and will be called when the controllers run
 
         return this;
     }
