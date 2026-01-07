@@ -32,6 +32,7 @@ public class ShutdownManager {
     private final Object transitProtProxy;
     private final Object ifsfProtCtrl;
     private final Object transitProtCtrl;
+    private final Object ioCtrl;
 
     private volatile boolean shutdownHookRegistered = false;
 
@@ -50,6 +51,7 @@ public class ShutdownManager {
      * @param transitProtProxy Transit protocol proxy
      * @param ifsfProtCtrl IFSF protocol controller
      * @param transitProtCtrl Transit protocol controller
+     * @param ioCtrl IO controller for periodic checkers
      */
     public ShutdownManager(
             SSEManager sseManager,
@@ -64,7 +66,8 @@ public class ShutdownManager {
             Object ifsfDevProxyProtProxy,
             Object transitProtProxy,
             Object ifsfProtCtrl,
-            Object transitProtCtrl) {
+            Object transitProtCtrl,
+            Object ioCtrl) {
         this.sseManager = sseManager;
         this.webServerManager = webServerManager;
         this.printerStatusMonitor = printerStatusMonitor;
@@ -78,6 +81,7 @@ public class ShutdownManager {
         this.transitProtProxy = transitProtProxy;
         this.ifsfProtCtrl = ifsfProtCtrl;
         this.transitProtCtrl = transitProtCtrl;
+        this.ioCtrl = ioCtrl;
     }
 
     /**
@@ -99,6 +103,16 @@ public class ShutdownManager {
         try {
             // Stop SSE management tasks
             sseManager.stopSSEManagementTasks();
+
+            // Deinitialize IoCtrl (stops periodic checker loop)
+            try {
+                if (ioCtrl != null) {
+                    ioCtrl.getClass().getMethod("deinit").invoke(ioCtrl);
+                    logger.info("IoCtrl shut down");
+                }
+            } catch (Exception e) {
+                logger.error("Error shutting down IoCtrl", e);
+            }
 
             // Deinitialize Ingenico protocol controllers and proxies
             try {

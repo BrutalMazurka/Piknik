@@ -66,6 +66,7 @@ public class IntegratedController {
     private final IfsfProtProxy ifsfDevProxyProtProxy;
     private final TransitProtCtrl transitProtCtrl;
     private final TransitProtProxy transitProtProxy;
+    private final pik.domain.io.control.IoCtrl ioCtrl;
 
     /**
      * Constructor accepting configurations (no circular dependency)
@@ -132,13 +133,18 @@ public class IntegratedController {
         ifsfDevProxyProtProxy.open();
         transitProtProxy.open();
 
+        // Initialize IoCtrl to run periodic checkers (including Ingenico services)
+        this.ioCtrl = new pik.domain.io.control.IoCtrl(childInjector);
+        this.ioCtrl.init(new pik.domain.io.control.IoCtrlRegistrationBuilder(childInjector).build());
+        logger.info("IoCtrl initialized and started");
+
         // Initialize managers
         this.sseManager = new SSEManager();
         this.printerStatusMonitor = new StatusMonitorService(printerService, sseManager::broadcastToPrinterSSE, serverConfig.statusCheckInterval());
         this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
         this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
         this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
-                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl);
+                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl, ioCtrl);
 
         // Register observers AFTER manager construction
         setupStatusListeners();
