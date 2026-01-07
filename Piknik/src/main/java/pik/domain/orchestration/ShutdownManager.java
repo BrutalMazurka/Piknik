@@ -33,6 +33,7 @@ public class ShutdownManager {
     private final Object ifsfProtCtrl;
     private final Object transitProtCtrl;
     private final Object ioCtrl;
+    private final Object masterLoop;
 
     private volatile boolean shutdownHookRegistered = false;
 
@@ -52,6 +53,7 @@ public class ShutdownManager {
      * @param ifsfProtCtrl IFSF protocol controller
      * @param transitProtCtrl Transit protocol controller
      * @param ioCtrl IO controller for periodic checkers
+     * @param masterLoop MasterLoop for running protocol controllers
      */
     public ShutdownManager(
             SSEManager sseManager,
@@ -67,7 +69,8 @@ public class ShutdownManager {
             Object transitProtProxy,
             Object ifsfProtCtrl,
             Object transitProtCtrl,
-            Object ioCtrl) {
+            Object ioCtrl,
+            Object masterLoop) {
         this.sseManager = sseManager;
         this.webServerManager = webServerManager;
         this.printerStatusMonitor = printerStatusMonitor;
@@ -82,6 +85,7 @@ public class ShutdownManager {
         this.ifsfProtCtrl = ifsfProtCtrl;
         this.transitProtCtrl = transitProtCtrl;
         this.ioCtrl = ioCtrl;
+        this.masterLoop = masterLoop;
     }
 
     /**
@@ -103,6 +107,16 @@ public class ShutdownManager {
         try {
             // Stop SSE management tasks
             sseManager.stopSSEManagementTasks();
+
+            // Stop MasterLoop (stops running protocol controllers)
+            try {
+                if (masterLoop != null) {
+                    masterLoop.getClass().getMethod("stop").invoke(masterLoop);
+                    logger.info("MasterLoop stopped");
+                }
+            } catch (Exception e) {
+                logger.error("Error stopping MasterLoop", e);
+            }
 
             // Deinitialize IoCtrl (stops periodic checker loop)
             try {

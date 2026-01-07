@@ -67,6 +67,7 @@ public class IntegratedController {
     private final TransitProtCtrl transitProtCtrl;
     private final TransitProtProxy transitProtProxy;
     private final pik.domain.io.control.IoCtrl ioCtrl;
+    private final jCommons.master.MasterLoop masterLoop;
 
     /**
      * Constructor accepting configurations (no circular dependency)
@@ -133,10 +134,22 @@ public class IntegratedController {
         ifsfDevProxyProtProxy.open();
         transitProtProxy.open();
 
-        // Initialize IoCtrl to run periodic checkers (including Ingenico services)
+        // Initialize IoCtrl for other periodic checkers (not Ingenico services)
         this.ioCtrl = new pik.domain.io.control.IoCtrl(childInjector);
         this.ioCtrl.init(new pik.domain.io.control.IoCtrlRegistrationBuilder(childInjector).build());
-        logger.info("IoCtrl initialized and started");
+
+        // Create MasterLoop to run protocol controllers (like EVK)
+        this.masterLoop = new jCommons.master.MasterLoop(loggerFactory.get(ELogger.APP), 2, "MasterLoop_prot");
+
+        // Register protocol proxies and controllers with MasterLoop
+        // When MasterLoop runs, it calls run() on each registered Runnable
+        // The controllers' run() methods call periodicalCheck() on their registered services
+        masterLoop.registerRunnable(ifsfProtProxy);
+        masterLoop.registerRunnable(ifsfProtCtrl);
+        masterLoop.registerRunnable(transitProtProxy);
+        masterLoop.registerRunnable(transitProtCtrl);
+
+        logger.info("Protocol controllers registered with MasterLoop");
 
         // Initialize managers
         this.sseManager = new SSEManager();
@@ -144,7 +157,7 @@ public class IntegratedController {
         this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
         this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
         this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
-                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl, ioCtrl);
+                printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl, ioCtrl, masterLoop);
 
         // Register observers AFTER manager construction
         setupStatusListeners();
@@ -209,19 +222,23 @@ public class IntegratedController {
             // Step 2: Evaluate startup success based on mode
             serviceOrchestrator.evaluateStartupRequirements(mode, results);
 
-            // Step 3: Start monitoring for successfully initialized services
+            // Step 3: Start MasterLoop to run protocol controllers
+            masterLoop.start();
+            logger.info("MasterLoop started - protocol controllers are now running");
+
+            // Step 4: Start monitoring for successfully initialized services
             serviceOrchestrator.startMonitoring(executorService);
 
-            // Step 4: Start SSE management
+            // Step 5: Start SSE management
             sseManager.startSSEManagementTasks(executorService);
 
-            // Step 5: Start web server
+            // Step 6: Start web server
             webServerManager.start();
 
-            // Step 6: Register shutdown hook
+            // Step 7: Register shutdown hook
             shutdownManager.registerShutdownHook();
 
-            // Step 7: Log final status
+            // Step 8: Log final status
             serviceOrchestrator.logStartupSummary(results, serverConfig.port(), serverConfig.host());
 
         } catch (StartupException e) {
