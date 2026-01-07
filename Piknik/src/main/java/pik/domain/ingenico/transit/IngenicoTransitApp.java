@@ -107,6 +107,10 @@ public class IngenicoTransitApp implements IIngenicoTransitApp {
         synchronized (this) {
             if (connected && socketAddress.equals(ev.getSocketAddress())) {
                 connected = false;
+                // Reset cached state when disconnected
+                setAppNotAlive();
+                // Set terminalStatusCode directly to avoid side effects
+                this.terminalStatusCode = TerminalStatus.NULL.getCode();
             }
         }
 
