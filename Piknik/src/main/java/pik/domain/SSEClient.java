@@ -112,12 +112,16 @@ public class SSEClient {
     /**
      * Check if this client should be considered stale
      * @param timeoutMs Timeout in milliseconds
-     * @return true if client hasn't received messages within timeout
+     * @return true if client hasn't received messages OR heartbeats within timeout
      */
     public boolean isStale(long timeoutMs) {
         long now = System.currentTimeMillis();
         long timeSinceLastMessage = now - lastMessageAt;
-        return timeSinceLastMessage > timeoutMs;
+        long timeSinceLastHeartbeat = now - lastHeartbeatAt;
+        // Client is alive if EITHER messages or heartbeats are being sent
+        // Only stale if BOTH haven't been updated within timeout
+        long timeSinceLastActivity = Math.min(timeSinceLastMessage, timeSinceLastHeartbeat);
+        return timeSinceLastActivity > timeoutMs;
     }
 
     /**
