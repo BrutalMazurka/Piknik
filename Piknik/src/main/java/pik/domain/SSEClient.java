@@ -121,7 +121,14 @@ public class SSEClient {
         // Client is alive if EITHER messages or heartbeats are being sent
         // Only stale if BOTH haven't been updated within timeout
         long timeSinceLastActivity = Math.min(timeSinceLastMessage, timeSinceLastHeartbeat);
-        return timeSinceLastActivity > timeoutMs;
+        boolean stale = timeSinceLastActivity > timeoutMs;
+
+        if (stale) {
+            logger.warn("Client {} is STALE: timeSinceMsg={}ms, timeSinceHB={}ms, timeout={}ms",
+                clientId, timeSinceLastMessage, timeSinceLastHeartbeat, timeoutMs);
+        }
+
+        return stale;
     }
 
     /**

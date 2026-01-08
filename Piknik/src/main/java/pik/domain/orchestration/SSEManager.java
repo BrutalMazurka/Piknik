@@ -137,13 +137,19 @@ public class SSEManager {
      * Send heartbeat to all SSE clients to keep connections alive
      */
     private void sendHeartbeatToAllClients() {
+        int totalClients = printerSSEClients.size() + vfdSSEClients.size() + ingenicoSSEClients.size();
+        if (totalClients > 0) {
+            logger.debug("Heartbeat check: {} total SSE clients", totalClients);
+        }
+
         // Printer clients
         if (!printerSSEClients.isEmpty()) {
-            logger.trace("Sending heartbeat to {} printer SSE clients", printerSSEClients.size());
+            logger.debug("Checking {} printer SSE clients for heartbeat", printerSSEClients.size());
             for (SSEClient client : printerSSEClients.values()) {
                 if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                    logger.debug("Sending heartbeat to printer client: {}", client.getClientId());
                     if (!client.sendHeartbeat()) {
-                        logger.debug("Heartbeat failed for printer client: {}", client);
+                        logger.warn("Heartbeat FAILED for printer client: {}", client);
                     }
                 }
             }
@@ -151,11 +157,12 @@ public class SSEManager {
 
         // VFD clients
         if (!vfdSSEClients.isEmpty()) {
-            logger.trace("Sending heartbeat to {} VFD SSE clients", vfdSSEClients.size());
+            logger.debug("Checking {} VFD SSE clients for heartbeat", vfdSSEClients.size());
             for (SSEClient client : vfdSSEClients.values()) {
                 if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                    logger.debug("Sending heartbeat to VFD client: {}", client.getClientId());
                     if (!client.sendHeartbeat()) {
-                        logger.debug("Heartbeat failed for VFD client: {}", client);
+                        logger.warn("Heartbeat FAILED for VFD client: {}", client);
                     }
                 }
             }
@@ -163,11 +170,12 @@ public class SSEManager {
 
         // Ingenico clients
         if (!ingenicoSSEClients.isEmpty()) {
-            logger.trace("Sending heartbeat to {} Ingenico SSE clients", ingenicoSSEClients.size());
+            logger.debug("Checking {} Ingenico SSE clients for heartbeat", ingenicoSSEClients.size());
             for (SSEClient client : ingenicoSSEClients.values()) {
                 if (client.needsHeartbeat(pik.common.ServerConstants.SSE_HEARTBEAT_INTERVAL_MS)) {
+                    logger.debug("Sending heartbeat to Ingenico client: {}", client.getClientId());
                     if (!client.sendHeartbeat()) {
-                        logger.debug("Heartbeat failed for Ingenico client: {}", client);
+                        logger.warn("Heartbeat FAILED for Ingenico client: {}", client);
                     }
                 }
             }
