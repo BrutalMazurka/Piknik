@@ -499,14 +499,28 @@
         // Update SAM module details
         document.getElementById('sam-status').textContent =
             status.samDukDetected ? '✓ Detected' : '✗ Not detected';
-        document.getElementById('sam-auth-state').textContent = status.samDukStatus || '-';
-        document.getElementById('sam-number').textContent = status.samNumber || '-';
-        document.getElementById('sam-type').textContent = status.samType || '-';
-        document.getElementById('sam-network-id').textContent = status.networkId != null ? status.networkId : '-';
-        document.getElementById('sam-slot-index').textContent = status.slotIndex != null ? status.slotIndex : '-';
-        document.getElementById('sam-slot-status').textContent = status.slotStatus || '-';
-        document.getElementById('sam-unlock-status').textContent = status.unlockStatus || '-';
-        document.getElementById('sam-atr').textContent = status.samAtr || '-';
+
+        // Only show SAM details when SAM is detected, otherwise show "-"
+        if (status.samDukDetected) {
+            document.getElementById('sam-auth-state').textContent = status.samDukStatus || '-';
+            document.getElementById('sam-number').textContent = status.samNumber || '-';
+            document.getElementById('sam-type').textContent = status.samType || '-';
+            document.getElementById('sam-network-id').textContent = status.networkId != null ? status.networkId : '-';
+            document.getElementById('sam-slot-index').textContent = status.slotIndex != null ? status.slotIndex : '-';
+            document.getElementById('sam-slot-status').textContent = status.slotStatus || '-';
+            document.getElementById('sam-unlock-status').textContent = status.unlockStatus || '-';
+            document.getElementById('sam-atr').textContent = status.samAtr || '-';
+        } else {
+            // Reset all SAM fields to "-" when not detected
+            document.getElementById('sam-auth-state').textContent = '-';
+            document.getElementById('sam-number').textContent = '-';
+            document.getElementById('sam-type').textContent = '-';
+            document.getElementById('sam-network-id').textContent = '-';
+            document.getElementById('sam-slot-index').textContent = '-';
+            document.getElementById('sam-slot-status').textContent = '-';
+            document.getElementById('sam-unlock-status').textContent = '-';
+            document.getElementById('sam-atr').textContent = '-';
+        }
 
         detailsPanel.className = 'status-panel ' + statusClass;
     }
