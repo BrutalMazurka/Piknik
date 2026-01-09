@@ -31,6 +31,13 @@ public record IngenicoStatus(
         // SAM module status
         boolean samDukDetected,
         String samDukStatus,
+        String samNumber,
+        String samType,
+        Integer networkId,
+        String samAtr,
+        Integer slotIndex,
+        String slotStatus,
+        String unlockStatus,
 
         // General status
         boolean operational,  // Computed field: true when fully operational
@@ -63,6 +70,13 @@ public record IngenicoStatus(
                 null,
                 false,
                 null,
+                null,  // samNumber
+                null,  // samType
+                null,  // networkId
+                null,  // samAtr
+                null,  // slotIndex
+                null,  // slotStatus
+                null,  // unlockStatus
                 false,  // operational
                 false,
                 null,
@@ -140,6 +154,13 @@ public record IngenicoStatus(
         private String transitTerminalStatus = null;
         private boolean samDukDetected = false;
         private String samDukStatus = null;
+        private String samNumber = null;
+        private String samType = null;
+        private Integer networkId = null;
+        private String samAtr = null;
+        private Integer slotIndex = null;
+        private String slotStatus = null;
+        private String unlockStatus = null;
         private boolean error = false;
         private String errorMessage = null;
         private long lastUpdate = System.currentTimeMillis();
@@ -160,6 +181,13 @@ public record IngenicoStatus(
             this.transitTerminalStatus = status.transitTerminalStatus;
             this.samDukDetected = status.samDukDetected;
             this.samDukStatus = status.samDukStatus;
+            this.samNumber = status.samNumber;
+            this.samType = status.samType;
+            this.networkId = status.networkId;
+            this.samAtr = status.samAtr;
+            this.slotIndex = status.slotIndex;
+            this.slotStatus = status.slotStatus;
+            this.unlockStatus = status.unlockStatus;
             this.error = status.error;
             this.errorMessage = status.errorMessage;
             this.lastUpdate = status.lastUpdate;
@@ -222,6 +250,41 @@ public record IngenicoStatus(
             return this;
         }
 
+        public Builder samNumber(String samNumber) {
+            this.samNumber = samNumber;
+            return this;
+        }
+
+        public Builder samType(String samType) {
+            this.samType = samType;
+            return this;
+        }
+
+        public Builder networkId(Integer networkId) {
+            this.networkId = networkId;
+            return this;
+        }
+
+        public Builder samAtr(String samAtr) {
+            this.samAtr = samAtr;
+            return this;
+        }
+
+        public Builder slotIndex(Integer slotIndex) {
+            this.slotIndex = slotIndex;
+            return this;
+        }
+
+        public Builder slotStatus(String slotStatus) {
+            this.slotStatus = slotStatus;
+            return this;
+        }
+
+        public Builder unlockStatus(String unlockStatus) {
+            this.unlockStatus = unlockStatus;
+            return this;
+        }
+
         public Builder error(boolean error) {
             this.error = error;
             return this;
@@ -260,6 +323,13 @@ public record IngenicoStatus(
                     transitTerminalStatus,
                     samDukDetected,
                     samDukStatus,
+                    samNumber,
+                    samType,
+                    networkId,
+                    samAtr,
+                    slotIndex,
+                    slotStatus,
+                    unlockStatus,
                     operational,  // Computed value
                     error,
                     errorMessage,

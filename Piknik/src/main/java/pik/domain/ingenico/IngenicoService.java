@@ -175,6 +175,13 @@ public class IngenicoService implements IIngenicoService {
                 // SAM status
                 .samDukDetected(samDuk.getSamAtr().isDukAtr())
                 .samDukStatus(samDuk.getAuth().getProcessState().toString())
+                .samNumber(samDuk.getAuditSamNumber())
+                .samType(samDuk.getSamType() != null ? samDuk.getSamType().toString() : null)
+                .networkId(SamDuk.NETWORK_ID)  // The required/validated network ID
+                .samAtr(samDuk.getAuditATR())
+                .slotIndex(samDuk.getSlotIndex())
+                .slotStatus(samDuk.getAuditSlotStatus())
+                .unlockStatus(samDuk.getAuditUnlockStatus())
                 .lastUpdate(System.currentTimeMillis())
                 .dummyMode(false);
 
