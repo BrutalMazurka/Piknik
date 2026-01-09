@@ -158,6 +158,9 @@ public class IngenicoService implements IIngenicoService {
         IngenicoTransitApp transitApp = readerDevice.getTransitApp();
         SamDuk samDuk = readerDevice.getSamDuk();
 
+        // Check if SAM is detected
+        boolean samDetected = samDuk.getSamAtr().isDukAtr();
+
         // Build new immutable status
         IngenicoStatus.Builder builder = IngenicoStatus.builder()
                 // Initialization state
@@ -173,15 +176,15 @@ public class IngenicoService implements IIngenicoService {
                 .transitTerminalStatusCode(transitApp.getTerminalStatusCode())
                 .transitTerminalStatus(transitApp.getTerminalStatus().toString())
                 // SAM status
-                .samDukDetected(samDuk.getSamAtr().isDukAtr())
-                .samDukStatus(samDuk.getAuth().getProcessState().toString())
-                .samNumber(samDuk.getAuditSamNumber())
-                .samType(samDuk.getSamType() != null ? samDuk.getSamType().toString() : null)
-                .networkId(SamDuk.NETWORK_ID)  // The required/validated network ID
-                .samAtr(samDuk.getAuditATR())
-                .slotIndex(samDuk.getSlotIndex())
-                .slotStatus(samDuk.getAuditSlotStatus())
-                .unlockStatus(samDuk.getAuditUnlockStatus())
+                .samDukDetected(samDetected)
+                .samDukStatus(samDetected ? samDuk.getAuth().getProcessState().toString() : null)
+                .samNumber(samDetected ? samDuk.getAuditSamNumber() : null)
+                .samType(samDetected && samDuk.getSamType() != null ? samDuk.getSamType().toString() : null)
+                .networkId(samDetected ? SamDuk.NETWORK_ID : null)  // The required/validated network ID
+                .samAtr(samDetected ? samDuk.getAuditATR() : null)
+                .slotIndex(samDetected ? samDuk.getSlotIndex() : null)
+                .slotStatus(samDetected ? samDuk.getAuditSlotStatus() : null)
+                .unlockStatus(samDetected ? samDuk.getAuditUnlockStatus() : null)
                 .lastUpdate(System.currentTimeMillis())
                 .dummyMode(false);
 
