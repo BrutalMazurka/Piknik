@@ -86,30 +86,30 @@
     </Appenders>
 
     <Loggers>
-        <!-- Piknik application package - INFO level (can be changed to DEBUG independently) -->
-        <Logger name="pik" level="INFO"/>
+        <!-- Piknik application package -->
+        <Logger name="pik" level="DEBUG"/>
 
         <!-- Web framework - reduce noise -->
         <Logger name="io.javalin" level="INFO"/>
         <Logger name="org.eclipse.jetty" level="WARN"/>
 
-        <!-- Ingenico IFSF Protocol - INFO level (can be changed to DEBUG independently) -->
-        <Logger name="IfsfProt" level="INFO" additivity="false">
+        <!-- Ingenico IFSF Protocol -->
+        <Logger name="IfsfProt" level="DEBUG" additivity="false">
             <AppenderRef ref="IfsfProt_RFA"/>
         </Logger>
 
-        <!-- Ingenico Transit Protocol - INFO level (can be changed to DEBUG independently) -->
-        <Logger name="IngenicoTransitProt" level="INFO" additivity="false">
+        <!-- Ingenico Transit Protocol -->
+        <Logger name="IngenicoTransitProt" level="DEBUG" additivity="false">
             <AppenderRef ref="IngenicoTransitProt_RFA"/>
         </Logger>
 
-        <!-- Audit Logger - INFO level (can be changed to DEBUG independently) -->
+        <!-- Audit Logger -->
         <Logger name="AAudit" level="INFO" additivity="false">
             <AppenderRef ref="AuditAudit_RFA"/>
         </Logger>
 
-        <!-- Root logger - INFO level with console and file output -->
-        <Root level="INFO">
+        <!-- Root logger - with console and file output -->
+        <Root level="DEBUG">
             <AppenderRef ref="CONSOLE"/>
             <AppenderRef ref="FILE"/>
         </Root>
