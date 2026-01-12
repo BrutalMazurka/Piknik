@@ -266,9 +266,18 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
                     reader.getTransitApp().getSamSlots().setSamAtr(slotIndex, atrBytes);
 
                     if (SamDukATR.isDukAtr(atrBytes)) {
+                        // Check if ATR changed (different SAM inserted)
+                        boolean atrChanged = !java.util.Arrays.equals(
+                            reader.getSamDuk().getSamAtr().toByteArray(),
+                            atrBytes
+                        );
+
                         reader.getSamDuk().setSamDetected(slotIndex, atrBytes);
-                        // Clear found SAM type when new SAM is detected
-                        reader.setFoundSamType(null);
+
+                        // Only clear found SAM type if ATR changed (different SAM)
+                        if (atrChanged) {
+                            reader.setFoundSamType(null);
+                        }
                     }
                 } else {
                     logTransitWarn("Rx payload for SAM_CARD_INFO(reader-init) has missing ATR tag! sam_slot_index=" + slotIndex);
