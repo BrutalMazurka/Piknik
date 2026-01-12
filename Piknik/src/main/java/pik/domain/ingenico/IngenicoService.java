@@ -147,6 +147,13 @@ public class IngenicoService implements IIngenicoService {
             notifyStatusChanged("transit_status_changed");
         }));
 
+        // Subscribe to SAM DUK authentication changes (for foundSamType updates)
+        SamDuk samDuk = readerDevice.getSamDuk();
+        subscriptions.add(samDuk.getAuthChanges().subscribe(ea -> {
+            updateStatusFromDevice();
+            notifyStatusChanged("sam_auth_changed");
+        }));
+
         logger.debug("Subscribed to Ingenico device events");
     }
 
