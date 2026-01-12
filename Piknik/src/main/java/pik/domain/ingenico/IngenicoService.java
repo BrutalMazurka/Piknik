@@ -1,6 +1,7 @@
 package pik.domain.ingenico;
 
 import epis5.duk.bck.core.sam.SamDuk;
+import epis5.duk.bck.core.sam.SamType;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -270,14 +270,14 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
                         byte[] currentAtr = reader.getSamDuk().getSamAtr().toByteArray();
                         boolean atrChanged = !java.util.Arrays.equals(currentAtr, atrBytes);
 
-                        logTransitInfo(String.format("SAM detected: slot=%d, atrChanged=%b, currentFoundType=%s",
+                        logTransit(String.format("SAM detected: slot=%d, atrChanged=%b, currentFoundType=%s",
                             slotIndex, atrChanged, reader.getFoundSamType()));
 
                         reader.getSamDuk().setSamDetected(slotIndex, atrBytes);
 
                         // Only clear found SAM type if ATR changed (different SAM)
                         if (atrChanged) {
-                            logTransitInfo("Clearing foundSamType due to ATR change");
+                            logTransit("Clearing foundSamType due to ATR change");
                             reader.setFoundSamType(null);
                         }
                     }
@@ -300,7 +300,7 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
             logTransitError("SAM DUK not detected after reading ATR from all slots, setting slot status to: ERROR");
             reader.getSamDuk().setSamDetectionError();
             // Clear found SAM type when SAM is not detected
-            logTransitInfo("Clearing foundSamType - SAM not detected");
+            logTransit("Clearing foundSamType - SAM not detected");
             reader.setFoundSamType(null);
         }
 
