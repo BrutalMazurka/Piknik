@@ -149,7 +149,7 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
 
         reader.getSamDuk().setSlotStatusToDefault();
         reader.getSamDuk().getAuth().restart();
-        reader.setFoundSamType(null);
+        // Don't clear foundSamType on auth restart - only clear when SAM is removed
     }
 
     //**************************************************************
@@ -267,6 +267,8 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
 
                     if (SamDukATR.isDukAtr(atrBytes)) {
                         reader.getSamDuk().setSamDetected(slotIndex, atrBytes);
+                        // Clear found SAM type when new SAM is detected
+                        reader.setFoundSamType(null);
                     }
                 } else {
                     logTransitWarn("Rx payload for SAM_CARD_INFO(reader-init) has missing ATR tag! sam_slot_index=" + slotIndex);
@@ -286,6 +288,8 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
         if (!reader.getSamDuk().getSamAtr().isDukAtr()) {
             logTransitError("SAM DUK not detected after reading ATR from all slots, setting slot status to: ERROR");
             reader.getSamDuk().setSamDetectionError();
+            // Clear found SAM type when SAM is not detected
+            reader.setFoundSamType(null);
         }
 
         changeState(EReaderInitState.TRANSIT_SAM_SLOT_POLLING_STATUS);
