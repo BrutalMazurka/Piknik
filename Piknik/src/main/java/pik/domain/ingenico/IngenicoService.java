@@ -179,7 +179,7 @@ public class IngenicoService implements IIngenicoService {
                 .samDukDetected(samDetected)
                 .samDukStatus(samDetected ? samDuk.getAuth().getProcessState().toString() : null)
                 .samNumber(samDetected ? samDuk.getAuditSamNumber() : null)
-                .samType(samDetected && samDuk.getSamType() != null ? samDuk.getSamType().toString() : null)
+                .samType(samDetected ? formatSamType(samDuk, readerDevice) : null)
                 .networkId(samDetected ? SamDuk.NETWORK_ID : null)  // The required/validated network ID
                 .samAtr(samDetected ? samDuk.getAuditATR() : null)
                 .slotIndex(samDetected ? samDuk.getSlotIndex() : null)
@@ -226,6 +226,15 @@ public class IngenicoService implements IIngenicoService {
         }
 
         return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    /**
+     * Format SAM type for display showing both expected and found types
+     */
+    private String formatSamType(SamDuk samDuk, IngenicoReaderDevice readerDevice) {
+        String expectedType = samDuk.getSamType() != null ? samDuk.getSamType().toString() : "UNKNOWN";
+        String foundType = readerDevice.getFoundSamType() != null ? readerDevice.getFoundSamType().toString() : "-";
+        return String.format("expected - %s, found - %s", expectedType, foundType);
     }
 
     @Override

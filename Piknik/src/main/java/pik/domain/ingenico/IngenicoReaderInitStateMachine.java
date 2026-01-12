@@ -149,6 +149,7 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
 
         reader.getSamDuk().setSlotStatusToDefault();
         reader.getSamDuk().getAuth().restart();
+        reader.setFoundSamType(null);
     }
 
     //**************************************************************

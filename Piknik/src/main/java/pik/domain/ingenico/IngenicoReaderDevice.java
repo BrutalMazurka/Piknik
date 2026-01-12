@@ -1,6 +1,7 @@
 package pik.domain.ingenico;
 
 import epis5.duk.bck.core.sam.SamDuk;
+import epis5.duk.bck.core.sam.SamType;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.subjects.PublishSubject;
 import jCommons.timer.TickCounter;
@@ -20,6 +21,9 @@ public class IngenicoReaderDevice {
     private volatile EReaderInitState initState;
     private final TickCounter lastInitStateChangedTc;
 
+    // Store the actual SAM type found in the module during authentication
+    private volatile SamType foundSamType;
+
     //Pokud se ctecka restartne (napr. TMS) a aplikace EVK bezi - zacne ctecka odpovidat na zakladni prikazy (GET_INFO),
     // ale na stav SAM modulu vraci error
     // Aplikace EVK musi dat ctece nejaky cas aby si inicializovala SAM rozhranni
@@ -33,6 +37,7 @@ public class IngenicoReaderDevice {
 
         this.initState = EReaderInitState.STARTING;
         this.extraDelayOnInit = false;
+        this.foundSamType = null;
         this.lastInitStateChangedTc = TickCounter.instanceFromNow();
 
         this.ifsfApp = new IngenicoIfsfApp(this.ifsfEventBus, readerIpAddress);
@@ -89,5 +94,13 @@ public class IngenicoReaderDevice {
 
     public SamDuk getSamDuk() {
         return samDuk;
+    }
+
+    public SamType getFoundSamType() {
+        return foundSamType;
+    }
+
+    public void setFoundSamType(SamType foundSamType) {
+        this.foundSamType = foundSamType;
     }
 }
