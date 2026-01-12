@@ -48,6 +48,9 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
 
         this.reader.getTransitApp().getAppAliveChanges().subscribe(this::onTransitAppAliveChanged);
         this.reader.getTransitApp().getTcpConnectionChanges().subscribe(this::onTransitTcpConnectionChanged);
+
+        // Verify logger is working
+        logTransit("IngenicoReaderInitStateMachine initialized");
     }
 
     private void onTransitAppAliveChanged(IngenicoTransitEventArgs ea) {
@@ -270,8 +273,16 @@ public class IngenicoReaderInitStateMachine implements IPeriodicalChecker {
                         byte[] currentAtr = reader.getSamDuk().getSamAtr().toByteArray();
                         boolean atrChanged = !java.util.Arrays.equals(currentAtr, atrBytes);
 
-                        logTransit(String.format("SAM detected: slot=%d, atrChanged=%b, currentFoundType=%s",
-                            slotIndex, atrChanged, reader.getFoundSamType()));
+                        // Debug: Simple log to verify execution
+                        logTransit("DEBUG: SAM detection code executing");
+
+                        try {
+                            String foundTypeStr = reader.getFoundSamType() != null ? reader.getFoundSamType().toString() : "null";
+                            logTransit(String.format("SAM detected: slot=%d, atrChanged=%b, currentFoundType=%s",
+                                slotIndex, atrChanged, foundTypeStr));
+                        } catch (Exception e) {
+                            logTransitError("Error logging SAM detection: " + e.getMessage());
+                        }
 
                         reader.getSamDuk().setSamDetected(slotIndex, atrBytes);
 
