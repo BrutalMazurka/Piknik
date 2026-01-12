@@ -254,6 +254,7 @@ public class SamDukAuthStateMachine implements IPeriodicalChecker {
 
                         // Store the found SAM type for status display
                         reader.setFoundSamType(samType);
+                        log(String.format("Stored foundSamType: %s (code=0x%02X)", samType, samTypeCode));
 
                         log(String.format("SAM type_in_slot=%s, type_in_slot_code=%d, type_required=%s", samType, samTypeCode, getSamDuk().getSamType()));
 

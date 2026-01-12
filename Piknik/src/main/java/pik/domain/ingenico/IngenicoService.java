@@ -233,7 +233,11 @@ public class IngenicoService implements IIngenicoService {
      */
     private String formatSamType(SamDuk samDuk, IngenicoReaderDevice readerDevice) {
         String expectedType = samDuk.getSamType() != null ? samDuk.getSamType().toString() : "UNKNOWN";
-        String foundType = readerDevice.getFoundSamType() != null ? readerDevice.getFoundSamType().toString() : "-";
+        SamType found = readerDevice.getFoundSamType();
+        String foundType = found != null ? found.toString() : "-";
+
+        logger.debug("formatSamType: expected={}, found={} ({})", expectedType, foundType, found);
+
         return String.format("expected - %s, found - %s", expectedType, foundType);
     }
 
