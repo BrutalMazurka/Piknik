@@ -1,6 +1,7 @@
 package pik.domain.ingenico;
 
 import epis5.duk.bck.core.sam.SamDuk;
+import epis5.duk.bck.core.sam.SamType;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -146,6 +147,13 @@ public class IngenicoService implements IIngenicoService {
             notifyStatusChanged("transit_status_changed");
         }));
 
+        // Subscribe to SAM DUK authentication changes (for foundSamType updates)
+        SamDuk samDuk = readerDevice.getSamDuk();
+        subscriptions.add(samDuk.getAuthChanges().subscribe(ea -> {
+            updateStatusFromDevice();
+            notifyStatusChanged("sam_auth_changed");
+        }));
+
         logger.debug("Subscribed to Ingenico device events");
     }
 
@@ -157,6 +165,9 @@ public class IngenicoService implements IIngenicoService {
         IngenicoIfsfApp ifsfApp = readerDevice.getIfsfApp();
         IngenicoTransitApp transitApp = readerDevice.getTransitApp();
         SamDuk samDuk = readerDevice.getSamDuk();
+
+        // Check if SAM is detected
+        boolean samDetected = samDuk.getSamAtr().isDukAtr();
 
         // Build new immutable status
         IngenicoStatus.Builder builder = IngenicoStatus.builder()
@@ -173,8 +184,15 @@ public class IngenicoService implements IIngenicoService {
                 .transitTerminalStatusCode(transitApp.getTerminalStatusCode())
                 .transitTerminalStatus(transitApp.getTerminalStatus().toString())
                 // SAM status
-                .samDukDetected(samDuk.getSamAtr().isDukAtr())
-                .samDukStatus(samDuk.getAuth().getProcessState().toString())
+                .samDukDetected(samDetected)
+                .samDukStatus(samDetected ? samDuk.getAuth().getProcessState().toString() : null)
+                .samNumber(samDetected ? samDuk.getAuditSamNumber() : null)
+                .samType(samDetected ? formatSamType(samDuk, readerDevice) : null)
+                .networkId(samDetected ? SamDuk.NETWORK_ID : null)  // The required/validated network ID
+                .samAtr(samDetected ? samDuk.getAuditATR() : null)
+                .slotIndex(samDetected ? samDuk.getSlotIndex() : null)
+                .slotStatus(samDetected ? samDuk.getAuditSlotStatus() : null)
+                .unlockStatus(samDetected ? samDuk.getAuditUnlockStatus() : null)
                 .lastUpdate(System.currentTimeMillis())
                 .dummyMode(false);
 
@@ -216,6 +234,19 @@ public class IngenicoService implements IIngenicoService {
         }
 
         return sb.length() > 0 ? sb.toString() : null;
+    }
+
+    /**
+     * Format SAM type for display showing both expected and found types
+     */
+    private String formatSamType(SamDuk samDuk, IngenicoReaderDevice readerDevice) {
+        String expectedType = samDuk.getSamType() != null ? samDuk.getSamType().toString() : "UNKNOWN";
+        SamType found = readerDevice.getFoundSamType();
+        String foundType = found != null ? found.toString() : "-";
+
+        logger.debug("formatSamType: expected={}, found={} ({})", expectedType, foundType, found);
+
+        return String.format("expected - %s, found - %s", expectedType, foundType);
     }
 
     @Override

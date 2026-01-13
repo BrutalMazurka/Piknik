@@ -234,8 +234,20 @@
                     <strong>Initialization:</strong> <span id="init-state">-</span><br>
                     <strong>IFSF Connection:</strong> <span id="ifsf-status">-</span><br>
                     <strong>Transit Connection:</strong> <span id="transit-status">-</span><br>
-                    <strong>SAM-DUK:</strong> <span id="sam-status">-</span><br>
-                    <strong>Terminal ID:</strong> <span id="terminal-id">-</span>
+                    <strong>SAM Module Status:</strong> <span id="sam-status">-</span><br>
+                    <hr style="margin: 10px 0; border: none; border-top: 1px solid #444;">
+                    <strong>SAM Module Details:</strong><br>
+                    <div style="margin-left: 15px;">
+                        <strong>Terminal ID:</strong> <span id="terminal-id">-</span><br>
+                        <strong>Auth State:</strong> <span id="sam-auth-state">-</span><br>
+                        <strong>Number:</strong> <span id="sam-number">-</span><br>
+                        <strong>Type:</strong> <span id="sam-type">-</span><br>
+                        <strong>Network ID:</strong> <span id="sam-network-id">-</span><br>
+                        <strong>Slot Index:</strong> <span id="sam-slot-index">-</span><br>
+                        <strong>Slot Status:</strong> <span id="sam-slot-status">-</span><br>
+                        <strong>Unlock Status:</strong> <span id="sam-unlock-status">-</span><br>
+                        <strong>ATR:</strong> <span id="sam-atr">-</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -482,9 +494,33 @@
             (status.ifsfConnected && status.ifsfAppAlive) ? '✓ Connected' : '✗ Disconnected';
         document.getElementById('transit-status').textContent =
             (status.transitConnected && status.transitAppAlive) ? '✓ Connected' : '✗ Disconnected';
+        document.getElementById('terminal-id').textContent = status.terminalId || '-';
+
+        // Update SAM module details
         document.getElementById('sam-status').textContent =
             status.samDukDetected ? '✓ Detected' : '✗ Not detected';
-        document.getElementById('terminal-id').textContent = status.terminalId || '-';
+
+        // Only show SAM details when SAM is detected, otherwise show "-"
+        if (status.samDukDetected) {
+            document.getElementById('sam-auth-state').textContent = status.samDukStatus || '-';
+            document.getElementById('sam-number').textContent = status.samNumber || '-';
+            document.getElementById('sam-type').textContent = status.samType || '-';
+            document.getElementById('sam-network-id').textContent = status.networkId != null ? status.networkId : '-';
+            document.getElementById('sam-slot-index').textContent = status.slotIndex != null ? status.slotIndex : '-';
+            document.getElementById('sam-slot-status').textContent = status.slotStatus || '-';
+            document.getElementById('sam-unlock-status').textContent = status.unlockStatus || '-';
+            document.getElementById('sam-atr').textContent = status.samAtr || '-';
+        } else {
+            // Reset all SAM fields to "-" when not detected
+            document.getElementById('sam-auth-state').textContent = '-';
+            document.getElementById('sam-number').textContent = '-';
+            document.getElementById('sam-type').textContent = '-';
+            document.getElementById('sam-network-id').textContent = '-';
+            document.getElementById('sam-slot-index').textContent = '-';
+            document.getElementById('sam-slot-status').textContent = '-';
+            document.getElementById('sam-unlock-status').textContent = '-';
+            document.getElementById('sam-atr').textContent = '-';
+        }
 
         detailsPanel.className = 'status-panel ' + statusClass;
     }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration monitorInterval="60">
     <Appenders>
-        <!-- Console Appender - for Piknik main application -->
+        <!-- Console Appender - for all loggers via Root -->
         <Console name="CONSOLE" target="SYSTEM_OUT">
             <PatternLayout>
                 <Pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</Pattern>
@@ -25,8 +25,8 @@
             </DefaultRolloverStrategy>
         </RollingFile>
 
-        <!-- Protocol-specific appenders from external projects -->
-        <RollingFile name="IfsfProt_RFA" fileName="logs/IngenicoIfsf"
+        <!-- Ingenico IFSF Protocol Logger -->
+        <RollingFile name="IfsfProt_RFA" fileName="logs/IngenicoIfsf.log"
                      filePattern="logs/IngenicoIfsf.%d{yyyy-MM-dd}.log">
             <PatternLayout>
                 <Pattern>%d{ABSOLUTE}> [%-5p] %m%n</Pattern>
@@ -34,13 +34,20 @@
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="logs" maxDepth="1">
+                    <IfFileName glob="IngenicoIfsf.*.log"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
             <!-- Filter out expected "Socket closed" shutdown messages -->
             <Filters>
                 <RegexFilter regex=".*Socket closed.*" onMatch="DENY" onMismatch="NEUTRAL"/>
             </Filters>
         </RollingFile>
 
-        <RollingFile name="IngenicoTransitProt_RFA" fileName="logs/IngenicoTransit"
+        <!-- Ingenico Transit Protocol Logger -->
+        <RollingFile name="IngenicoTransitProt_RFA" fileName="logs/IngenicoTransit.log"
                      filePattern="logs/IngenicoTransit.%d{yyyy-MM-dd}.log">
             <PatternLayout>
                 <Pattern>%d{ABSOLUTE}> [%-5p] %m%n</Pattern>
@@ -48,13 +55,20 @@
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="logs" maxDepth="1">
+                    <IfFileName glob="IngenicoTransit.*.log"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
             <!-- Filter out expected "Socket closed" shutdown messages -->
             <Filters>
                 <RegexFilter regex=".*Socket closed.*" onMatch="DENY" onMismatch="NEUTRAL"/>
             </Filters>
         </RollingFile>
 
-        <RollingFile name="AuditAudit_RFA" fileName="logs/Audit"
+        <!-- Audit Logger -->
+        <RollingFile name="AuditAudit_RFA" fileName="logs/Audit.csv"
                      filePattern="logs/Audit.%d{yyyy-MM-dd}.csv">
             <PatternLayout>
                 <Pattern>%m%n</Pattern>
@@ -62,35 +76,40 @@
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1"/>
             </Policies>
+            <DefaultRolloverStrategy>
+                <Delete basePath="logs" maxDepth="1">
+                    <IfFileName glob="Audit.*.csv"/>
+                    <IfLastModified age="30d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
         </RollingFile>
     </Appenders>
 
     <Loggers>
-        <!-- Piknik application package - DEBUG level -->
+        <!-- Piknik application package -->
         <Logger name="pik" level="DEBUG"/>
-
-        <!-- JavaPOS debugging -->
-        <Logger name="jpos" level="DEBUG"/>
 
         <!-- Web framework - reduce noise -->
         <Logger name="io.javalin" level="INFO"/>
         <Logger name="org.eclipse.jetty" level="WARN"/>
 
-        <!-- Protocol-specific loggers from external projects -->
-        <Logger name="IfsfProt" additivity="false">
+        <!-- Ingenico IFSF Protocol -->
+        <Logger name="IfsfProt" level="DEBUG" additivity="false">
             <AppenderRef ref="IfsfProt_RFA"/>
         </Logger>
 
-        <Logger name="IngenicoTransitProt" additivity="false">
+        <!-- Ingenico Transit Protocol -->
+        <Logger name="IngenicoTransitProt" level="DEBUG" additivity="false">
             <AppenderRef ref="IngenicoTransitProt_RFA"/>
         </Logger>
 
-        <Logger name="AAudit" additivity="false">
+        <!-- Audit Logger -->
+        <Logger name="AAudit" level="INFO" additivity="false">
             <AppenderRef ref="AuditAudit_RFA"/>
         </Logger>
 
-        <!-- Root logger - INFO level with console and file output -->
-        <Root level="INFO">
+        <!-- Root logger - with console and file output -->
+        <Root level="DEBUG">
             <AppenderRef ref="CONSOLE"/>
             <AppenderRef ref="FILE"/>
         </Root>
