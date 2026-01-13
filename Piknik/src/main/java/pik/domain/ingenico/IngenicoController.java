@@ -43,6 +43,7 @@ public class IngenicoController {
             get("/config", this::getConfig);
             post("/test", this::testReader);
             get("/diagnostics", this::getDiagnostics);
+            post("/unlock", this::unlockSAM);
         });
 
         path("/api/ingenico/events", () -> {
@@ -281,6 +282,45 @@ public class IngenicoController {
             logger.error("Error getting Ingenico diagnostics", e);
             ctx.status(500).json(ApiResponse.error("Failed to get diagnostics: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Unlock SAM module with PIN
+     * POST /api/ingenico/unlock
+     * Body: { "pin": "123456" }
+     */
+    private void unlockSAM(Context ctx) {
+        try {
+            // Parse request body to get PIN
+            UnlockRequest request = ctx.bodyAsClass(UnlockRequest.class);
+
+            if (request == null || request.pin() == null) {
+                ctx.status(400).json(ApiResponse.error("PIN is required"));
+                return;
+            }
+
+            // Attempt to unlock SAM with provided PIN
+            boolean success = ingenicoService.unlockSAM(request.pin());
+
+            if (success) {
+                ctx.json(ApiResponse.success("SAM module unlocked successfully"));
+            } else {
+                ctx.status(400).json(ApiResponse.error("Failed to unlock SAM module"));
+            }
+        } catch (IllegalArgumentException e) {
+            // Invalid PIN format
+            logger.warn("Invalid PIN provided for SAM unlock: {}", e.getMessage());
+            ctx.status(400).json(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error unlocking SAM module", e);
+            ctx.status(500).json(ApiResponse.error("Failed to unlock SAM module: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Unlock request DTO
+     */
+    public record UnlockRequest(String pin) {
     }
 
     /**

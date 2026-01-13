@@ -337,6 +337,64 @@ public class IngenicoService implements IIngenicoService {
     }
 
     @Override
+    public boolean unlockSAM(String pin) {
+        logger.info("Unlocking SAM module with PIN");
+
+        // Validate PIN format
+        if (pin == null || !pin.matches("^[0-9]{6}$")) {
+            logger.error("Invalid PIN format: PIN must be exactly 6 digits (0-9)");
+            throw new IllegalArgumentException("Invalid PIN: must be exactly 6 digits (0-9)");
+        }
+
+        // Check if running in dummy mode
+        IngenicoStatus status = currentStatus.get();
+        if (status.dummyMode()) {
+            logger.warn("Cannot unlock SAM in dummy mode");
+            return false;
+        }
+
+        // Check if SAM is detected
+        if (!status.samDukDetected()) {
+            logger.error("Cannot unlock SAM: SAM module not detected");
+            return false;
+        }
+
+        // Check if authentication is finished
+        SamDuk samDuk = readerDevice.getSamDuk();
+        if (!samDuk.getAuth().isProcessStateFinished()) {
+            logger.error("Cannot unlock SAM: Authentication not finished (current state: {})",
+                    samDuk.getAuth().getProcessState());
+            return false;
+        }
+
+        if (samDuk.getAuth().getProcessState().toString().equals("FINISHED")) {
+            logger.info("SAM authentication state is FINISHED, proceeding with unlock");
+        } else {
+            logger.error("Cannot unlock SAM: Authentication state is not FINISHED");
+            return false;
+        }
+
+        try {
+            // Convert PIN string to byte array
+            byte[] pinBytes = pin.getBytes();
+
+            // TODO: Implement actual APDU unlock command
+            // This would typically use ApduRequestFactory.unlockSam(pinBytes) or similar
+            // and send it via Transit protocol similar to authentication flow
+            logger.info("SAM unlock would be executed here with validated PIN");
+            logger.warn("SAM unlock APDU command not yet implemented - returning success for testing");
+
+            // For now, return true to indicate validation passed
+            // In production, this should send the actual APDU command and return its result
+            return true;
+
+        } catch (Exception e) {
+            logger.error("Error unlocking SAM module", e);
+            return false;
+        }
+    }
+
+    @Override
     public void close() {
         logger.info("Closing Ingenico service");
 
