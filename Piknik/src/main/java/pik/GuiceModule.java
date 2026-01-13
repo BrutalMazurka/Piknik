@@ -45,7 +45,7 @@ public class GuiceModule extends AbstractModule {
         IngenicoIfsfModuleConfig.registerLogger(loggerFactory.get(ELogger.INGENICO_IFSF));
         IngenicoTransitModuleConfig.registerLogger(loggerFactory.get(ELogger.INGENICO_TRANSIT));
 
-        SamDuk samDuk = new SamDuk(SamType.BUS, ByteUtils.hexStringToBytes(""));
+        SamDuk samDuk = new SamDuk(SamType.CM, ByteUtils.hexStringToBytes("EF 67 AB 64 52 E6 1A 32 2A 9E 0E 15 8A 04 29 C4"));
         bind(SamDuk.class).toInstance(samDuk);
 
         IngenicoReaderDevice ingenicoReaderDevice = new IngenicoReaderDevice(samDuk, ingenicoConfig.readerIpAddress());

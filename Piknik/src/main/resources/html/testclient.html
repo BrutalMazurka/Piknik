@@ -251,6 +251,15 @@
                 </div>
             </div>
         </div>
+
+        <div class="form-group">
+            <label>SAM Module:</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label for="pin" style="margin: 0; font-weight: normal;">PIN:</label>
+                <input type="password" id="pin" name="pin" pattern="[0-9]{4}" maxlength="4" style="width: auto; flex: 1;">
+                <button onclick="unlockSAM()">Unlock SAM</button>
+            </div>
+        </div>
     </div>
 
     <!-- Combined Actions -->
