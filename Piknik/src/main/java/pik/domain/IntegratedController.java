@@ -158,7 +158,7 @@ public class IntegratedController {
         this.sseManager = new SSEManager();
         this.printerStatusMonitor = new StatusMonitorService(printerService, sseManager::broadcastToPrinterSSE, serverConfig.statusCheckInterval());
         this.serviceOrchestrator = new ServiceOrchestrator(printerService, vfdService, ingenicoService, printerStatusMonitor, ioGeneral);
-        this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this);
+        this.webServerManager = new WebServerManager(serverConfig, printerService, vfdService, ingenicoService, this, childInjector);
         this.shutdownManager = new ShutdownManager(sseManager, webServerManager, printerStatusMonitor, executorService, ioGeneral,
                 printerService, vfdService, ingenicoService, ifsfProtProxy, ifsfDevProxyProtProxy, transitProtProxy, ifsfProtCtrl, transitProtCtrl, ioCtrl, masterLoop);
 

@@ -4,6 +4,7 @@ import pik.domain.IntegratedController;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.inject.Injector;
 import io.javalin.Javalin;
 import io.javalin.json.JsonMapper;
 import org.slf4j.Logger;
@@ -39,6 +40,7 @@ public class WebServerManager {
     private final VFDService vfdService;
     private final IngenicoService ingenicoService;
     private final IntegratedController controller;
+    private final Injector injector;
 
     // ⭐ Pretty-printing Gson for general API use
     private final Gson gson;
@@ -54,18 +56,21 @@ public class WebServerManager {
      * @param vfdService VFD service
      * @param ingenicoService Ingenico service
      * @param controller Integrated controller (for SSE callbacks)
+     * @param injector Guice injector for dependency injection
      */
     public WebServerManager(
             ServerConfig serverConfig,
             PrinterService printerService,
             VFDService vfdService,
             IngenicoService ingenicoService,
-            IntegratedController controller) {
+            IntegratedController controller,
+            Injector injector) {
         this.serverConfig = serverConfig;
         this.printerService = printerService;
         this.vfdService = vfdService;
         this.ingenicoService = ingenicoService;
         this.controller = controller;
+        this.injector = injector;
 
         // ⭐ Initialize Gson with pretty printing (for API responses)
         this.gson = new GsonBuilder().setPrettyPrinting().create();
@@ -126,7 +131,11 @@ public class WebServerManager {
                 VFDController vfdController = new VFDController(vfdService, controller);
                 vfdController.registerRoutes();
 
-                IngenicoController ingenicoController = new IngenicoController(ingenicoService, controller);
+                // Get SamUnlockOrchestrator from injector
+                pik.domain.ingenico.unlock.SamUnlockOrchestrator unlockOrchestrator =
+                    injector.getInstance(pik.domain.ingenico.unlock.SamUnlockOrchestrator.class);
+
+                IngenicoController ingenicoController = new IngenicoController(ingenicoService, controller, unlockOrchestrator);
                 ingenicoController.registerRoutes();
             });
         });

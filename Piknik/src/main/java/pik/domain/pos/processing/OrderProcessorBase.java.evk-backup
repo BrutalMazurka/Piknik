@@ -1,0 +1,499 @@
+package pik.domain.pos.processing;
+
+import com.google.inject.Injector;
+import epis.commons.beep.BeepRequest;
+import epis.commons.beep.IBeepService;
+import epis.commons.i18n.I18n;
+import epis.duk.pos.core.tariff.IDukTariffSystemRepository;
+import epis.episnetudp.prot.IEpisNetUdpProtMsgOutputter;
+import epis5.commons.printing.PrintResult;
+import epis5.ingenico.transit.prot.ResponseCode;
+import epis5.pos.PosModuleLogger;
+import epis5.pos.processing.IOrderProcessor;
+import epis5.pos.processing.opt.OptBase;
+import pik.domain.EvkDevice;
+import pik.domain.beep.BeepRequestFactory;
+import pik.domain.card.IServiceCardRepository;
+import pik.domain.config.DebugConfig;
+import pik.domain.drivers.CurrentDriver;
+import pik.domain.dzc.DzcCardInfo;
+import pik.domain.epis.EpisDevice;
+import pik.domain.epis.EpisNotificationPublisher;
+import pik.domain.epp.EppDevice;
+import pik.domain.evknet.EvkNetMasterDevice;
+import pik.domain.i18n.EvkLang;
+import pik.domain.ijn.IjnRegisters;
+import pik.domain.ingenico.CardDetectedData;
+import pik.domain.ingenico.IngenicoReaderDevice;
+import pik.domain.ingenico.tap.ICardTapping;
+import pik.domain.inspection.TicketInspection;
+import pik.domain.mboard.MboardDevice;
+import pik.domain.pos.EvkOrder;
+import pik.domain.pos.IPosDisplayService;
+import pik.domain.pos.processing.opt.SaveTransactionOpt;
+import pik.domain.pos.transactions.Transaction;
+import pik.domain.pos.transactions.TransactionFactory;
+import pik.domain.printer.IPrinterStatus;
+import pik.domain.printer.IPrinterStatusService;
+import pik.domain.printing.EvkSvgTemplateSelector;
+import pik.domain.printing.IPrintingService;
+import pik.domain.printing.TicketGroupSvgViewModel;
+import pik.domain.printing.TicketSvgViewModel;
+import pik.domain.vehicle.Vehicle;
+import jCommons.i18n.ELang;
+import jCommons.logging.ILogger;
+import jCommons.timer.TickCounter;
+import jCommons.utils.StringUtils;
+import jCommons.utils.ThreadUtils;
+import org.joda.time.DateTime;
+
+import java.util.List;
+
+public abstract class OrderProcessorBase implements IOrderProcessor {
+    protected final Injector injector;
+    protected final ILogger logger;
+    protected final IPosDisplayService displayService;
+    protected final Vehicle vehicle;
+    protected final IBeepService beepService;
+    private final EvkLang evkLang;
+    protected final EpisDevice epis;
+    protected final IngenicoReaderDevice ingenicoReader;
+    protected final IEpisNetUdpProtMsgOutputter outputter;
+    protected final MboardDevice mboardDevice;
+    protected final IjnRegisters ijnRegisters;
+    protected final TicketInspection ticketInspection;
+    protected final IPrinterStatusService printerStatusService;
+    protected final IPrintingService printingService;
+    protected final TransactionFactory transactionFactory;
+    protected final IDukTariffSystemRepository tariffSystemRepo;
+    protected final ICardTapping cardTapping;
+
+    private final TickCounter durationTc;
+
+    public OrderProcessorBase(Injector injector) {
+        this.injector = injector;
+
+        logger = PosModuleLogger.get();
+
+        durationTc = TickCounter.instanceFromNow();
+
+        displayService = injector.getInstance(IPosDisplayService.class);
+        vehicle = injector.getInstance(Vehicle.class);
+        beepService = injector.getInstance(IBeepService.class);
+        evkLang = injector.getInstance(EvkLang.class);
+        epis = injector.getInstance(EpisDevice.class);
+        outputter = injector.getInstance(IEpisNetUdpProtMsgOutputter.class);
+        ingenicoReader = injector.getInstance(IngenicoReaderDevice.class);
+        mboardDevice = injector.getInstance(MboardDevice.class);
+        ijnRegisters = injector.getInstance(IjnRegisters.class);
+        ticketInspection = injector.getInstance(TicketInspection.class);
+        printerStatusService = injector.getInstance(IPrinterStatusService.class);
+        printingService = injector.getInstance(IPrintingService.class);
+        transactionFactory = injector.getInstance(TransactionFactory.class);
+        tariffSystemRepo = injector.getInstance(IDukTariffSystemRepository.class);
+        cardTapping = injector.getInstance(ICardTapping.class);
+    }
+
+    public String getProcessorName() {
+        return this.getClass().getSimpleName();
+    }
+
+    protected <T> T getInstance(Class<T> type) {
+        return injector.getInstance(type);
+    }
+
+    @Override
+    public void onBeforeProcessing() {
+        recordProcessingStarted();
+
+        logStartedIfDebug();
+    }
+
+    @Override
+    public void dispose() {
+
+    }
+
+    @Override
+    public void onAfterProcessing() {
+        logFinishedIfDebug();
+    }
+
+    protected ELang getLang() {
+        return evkLang.getSelected();
+    }
+
+    protected void showProcessing() {
+        showProcessing(I18n.get("evk_orderProcessor_processing", "PROBÍHÁ<br/>TRANSAKCE"));
+    }
+
+    protected void showProcessing(String text) {
+        displayService.showProcessing(EvkDialogMessage.newProgress(text));
+    }
+
+    protected void showProcessingRemoveCard() {
+        showProcessingRemoveCard(I18n.get("evk_orderProcessor_processing", "PROBÍHÁ<br/>TRANSAKCE"));
+    }
+
+    protected void showProcessingRemoveCard(String text) {
+        displayService.showProcessing(EvkDialogMessage.newProgressAndRemoveCard(text));
+    }
+
+    protected void beepSignalInputCardRead() {
+        beepService.beep(BeepRequestFactory.CARD_READ);
+    }
+
+    protected boolean checkAdminCardDetected(String cardUid) {
+        if (injector.getInstance(IServiceCardRepository.class).isServiceCard(cardUid)) {
+            displayService.showServiceMenu();
+            return true;
+        }
+
+        //TODO Pavel T. - ICoinAcceptorOperatorRepository.getByCardUid(String cardUid), return
+        //TODO displayService.showCoinAcceptorOperatorLogin();
+
+        return false;
+    }
+
+    protected boolean verifyPosReady(boolean stopTappingOnError) {
+        if (!EvkDevice.isValidSerialNumber()) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_err_msg_evk_serial_num", "Neplatné sériové číslo validátoru"));
+            return false;
+        }
+
+        if (EvkDevice.isSlave()) {
+            EvkNetMasterDevice masterDevice = getInstance(EvkNetMasterDevice.class);
+            if (!masterDevice.isAlive()) {
+                if (stopTappingOnError) {
+                    stopCardTapping(true);
+                }
+                showErrorMasterDisconnectedAndFinish();
+                return false;
+            }
+        }
+
+        if (!epis.isAliveSinceStartupRecorded()) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_readiness_state_lock_epis_connerr", "Není spojení s palubním počítačem"));
+            return false;
+        }
+
+        if (!CurrentDriver.any() && !CurrentDriver.anyPrevious()) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_readiness_state_lock_driver_logout", "Obsluha nepřihlášena do palubního počítače"));
+            return false;
+        }
+
+        if (DateTime.now().getYear() < 2025) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_err_msg_system_time_not_synced", "Není synchronizován systémový čas"));
+            return false;
+        }
+
+        if (EvkDevice.isPowerOffStarted() || (mboardDevice.isAlive() && ijnRegisters.isInputPowerVoltageLoss())) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_err_msg_poweroff", "Výpadek napájení, nelze provádět transakce!"));
+            return false;
+        }
+
+        return true;
+    }
+
+    protected boolean verifyIngenicoReaderReady(boolean stopTappingOnError) {
+        if (!ingenicoReader.getTransitApp().isConnectedAndAppAlive() || !ingenicoReader.isInitStatusDone()) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            showErrorMessageAndFinish(I18n.get("evk_err_msg_emv_not_responding", "Chyba při platbě: platební terminál neodpovídá"));
+            return false;
+        }
+
+        return true;
+    }
+
+    protected boolean verifySamDukReady(boolean stopTappingOnError) {
+        if (!ingenicoReader.getSamDuk().isUnlockStatusCompleted() || !ingenicoReader.getSamDuk().getAuth().isAuthenticated()) {
+            if (stopTappingOnError) {
+                stopCardTapping(true);
+            }
+            //TODO i18n
+            showErrorMessageAndFinish("SAM modul není odemčem - nezle přečíst kartu");
+            return false;
+        }
+
+        return true;
+    }
+
+    protected boolean verifyPrinterReady() {
+        IPrinterStatus status = printerStatusService.get();
+        if (!status.isReady()) {
+            //TODO i18n + lepsi rozliseni chyb
+            showErrorMessageAndFinish("Chyba tiskárny: " + status.getStatusDescription());
+            return false;
+        }
+
+        return true;
+    }
+
+    protected boolean verifyTicketInspectionNotActive() {
+        if (ticketInspection.isActive()) {
+            showErrorMessageAndFinish(I18n.get("evk_pos_inspection_active_warning", "Probíhá přepravní kontrola!"));
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean verifyCardIsNotBlackListed(DzcCardInfo dzcCardInfo) {
+        if (dzcCardInfo.isBlackListed()) {
+            //TODO i18n
+            showErrorMessageAndFinish("Karta na seznamu zakázaných karet!");
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean validateTransactions(List<Transaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            showErrorMessageAndFinish("Chyba transakce: chybí objekty transakce (null or empty list of transactions)");
+            return false;
+        }
+
+        for (Transaction transaction : transactions) {
+            EvkSvgTemplateSelector selector = new EvkSvgTemplateSelector(transaction);
+            String template = selector.select();
+            if (StringUtils.isNullOrEmpty(template)) {
+                showErrorMessageAndFinish(selector.getLastErrorMessage());
+                return false;
+            }
+
+            if (!selector.checkTemplatesForReceiptsExists()) {
+                showErrorMessageAndFinish(selector.getLastErrorMessage());
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected boolean validateCardUid(CardDetectedData cardDetectedData) {
+        if (StringUtils.isNullOrEmpty(cardDetectedData.getUid())) {
+            stopCardTapping(true);
+            showErrorInternalAndFinish("Neplatné UID načtené karty");
+            return false;
+        }
+        if (cardDetectedData.getResponseCode() != ResponseCode.OK) {
+            stopCardTapping(true);
+            showErrorInternalAndFinish("Chyba při načtení karty: " + cardDetectedData.getResponseCode().toString());
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean verifyCoinAcceptorReady() {
+        if (!EvkDevice.isCoinAcceptor()) {
+            showErrorInternalAndFinish("Validátor nepřijímá mince - není nakonfigurován jako mincovník.");
+            return false;
+        }
+
+        if (!getInstance(EppDevice.class).isAlive() && !DebugConfig.IS_GUI_DEBUG) {
+            showErrorMessageAndFinish("Mincovník nepřipojen - nelze odbavit");
+            return false;
+        }
+
+        return true;
+    }
+
+    protected boolean saveTransactions(List<Transaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            showErrorMessageAndFinish("Chybná transakce (null or empty list of transactions)");
+            return false;
+        }
+        SaveTransactionOpt opt = getInstance(SaveTransactionOpt.class);
+        opt.setTransaction(transactions);
+        return executeOpt(opt);
+    }
+
+    protected boolean printTransactions(List<Transaction> transactions, EvkOrder order) {
+        if (order.isGroupTicket()) {
+            return printTransactionsAsGroup(transactions, order);
+        }
+
+        int ticketNumber = 1;
+        for (Transaction transaction : transactions) {
+            PrintProgressDisplay progressDisplay = PrintProgressDisplay.newMultiProgress(I18n.get("evk_tap_info_print_progress", "PROBÍHÁ<br/>TISK"), ticketNumber, transactions.size());
+            displayService.showPrinting(progressDisplay);
+
+            EvkSvgTemplateSelector selector = new EvkSvgTemplateSelector(transaction);
+            String svgTemplateName = selector.select();
+
+            TicketSvgViewModel viewModel = new TicketSvgViewModel(svgTemplateName, transaction, order, vehicle, tariffSystemRepo);
+            PrintResult printResult = printingService.ticket(viewModel);
+
+            if (printResult.isError()) {
+                //TODO i18n
+                showPrintingErrorMessageAndFinish("Chyba tisku: " + printResult.getDescription());
+                logger.error("POS printing error: " + StringUtils.removeAccents(printResult.getDescription()));
+                return false;
+            }
+
+            ticketNumber++;
+        }
+        return true;
+    }
+
+    private boolean printTransactionsAsGroup(List<Transaction> transactions, EvkOrder order) {
+        PrintProgressDisplay progressDisplay = PrintProgressDisplay.newProgress(I18n.get("evk_tap_info_print_progress", "PROBÍHÁ<br/>TISK"));
+        displayService.showPrinting(progressDisplay);
+
+        EvkSvgTemplateSelector selector = new EvkSvgTemplateSelector(transactions.get(0));
+        String svgTemplateName = selector.select();
+
+        TicketSvgViewModel viewModel = new TicketGroupSvgViewModel(svgTemplateName, order, vehicle, tariffSystemRepo, transactions);
+        PrintResult printResult = printingService.ticket(viewModel);
+
+        if (printResult.isError()) {
+            //TODO i18n
+            showPrintingErrorMessageAndFinish("Chyba tisku: " + printResult.getDescription());
+            logger.error("POS printing error: " + StringUtils.removeAccents(printResult.getDescription()));
+            return false;
+        }
+
+        return true;
+    }
+
+    protected <T extends OptBase> boolean executeOpt(Class<T> type) {
+        T opt = getInstance(type);
+        return executeOpt(opt);
+    }
+
+    protected boolean executeOpt(OptBase opt) {
+        opt.execute();
+        if (opt.isResultError()) {
+            showErrorMessageAndFinish(opt.getResultDescription());
+            return false;
+        }
+        return true;
+    }
+
+    protected void stopCardTapping(boolean setLedDiodesOff) {
+        cardTapping.stop(setLedDiodesOff);
+    }
+
+    protected void showErrorUnsupportedCardTypeAndFinish(CardDetectedData cardDetectedData) {
+        //TODO i18n
+        showErrorMessageAndFinish("Nepodporovaná karta (" + cardDetectedData.getCardType() + "). Přiložte jinou kartu.");
+    }
+
+    protected void showErrorWorkInProgressAndFinish() {
+        showErrorMessageAndFinish(I18n.get("evk_err_msg_work_in_progress", "Funkci připravujeme"));
+    }
+
+    protected void showErrorMasterDisconnectedAndFinish() {
+        showErrorMessageAndFinish(I18n.get("evk_readiness_state_lock_evknet_master_connerr", "Není spojení s řídícím validátorem"));
+    }
+
+    public void showErrorInvalidOperationAndFinish(String invalidOperMsg) {
+        showErrorMessageAndFinish(I18n.get("evk_err_msg_invalid_operation", "Neplatná operace: ") + " " + invalidOperMsg);
+    }
+
+    public void showErrorInternalAndFinish(String message) {
+        showErrorMessageAndFinish(I18n.get("evk_err_msg_internal_error", "Systémová chyba:") + " " + message);
+    }
+
+    protected void showErrorMessageAndFinish(String message) {
+        this.showErrorMessageAndFinish(message, EEvkNextScreen.DEFAULT_HOME);
+    }
+
+    protected void showPrintingErrorMessageAndFinish(String message) {
+        //TODO i18n
+        String title = "TRANSAKCE JIŽ ZAÚČTOVÁNA!";
+        this.showErrorMessageAndFinish(message, EEvkNextScreen.DEFAULT_HOME, title);
+    }
+
+    protected void showErrorMessageAndFinish(String message, EEvkNextScreen nextScreen) {
+        String title = I18n.get("evk_pos_error_trans_canceled", "OPERACE PŘERUŠENA");
+
+        showErrorMessageAndFinish(message, nextScreen, title);
+    }
+
+    protected void showErrorMessageAndFinish(String message, EEvkNextScreen nextScreen, String title) {
+        cardTapping.setLedDiodesOffIfInactive();
+        evkResultBeep(EResultBeep.ERROR);
+        displayService.showResult(EvkResultDisplay.newError(new EvkResultDisplay.Message(title, message)));
+        logPosError(message);
+        getInstance(EpisNotificationPublisher.class).processingError(title, message);
+        ThreadUtils.sleepIgnoreExc(3_800);
+        displayService.showDefault();
+    }
+
+    protected void showResultOkForSale() {
+        showResult(EvkResultDisplay.newSaleOk(), 1_800);
+    }
+
+    protected void showResult(EvkResultDisplay display, int showTimeMills) {
+        cardTapping.setLedDiodesOffIfInactive();
+        evkResultBeep(display.getResultBeep());
+        displayService.showResult(display);
+        ThreadUtils.sleepIgnoreExc(showTimeMills);  //1_800  2_800
+        displayService.showDefault();
+    }
+
+    protected void evkResultBeep(EResultBeep beepType) {
+        BeepRequest beepRequest;
+        switch (beepType) {
+            case OK:
+                beepRequest = BeepRequestFactory.BUTTON;
+                break;
+            case WARNING:
+                beepRequest = BeepRequestFactory.WARNING;
+                break;
+            default:
+                beepRequest = BeepRequestFactory.ERROR;
+                break;
+        }
+        beepService.beep(beepRequest);
+    }
+
+    private void recordProcessingStarted() {
+        durationTc.recordNow();
+    }
+
+    protected int getProcessingDurationMills() {
+        return (int) durationTc.getDiffNowStopMills();
+    }
+
+    protected void logPosError(String message) {
+        logger.error("POS error: " + StringUtils.removeAccents(message));
+    }
+
+    protected void logStartedIfDebug() {
+        if (logger.isDebugEnabled()) {
+            logger.debug("");
+            StringBuilder sb = new StringBuilder();
+            sb.append("######### ").append(this.getProcessorName()).append(" started ###############");
+            logger.debug(sb);
+        }
+    }
+
+    protected void logFinishedIfDebug() {
+        if (logger.isDebugEnabled()) {
+            int durationMills = getProcessingDurationMills();
+            StringBuilder sb = new StringBuilder();
+            sb.append("######### ").append(this.getProcessorName());
+            sb.append(" finished, duration[mills] = ").append(durationMills);
+            sb.append(" ######");
+            logger.debug(sb);
+        }
+    }
+}
