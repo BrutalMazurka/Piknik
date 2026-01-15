@@ -19,7 +19,13 @@ import pik.domain.ingenico.ifsf.IngenicoIfsfApp;
 import pik.domain.ingenico.tap.ICardTapping;
 import pik.domain.ingenico.tap.IngenicoCardTappingState;
 import pik.domain.ingenico.transit.IngenicoTransitApp;
+import pik.domain.ingenico.unlock.SamUnlockOrchestrator;
+import pik.domain.ingenico.unlock.UnlockSessionManager;
 import pik.domain.io.IOGeneral;
+import pik.domain.pos.IPosDisplayService;
+import pik.domain.pos.NoOpDisplayService;
+
+import javax.inject.Singleton;
 
 /**
  * @author Martin Sustik <sustik@herman.cz>
@@ -61,6 +67,16 @@ public class GuiceModule extends AbstractModule {
         IngenicoCardTappingState ingenicoCardTappingState = new IngenicoCardTappingState();
         bind(ICardTapping.class).toInstance(ingenicoCardTappingState);
         bind(IngenicoCardTappingState.class).toInstance(ingenicoCardTappingState);
+
+        //********************************
+        //****** SAM Unlock Support ******
+        //********************************
+        // Display service (no-op for REST API)
+        bind(IPosDisplayService.class).to(NoOpDisplayService.class).in(Singleton.class);
+
+        // Session management
+        bind(UnlockSessionManager.class).in(Singleton.class);
+        bind(SamUnlockOrchestrator.class).in(Singleton.class);
     }
 
     /**

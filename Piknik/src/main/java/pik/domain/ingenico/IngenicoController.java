@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.domain.IntegratedController;
 import pik.domain.SSEClient;
+import pik.domain.ingenico.unlock.SamUnlockOrchestrator;
+import pik.domain.ingenico.unlock.UnlockSession;
 import pik.domain.thprinter.ApiResponse;
 
 import java.util.UUID;
@@ -24,11 +26,15 @@ public class IngenicoController {
 
     private final IIngenicoService ingenicoService;
     private final IntegratedController integratedController;
+    private final SamUnlockOrchestrator unlockOrchestrator;
     private final Gson gson;
 
-    public IngenicoController(IngenicoService ingenicoService, IntegratedController integratedController) {
+    public IngenicoController(IngenicoService ingenicoService,
+                              IntegratedController integratedController,
+                              SamUnlockOrchestrator unlockOrchestrator) {
         this.ingenicoService = ingenicoService;
         this.integratedController = integratedController;
+        this.unlockOrchestrator = unlockOrchestrator;
         this.gson = new Gson();
     }
 
@@ -43,7 +49,12 @@ public class IngenicoController {
             get("/config", this::getConfig);
             post("/test", this::testReader);
             get("/diagnostics", this::getDiagnostics);
-            post("/unlock", this::unlockSAM);
+
+            // New async unlock endpoints
+            path("/unlock", () -> {
+                post("/start", this::startUnlock);
+                get("/status/:sessionId", this::getUnlockStatus);
+            });
         });
 
         path("/api/ingenico/events", () -> {
@@ -285,13 +296,13 @@ public class IngenicoController {
     }
 
     /**
-     * Unlock SAM module with PIN
-     * POST /api/ingenico/unlock
+     * Start SAM unlock process (async)
+     * POST /api/ingenico/unlock/start
      * Body: { "pin": "123456" }
+     * Returns: { "success": true, "message": "...", "data": { "sessionId": "..." } }
      */
-    private void unlockSAM(Context ctx) {
+    private void startUnlock(Context ctx) {
         try {
-            // Parse request body to get PIN
             UnlockRequest request = ctx.bodyAsClass(UnlockRequest.class);
 
             if (request == null || request.pin() == null) {
@@ -299,29 +310,80 @@ public class IngenicoController {
                 return;
             }
 
-            // Attempt to unlock SAM with provided PIN
-            boolean success = ingenicoService.unlockSAM(request.pin());
+            // Start unlock process
+            String sessionId = unlockOrchestrator.startUnlock(request.pin());
 
-            if (success) {
-                ctx.json(ApiResponse.success("SAM module unlocked successfully"));
-            } else {
-                ctx.status(400).json(ApiResponse.error("Failed to unlock SAM module"));
-            }
+            // Return 202 Accepted with session ID
+            UnlockStartResponse response = new UnlockStartResponse(sessionId);
+            ctx.status(202).json(ApiResponse.success(
+                "Unlock started - please tap card",
+                response
+            ));
+
+            logger.info("SAM unlock started with session ID: {}", sessionId);
+
         } catch (IllegalArgumentException e) {
-            // Invalid PIN format
-            logger.warn("Invalid PIN provided for SAM unlock: {}", e.getMessage());
+            logger.warn("Invalid unlock request: {}", e.getMessage());
             ctx.status(400).json(ApiResponse.error(e.getMessage()));
+        } catch (IllegalStateException e) {
+            logger.warn("Invalid state for unlock: {}", e.getMessage());
+            ctx.status(409).json(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            logger.error("Error unlocking SAM module", e);
-            ctx.status(500).json(ApiResponse.error("Failed to unlock SAM module: " + e.getMessage()));
+            logger.error("Error starting SAM unlock", e);
+            ctx.status(500).json(ApiResponse.error("Failed to start unlock: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get unlock session status
+     * GET /api/ingenico/unlock/status/{sessionId}
+     * Returns: { "success": true, "data": { "sessionId": "...", "status": "...", ... } }
+     */
+    private void getUnlockStatus(Context ctx) {
+        try {
+            String sessionId = ctx.pathParam("sessionId");
+            UnlockSession session = unlockOrchestrator.getSessionStatus(sessionId);
+
+            if (session == null) {
+                ctx.status(404).json(ApiResponse.error("Session not found"));
+                return;
+            }
+
+            // Convert to DTO
+            UnlockStatusResponse response = new UnlockStatusResponse(
+                session.getSessionId(),
+                session.getStatus().name(),
+                session.getErrorMessage(),
+                session.getUpdatedAt()
+            );
+
+            ctx.json(ApiResponse.success(response));
+
+        } catch (Exception e) {
+            logger.error("Error getting unlock status", e);
+            ctx.status(500).json(ApiResponse.error("Failed to get status: " + e.getMessage()));
         }
     }
 
     /**
      * Unlock request DTO
      */
-    public record UnlockRequest(String pin) {
-    }
+    public record UnlockRequest(String pin) {}
+
+    /**
+     * Unlock start response DTO
+     */
+    public record UnlockStartResponse(String sessionId) {}
+
+    /**
+     * Unlock status response DTO
+     */
+    public record UnlockStatusResponse(
+        String sessionId,
+        String status,
+        String errorMessage,
+        long updatedAt
+    ) {}
 
     /**
      * Health check response DTO

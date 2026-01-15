@@ -841,35 +841,94 @@
     }
 
     async function unlockSAM() {
+        const pinInput = document.getElementById('pin');
+        const pin = pinInput.value;
+        const unlockBtn = document.getElementById('unlock-sam-btn');
+
+        // Validate PIN: must be exactly 6 digits (0-9)
+        if (!pin || !/^[0-9]{6}$/.test(pin)) {
+            logMessage('❌ Invalid PIN: must be exactly 6 digits (0-9)', 'error');
+            return;
+        }
+
+        unlockBtn.disabled = true;
+
         try {
-            const pinInput = document.getElementById('pin');
-            const pin = pinInput.value;
+            // Step 1: Start unlock
+            logMessage(`🔐 Starting SAM unlock with PIN: ${pin.replace(/./g, '*')}`, 'info');
 
-            // Validate PIN: must be exactly 6 digits (0-9)
-            if (!pin || !/^[0-9]{6}$/.test(pin)) {
-                logMessage('Invalid PIN entered', 'error');
-                return;
-            }
-
-            logMessage('Unlocking SAM module...', 'info');
-
-            const response = await fetch(`${API_BASE}/ingenico/unlock`, {
+            const startResponse = await fetch(`${API_BASE}/ingenico/unlock/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pin: pin })
             });
 
-            const result = await response.json();
+            const startResult = await startResponse.json();
 
-            if (response.ok) {
-                logMessage(`SAM unlock: ${result.message}`, 'success');
-                // Clear PIN field after successful unlock
-                pinInput.value = '';
-            } else {
-                logMessage(`SAM unlock failed: ${result.message}`, 'error');
+            if (!startResponse.ok) {
+                logMessage(`❌ Failed to start unlock: ${startResult.message}`, 'error');
+                unlockBtn.disabled = false;
+                return;
             }
+
+            const sessionId = startResult.data.sessionId;
+            logMessage(`✓ Unlock session started: ${sessionId}`, 'success');
+            logMessage('⏳ Waiting for card tap...', 'info');
+
+            // Step 2: Poll for status
+            let pollCount = 0;
+            const maxPolls = 60; // 30 seconds (60 * 500ms)
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    pollCount++;
+
+                    const statusResponse = await fetch(`${API_BASE}/ingenico/unlock/status/${sessionId}`);
+                    const statusResult = await statusResponse.json();
+
+                    if (!statusResponse.ok) {
+                        clearInterval(pollInterval);
+                        logMessage(`❌ Error checking status: ${statusResult.message}`, 'error');
+                        unlockBtn.disabled = false;
+                        return;
+                    }
+
+                    const session = statusResult.data;
+
+                    if (session.status === 'COMPLETED') {
+                        clearInterval(pollInterval);
+                        logMessage('✅✅✅ SAM UNLOCKED SUCCESSFULLY! ✅✅✅', 'success');
+                        pinInput.value = '';
+                        unlockBtn.disabled = false;
+                        // Refresh status to show new unlock status
+                        await getIngenicoStatus();
+
+                    } else if (session.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        const errorMsg = session.errorMessage || 'Unknown error';
+                        logMessage(`❌ Unlock failed: ${errorMsg}`, 'error');
+                        unlockBtn.disabled = false;
+
+                    } else if (session.status === 'PROCESSING') {
+                        logMessage('⚙️ Processing unlock...', 'info');
+
+                    } else if (pollCount >= maxPolls) {
+                        clearInterval(pollInterval);
+                        logMessage('❌ Unlock timeout (30 seconds) - please try again', 'error');
+                        unlockBtn.disabled = false;
+                    }
+                    // Continue polling for WAITING_FOR_CARD, PENDING
+
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    logMessage(`❌ Status check error: ${error.message}`, 'error');
+                    unlockBtn.disabled = false;
+                }
+            }, 500); // Poll every 500ms
+
         } catch (error) {
-            logMessage(`SAM unlock error: ${error.message}`, 'error');
+            logMessage(`❌ SAM unlock error: ${error.message}`, 'error');
+            unlockBtn.disabled = false;
         }
     }
 
