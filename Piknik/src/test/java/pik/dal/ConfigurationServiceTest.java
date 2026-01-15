@@ -22,8 +22,8 @@ class ConfigurationServiceTest {
     void shouldLoadValidPrinterConfiguration() throws ConfigurationException {
         // Given
         System.setProperty("printer.connection.type", "NETWORK");
-        System.setProperty("printer.name", "TM-T20III");
-        System.setProperty("printer.ip", "10.0.0.150");
+        System.setProperty("printer.name", "Epson_TM_T20III");
+        System.setProperty("printer.ip", "10.0.1.97");
         System.setProperty("printer.network.port", "9100");
         System.setProperty("printer.connection.timeout", "10000");
 
@@ -33,8 +33,8 @@ class ConfigurationServiceTest {
 
         // Then
         assertThat(config).isNotNull();
-        assertThat(config.name()).isEqualTo("TM-T20III");
-        assertThat(config.ipAddress()).isEqualTo("10.0.0.150");
+        assertThat(config.name()).isEqualTo("Epson_TM_T20III");
+        assertThat(config.ipAddress()).isEqualTo("10.0.1.97");
         assertThat(config.networkPort()).isEqualTo(9100);
         assertThat(config.connectionTimeout()).isEqualTo(10000);
         assertThat(config.connectionType()).isEqualTo(EPrinterType.NETWORK);
@@ -45,8 +45,8 @@ class ConfigurationServiceTest {
     void shouldThrowExceptionForInvalidPrinterPort() {
         // Given
         System.setProperty("printer.connection.type", "NETWORK");
-        System.setProperty("printer.name", "TM-T20III");
-        System.setProperty("printer.ip", "10.0.0.150");
+        System.setProperty("printer.name", "Epson_TM_T20III");
+        System.setProperty("printer.ip", "10.0.1.97");
         System.setProperty("printer.network.port", "99999"); // Invalid port
         System.setProperty("printer.connection.timeout", "10000");
 

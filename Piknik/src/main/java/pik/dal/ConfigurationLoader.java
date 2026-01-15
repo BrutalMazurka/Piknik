@@ -47,11 +47,24 @@ public class ConfigurationLoader {
 
     /**
      * Load properties with the following priority:
-     * 1. External file (next to JAR)
-     * 2. Classpath resource (in JAR)
+     * 1. Absolute file path (if provided)
+     * 2. External file (next to JAR or via -Dconfig.dir)
+     * 3. Classpath resource (in JAR)
      */
     private Properties loadProperties(String configFile) {
         Properties props = new Properties();
+
+        // Check if configFile is an absolute path to an existing file
+        Path configPath = Paths.get(configFile);
+        if (configPath.isAbsolute() && Files.exists(configPath) && Files.isRegularFile(configPath)) {
+            try (InputStream input = Files.newInputStream(configPath)) {
+                props.load(input);
+                logger.info("Loaded configuration from absolute path: {}", configPath);
+                return props;
+            } catch (IOException e) {
+                logger.warn("Failed to load from absolute path '{}': {}", configPath, e.getMessage());
+            }
+        }
 
         // Try to load from external locations first
         Properties externalProps = loadFromExternalLocations();
@@ -89,25 +102,25 @@ public class ConfigurationLoader {
     private Properties loadFromExternalLocations() {
         Properties props = new Properties();
 
-        // Check if config directory is explicitly specified via system property
+        // Check if config directory is explicitly specified via system property or environment variable
         String configDir = System.getProperty("config.dir");
+        if (configDir == null) {
+            configDir = System.getenv("CONFIG_DIR");
+        }
         if (configDir != null) {
             Path configPath = Paths.get(configDir, "application.properties").normalize();
-            logger.debug("Checking explicit config directory from system property: {}", configPath);
+            logger.debug("Checking explicit config directory: {}", configPath);
 
             if (Files.exists(configPath) && Files.isRegularFile(configPath)) {
                 try (InputStream input = Files.newInputStream(configPath)) {
                     props.load(input);
-                    logger.info("Loaded external configuration from system property 'config.dir': {}",
-                            configPath.toAbsolutePath());
+                    logger.info("Loaded external configuration from explicit config directory: {}", configPath.toAbsolutePath());
                     return props;
                 } catch (IOException e) {
-                    logger.warn("Failed to load external config from '{}': {}",
-                            configPath, e.getMessage());
+                    logger.warn("Failed to load external config from '{}': {}", configPath, e.getMessage());
                 }
             } else {
-                logger.warn("Config directory specified via 'config.dir' but file not found: {}",
-                        configPath.toAbsolutePath());
+                logger.warn("Config directory specified but file not found: {}", configPath.toAbsolutePath());
             }
         }
 
@@ -133,8 +146,7 @@ public class ConfigurationLoader {
                     logger.info("Loaded external configuration from: {}", configPath.toAbsolutePath());
                     return props; // Return first found
                 } catch (IOException e) {
-                    logger.warn("Failed to load external config from '{}': {}",
-                            configPath, e.getMessage());
+                    logger.warn("Failed to load external config from '{}': {}", configPath, e.getMessage());
                 }
             } else {
                 logger.trace("External config not found at: {}", configPath.toAbsolutePath());
@@ -165,8 +177,7 @@ public class ConfigurationLoader {
                     return props;
                 }
             } catch (IOException e) {
-                logger.debug("Error loading configuration from classpath '{}': {}",
-                        location, e.getMessage());
+                logger.debug("Error loading configuration from classpath '{}': {}", location, e.getMessage());
             }
         }
 
@@ -196,7 +207,7 @@ public class ConfigurationLoader {
             return path.toString();
         } catch (Exception e) {
             logger.warn("Could not determine JAR directory: {}", e.getMessage());
-            return System.getProperty("user.dir"); // Fallback to working directory
+            return System.getProperty("user.dir");  // Fallback to working directory
         }
     }
 
@@ -243,8 +254,7 @@ public class ConfigurationLoader {
         try {
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException e) {
-            logger.warn("Invalid integer value for property '{}': '{}', using default: {}",
-                    key, value, defaultValue);
+            logger.warn("Invalid integer value for property '{}': '{}', using default: {}", key, value, defaultValue);
             return defaultValue;
         }
     }

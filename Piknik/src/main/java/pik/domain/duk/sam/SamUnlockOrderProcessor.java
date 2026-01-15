@@ -31,9 +31,7 @@ public class SamUnlockOrderProcessor extends OrderProcessorBase {
                 return;
             }
 
-            // Note: Display service is no-op in Piknik (REST API only)
-        // In EVK this would show "NECHTE KARTU PŘILOŽENOU" on SWING UI
-        logger.info("Processing SAM unlock with card UID: " + order.getCardDetectedData().getUid());
+            logger.info("Processing SAM unlock with card UID: " + order.getCardDetectedData().getUid());
 
             SamVerifyPinOpt verifyPinOpt = getInstance(SamVerifyPinOpt.class);
             verifyPinOpt.setOrder(order);
@@ -41,10 +39,8 @@ public class SamUnlockOrderProcessor extends OrderProcessorBase {
                 return;
             }
 
-            // Note: showResult is no-op in Piknik (REST API only)
-        // In EVK this would display "SAM ODEMČEN" for 1.8 seconds on SWING UI
-        // Result is tracked via session status in SamUnlockOrchestrator
-        logger.info("SAM unlock completed successfully");
+            // Result is tracked via session status in SamUnlockOrchestrator
+            logger.info("SAM unlock completed successfully");
         } catch (Exception e) {
             logger.fatal("Processing SamUnlockOrderProcessor", e);
             showErrorMessageAndFinish(e.getMessage());
@@ -53,7 +49,7 @@ public class SamUnlockOrderProcessor extends OrderProcessorBase {
 
     private boolean verifySamDukReadyForUnlock() {
         if (!ingenicoReader.getSamDuk().getAuth().isAuthenticated()) {
-            showErrorMessageAndFinish("Neproběhla autentizace SAM - nelze odemčít!");
+            showErrorMessageAndFinish("Neproběhla autentizace SAM - nelze odemknout!");
             return false;
         }
         if (ingenicoReader.getSamDuk().isUnlockStatusCompleted()) {

@@ -11,11 +11,10 @@ import pik.domain.pos.IPosDisplayService;
 
 /**
  * Simplified OrderProcessorBase for Piknik (REST API).
- * Contains only the methods needed for SAM unlocking.
- * Full EVK version backed up as OrderProcessorBase.java.evk-backup
+ * Contains methods needed for SAM unlocking.
  *
  * @author Martin Sustik <sustik@herman.cz>
- * @since 2026-01-15
+ * @since 15/01/2026
  */
 public abstract class OrderProcessorBase {
     protected final ILogger logger;

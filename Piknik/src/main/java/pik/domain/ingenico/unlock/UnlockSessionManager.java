@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Thread-safe session lifecycle management with automatic cleanup.
  *
  * @author Martin Sustik <sustik@herman.cz>
- * @since 2026-01-15
+ * @since 15/01/2026
  */
 @Singleton
 public class UnlockSessionManager {
