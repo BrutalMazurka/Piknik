@@ -11,6 +11,7 @@ public enum ELogger implements ILoggerID {
     UPDATER("Updater"),
     INGENICO_IFSF("IfsfProt"),
     INGENICO_TRANSIT("IngenicoTransitProt"),
+    POS_ORDER_PROCESSING("PosOrderProcessing"),
     ;
 
     private final String name;

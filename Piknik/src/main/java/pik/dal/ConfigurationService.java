@@ -38,7 +38,7 @@ public class ConfigurationService {
      * Load printer configuration with support for multiple connection types
      */
     private PrinterConfig loadPrinterConfiguration() throws ConfigurationException {
-        String name = loader.getString("printer.name", "TM-T20III");
+        String name = loader.getString("printer.name", "Epson_TM_T20III");
         int timeout = loader.getInt("printer.connection.timeout", TM_T20IIIConstants.DEFAULT_CONNECTION_TIMEOUT);
 
         // Determine connection type
@@ -56,7 +56,7 @@ public class ConfigurationService {
         switch (connectionType) {
             case NETWORK:
                 // Network/Ethernet connection
-                String ip = loader.getString("printer.ip", "10.0.0.150");
+                String ip = loader.getString("printer.ip", "10.0.1.97");
                 int networkPort = loader.getInt("printer.network.port", TM_T20IIIConstants.DEFAULT_PORT);
                 config = PrinterConfig.network(name, ip, networkPort, timeout);
                 logger.info("Configured NETWORK printer: {} at {}:{}", name, ip, networkPort);
@@ -156,7 +156,7 @@ public class ConfigurationService {
 
         switch (connectionType) {
             case NETWORK:
-                String readerIp = loader.getString("IngenicoReaderIPAddress", "192.168.40.10");
+                String readerIp = loader.getString("IngenicoReaderIPAddress", "10.0.1.96");
                 int ifsfPort = loader.getInt("IfsfTcpServerPort", 12710);
                 int ifsfDevProxyPort = loader.getInt("IfsfDevProxyTcpServerPort", 20007);
                 int transitPort = loader.getInt("IngenicoTransitTcpServerPort", 63855);

@@ -49,6 +49,14 @@ public interface IIngenicoService {
     void removeStatusListener(IIngenicoStatusListener listener);
 
     /**
+     * Unlock SAM module with PIN
+     * @param pin 6-digit PIN (must be exactly 6 digits)
+     * @return true if unlock successful, false otherwise
+     * @throws IllegalArgumentException if PIN is invalid
+     */
+    boolean unlockSAM(String pin);
+
+    /**
      * Close and cleanup resources
      */
     void close();

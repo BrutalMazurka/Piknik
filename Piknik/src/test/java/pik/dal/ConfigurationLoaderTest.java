@@ -33,10 +33,10 @@ class ConfigurationLoaderTest {
     @DisplayName("Should load configuration from properties file")
     void shouldLoadFromPropertiesFile() throws IOException {
         // Given
-        Path configFile = tempDir.resolve("test.properties");
+        Path configFile = tempDir.resolve("application.properties");
         Properties props = new Properties();
         props.setProperty("printer.name", "Epson_TM_T20III");
-        props.setProperty("printer.ip", "192.168.1.100");
+        props.setProperty("printer.ip", "10.0.1.97");
 
         try (var writer = Files.newBufferedWriter(configFile)) {
             props.store(writer, "Test config");
@@ -50,7 +50,30 @@ class ConfigurationLoaderTest {
 
         // Then
         assertThat(printerName).isEqualTo("Epson_TM_T20III");
-        assertThat(printerIp).isEqualTo("10.0.0.150");
+        assertThat(printerIp).isEqualTo("10.0.1.97");
+    }
+
+    @Test
+    @DisplayName("Should load configuration from directory specified in -Dconfig.dir")
+    void shouldLoadFromConfigDirSystemProperty() {
+        // Debug: Print the actual value to diagnose IntelliJ issue
+        String configDirProp = System.getProperty("config.dir");
+        String configDirEnv = System.getenv("CONFIG_DIR");
+        System.out.println("DEBUG: config.dir system property = " + configDirProp);
+        System.out.println("DEBUG: CONFIG_DIR environment variable = " + configDirEnv);
+
+        // 1. Use the default constructor.
+        // This triggers loadFromExternalLocations() which checks System.getProperty("config.dir").
+        ConfigurationLoader loader = new ConfigurationLoader();
+
+        // 2. When: Attempt to retrieve values
+        // These keys must exist in /home/martins/temp/piknik/config/application.properties
+        String printerName = loader.getString("printer.name", "default");
+        String printerIp = loader.getString("printer.ip", "default");
+
+        // 3. Then: Assert they match your actual application.properties content
+        assertThat(printerName).isEqualTo("Epson_TM_T20III");
+        assertThat(printerIp).isEqualTo("10.0.1.97");
     }
 
     @Test
@@ -62,6 +85,7 @@ class ConfigurationLoaderTest {
 
         // When
         String printerName = loader.getString("printer.name", "default");
+
 
         // Then
         assertThat(printerName).isEqualTo("SystemPrinter");

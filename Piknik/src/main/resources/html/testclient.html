@@ -66,6 +66,11 @@
             margin-bottom: 5px;
         }
         button:hover { background: #0056b3; }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
         button.secondary { background: #6c757d; }
         button.secondary:hover { background: #5a6268; }
         button.danger { background: #dc3545; }
@@ -257,7 +262,7 @@
             <div style="display: flex; gap: 10px; align-items: center;">
                 <label for="pin" style="margin: 0; font-weight: normal;">PIN:</label>
                 <input type="password" id="pin" name="pin" pattern="[0-9]{6}" maxlength="6" style="width: auto; flex: 1;">
-                <button onclick="unlockSAM()">Unlock SAM</button>
+                <button id="unlock-sam-btn" onclick="unlockSAM()" disabled>Unlock SAM</button>
             </div>
         </div>
     </div>
@@ -291,7 +296,7 @@
 
     let printerEventSource, vfdEventSource, ingenicoEventSource;
     const textarea = document.getElementById('print-text');
-    textarea.value = "Nazdar!\nChceš vytisknout nějaké lupeň?\n\n";
+    textarea.value = "Nazdar!\nChceš vytisknout lupeň?\n\n";
 
     // Initialize SSE connections
     function initSSE() {
@@ -529,6 +534,17 @@
             document.getElementById('sam-slot-status').textContent = '-';
             document.getElementById('sam-unlock-status').textContent = '-';
             document.getElementById('sam-atr').textContent = '-';
+        }
+
+        // Enable/disable Unlock SAM button based on auth state
+        const unlockButton = document.getElementById('unlock-sam-btn');
+        if (unlockButton) {
+            // Only enable if SAM is detected and auth state is FINISHED
+            if (status.samDukDetected && status.samDukStatus === 'FINISHED') {
+                unlockButton.disabled = false;
+            } else {
+                unlockButton.disabled = true;
+            }
         }
 
         detailsPanel.className = 'status-panel ' + statusClass;
@@ -821,6 +837,98 @@
             }
         } catch (error) {
             logMessage(`Ingenico health error: ${error.message}`, 'error');
+        }
+    }
+
+    async function unlockSAM() {
+        const pinInput = document.getElementById('pin');
+        const pin = pinInput.value;
+        const unlockBtn = document.getElementById('unlock-sam-btn');
+
+        // Validate PIN: must be exactly 6 digits (0-9)
+        if (!pin || !/^[0-9]{6}$/.test(pin)) {
+            logMessage('❌ Invalid PIN: must be exactly 6 digits (0-9)', 'error');
+            return;
+        }
+
+        unlockBtn.disabled = true;
+
+        try {
+            // Step 1: Start unlock
+            logMessage(`🔐 Starting SAM unlock with PIN: ${pin.replace(/./g, '*')}`, 'info');
+
+            const startResponse = await fetch(`${API_BASE}/ingenico/unlock/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+            });
+
+            const startResult = await startResponse.json();
+
+            if (!startResponse.ok) {
+                logMessage(`❌ Failed to start unlock: ${startResult.message}`, 'error');
+                unlockBtn.disabled = false;
+                return;
+            }
+
+            const sessionId = startResult.data.sessionId;
+            logMessage(`✓ Unlock session started: ${sessionId}`, 'success');
+            logMessage('⏳ Waiting for card tap...', 'info');
+
+            // Step 2: Poll for status
+            let pollCount = 0;
+            const maxPolls = 60; // 30 seconds (60 * 500ms)
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    pollCount++;
+
+                    const statusResponse = await fetch(`${API_BASE}/ingenico/unlock/status/${sessionId}`);
+                    const statusResult = await statusResponse.json();
+
+                    if (!statusResponse.ok) {
+                        clearInterval(pollInterval);
+                        logMessage(`❌ Error checking status: ${statusResult.message}`, 'error');
+                        unlockBtn.disabled = false;
+                        return;
+                    }
+
+                    const session = statusResult.data;
+
+                    if (session.status === 'COMPLETED') {
+                        clearInterval(pollInterval);
+                        logMessage('✅✅✅ SAM UNLOCKED SUCCESSFULLY! ✅✅✅', 'success');
+                        pinInput.value = '';
+                        unlockBtn.disabled = false;
+                        // Refresh status to show new unlock status
+                        await getIngenicoStatus();
+
+                    } else if (session.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        const errorMsg = session.errorMessage || 'Unknown error';
+                        logMessage(`❌ Unlock failed: ${errorMsg}`, 'error');
+                        unlockBtn.disabled = false;
+
+                    } else if (session.status === 'PROCESSING') {
+                        logMessage('⚙️ Processing unlock...', 'info');
+
+                    } else if (pollCount >= maxPolls) {
+                        clearInterval(pollInterval);
+                        logMessage('❌ Unlock timeout (30 seconds) - please try again', 'error');
+                        unlockBtn.disabled = false;
+                    }
+                    // Continue polling for WAITING_FOR_CARD, PENDING
+
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    logMessage(`❌ Status check error: ${error.message}`, 'error');
+                    unlockBtn.disabled = false;
+                }
+            }, 500); // Poll every 500ms
+
+        } catch (error) {
+            logMessage(`❌ SAM unlock error: ${error.message}`, 'error');
+            unlockBtn.disabled = false;
         }
     }
 
