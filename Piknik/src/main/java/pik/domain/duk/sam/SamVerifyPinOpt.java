@@ -82,7 +82,7 @@ public class SamVerifyPinOpt extends OptBase {
         }
 
         if (!deliverSignalOk) {
-            setResultError("Chyba při demčení SAM modulu: čtečka nebo SAM neodpovidá na povel");
+            setResultError("Chyba při odemčení SAM modulu: čtečka nebo SAM neodpovidá na povel");
             return;
         }
 
