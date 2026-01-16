@@ -50,10 +50,10 @@ public class IngenicoController {
             post("/test", this::testReader);
             get("/diagnostics", this::getDiagnostics);
 
-            // New async unlock endpoints
+            // Async unlock endpoints
             path("/unlock", () -> {
                 post("/start", this::startUnlock);
-                get("/status/:sessionId", this::getUnlockStatus);
+                get("/status/sessionId", this::getUnlockStatus);
             });
         });
 
