@@ -39,7 +39,8 @@ public class SamUnlockOrderProcessor extends OrderProcessorBase {
                 return;
             }
 
-            // Result is tracked via session status in SamUnlockOrchestrator
+            // Set result OK so orchestrator knows unlock succeeded
+            setResultOk();
             logger.info("SAM unlock completed successfully");
         } catch (Exception e) {
             logger.fatal("Processing SamUnlockOrderProcessor", e);

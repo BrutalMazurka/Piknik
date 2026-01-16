@@ -112,11 +112,15 @@ public class IntegratedController {
 
         // Create child injector with protocol outputters bound
         // This allows the registration builders to inject the services with their dependencies
+        // SAM unlock orchestrator also needs ITransitProtMsgOutputter, so bind it here
         Injector childInjector = injector.createChildInjector(new com.google.inject.AbstractModule() {
             @Override
             protected void configure() {
                 bind(epis5.ingenicoifsf.prot.IIfsfProtMsgOutputter.class).toInstance(ifsfProtCtrl);
                 bind(epis5.ingenico.transit.prot.ITransitProtMsgOutputter.class).toInstance(transitProtCtrl);
+
+                // SAM Unlock orchestrator needs ITransitProtMsgOutputter, so bind as singleton in child injector
+                bind(pik.domain.ingenico.unlock.SamUnlockOrchestrator.class).in(javax.inject.Singleton.class);
             }
         });
 

@@ -53,7 +53,7 @@ public class IngenicoController {
             // Async unlock endpoints
             path("/unlock", () -> {
                 post("/start", this::startUnlock);
-                get("/status/:sessionId", this::getUnlockStatus);
+                get("/status/{sessionId}", this::getUnlockStatus);
             });
         });
 
