@@ -131,11 +131,13 @@ public class WebServerManager {
                 VFDController vfdController = new VFDController(vfdService, controller);
                 vfdController.registerRoutes();
 
-                // Get SamUnlockOrchestrator from injector
+                // Get orchestrators from injector
                 pik.domain.ingenico.unlock.SamUnlockOrchestrator unlockOrchestrator =
                     injector.getInstance(pik.domain.ingenico.unlock.SamUnlockOrchestrator.class);
+                pik.domain.ingenico.cardread.CardReadOrchestrator cardReadOrchestrator =
+                    injector.getInstance(pik.domain.ingenico.cardread.CardReadOrchestrator.class);
 
-                IngenicoController ingenicoController = new IngenicoController(ingenicoService, controller, unlockOrchestrator);
+                IngenicoController ingenicoController = new IngenicoController(ingenicoService, controller, unlockOrchestrator, cardReadOrchestrator);
                 ingenicoController.registerRoutes();
             });
         });

@@ -6,7 +6,8 @@ public class CardTappingRequest {
         MAIN,
         SALE,
         CARD_INFO,
-        SAM_UNLOCK
+        SAM_UNLOCK,
+        CARD_READ
     }
 
     public static final CardTappingRequest NULL_INSTANCE = new CardTappingRequest(ESource.UNSPECIFIED,

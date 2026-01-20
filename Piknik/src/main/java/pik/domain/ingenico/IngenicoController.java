@@ -7,6 +7,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pik.domain.IntegratedController;
 import pik.domain.SSEClient;
+import pik.domain.ingenico.cardread.CardReadOrchestrator;
+import pik.domain.ingenico.cardread.CardReadSession;
+import pik.domain.ingenico.cardread.dto.CardReadRequest;
+import pik.domain.ingenico.cardread.dto.CardReadStartResponse;
+import pik.domain.ingenico.cardread.dto.CardReadStatusResponse;
 import pik.domain.ingenico.unlock.SamUnlockOrchestrator;
 import pik.domain.ingenico.unlock.UnlockSession;
 import pik.domain.thprinter.ApiResponse;
@@ -27,14 +32,17 @@ public class IngenicoController {
     private final IIngenicoService ingenicoService;
     private final IntegratedController integratedController;
     private final SamUnlockOrchestrator unlockOrchestrator;
+    private final CardReadOrchestrator cardReadOrchestrator;
     private final Gson gson;
 
     public IngenicoController(IngenicoService ingenicoService,
                               IntegratedController integratedController,
-                              SamUnlockOrchestrator unlockOrchestrator) {
+                              SamUnlockOrchestrator unlockOrchestrator,
+                              CardReadOrchestrator cardReadOrchestrator) {
         this.ingenicoService = ingenicoService;
         this.integratedController = integratedController;
         this.unlockOrchestrator = unlockOrchestrator;
+        this.cardReadOrchestrator = cardReadOrchestrator;
         this.gson = new Gson();
     }
 
@@ -54,6 +62,13 @@ public class IngenicoController {
             path("/unlock", () -> {
                 post("/start", this::startUnlock);
                 get("/status/{sessionId}", this::getUnlockStatus);
+            });
+
+            // Card reading endpoints
+            path("/card", () -> {
+                post("/read", this::startCardRead);
+                get("/read/{sessionId}", this::getCardReadStatus);
+                delete("/read/{sessionId}", this::cancelCardRead);
             });
         });
 
@@ -362,6 +377,94 @@ public class IngenicoController {
         } catch (Exception e) {
             logger.error("Error getting unlock status", e);
             ctx.status(500).json(ApiResponse.error("Failed to get status: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Start card reading process (async)
+     * POST /api/ingenico/card/read
+     * Body: { "readSchema": "FULL", "timeout": 30000 }
+     * Returns: { "success": true, "message": "...", "data": { "sessionId": "..." } }
+     */
+    private void startCardRead(Context ctx) {
+        try {
+            CardReadRequest request = ctx.bodyAsClass(CardReadRequest.class);
+
+            if (request == null) {
+                request = new CardReadRequest(); // Use defaults
+            }
+
+            // Start card read process
+            String sessionId = cardReadOrchestrator.startCardRead(
+                    request.getReadSchemaOrDefault(),
+                    request.getTimeoutOrDefault()
+            );
+
+            // Return 202 Accepted with session ID
+            CardReadStartResponse response = new CardReadStartResponse(sessionId);
+            ctx.status(202).json(ApiResponse.success(
+                    "Card reading started - please tap card",
+                    response
+            ));
+
+            logger.info("Card read started with session ID: {}", sessionId);
+
+        } catch (IllegalStateException e) {
+            logger.warn("Invalid state for card read: {}", e.getMessage());
+            ctx.status(503).json(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error starting card read", e);
+            ctx.status(500).json(ApiResponse.error("Failed to start card read: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get card read session status
+     * GET /api/ingenico/card/read/{sessionId}
+     * Returns: { "success": true, "data": { "sessionId": "...", "status": "...", "cardData": {...} } }
+     */
+    private void getCardReadStatus(Context ctx) {
+        try {
+            String sessionId = ctx.pathParam("sessionId");
+            CardReadSession session = cardReadOrchestrator.getSessionStatus(sessionId);
+
+            if (session == null) {
+                ctx.status(404).json(ApiResponse.error("Session not found"));
+                return;
+            }
+
+            // Convert to DTO
+            CardReadStatusResponse response = CardReadStatusResponse.fromSession(session);
+
+            ctx.json(ApiResponse.success(response));
+
+        } catch (Exception e) {
+            logger.error("Error getting card read status", e);
+            ctx.status(500).json(ApiResponse.error("Failed to get status: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Cancel card reading session
+     * DELETE /api/ingenico/card/read/{sessionId}
+     * Returns: { "success": true, "message": "Session cancelled" }
+     */
+    private void cancelCardRead(Context ctx) {
+        try {
+            String sessionId = ctx.pathParam("sessionId");
+            boolean cancelled = cardReadOrchestrator.cancelCardRead(sessionId);
+
+            if (!cancelled) {
+                ctx.status(404).json(ApiResponse.error("Session not found or already completed"));
+                return;
+            }
+
+            ctx.json(ApiResponse.success("Card read session cancelled"));
+            logger.info("Card read session {} cancelled", sessionId);
+
+        } catch (Exception e) {
+            logger.error("Error cancelling card read", e);
+            ctx.status(500).json(ApiResponse.error("Failed to cancel session: " + e.getMessage()));
         }
     }
 

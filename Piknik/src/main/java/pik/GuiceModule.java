@@ -19,6 +19,7 @@ import pik.domain.ingenico.ifsf.IngenicoIfsfApp;
 import pik.domain.ingenico.tap.ICardTapping;
 import pik.domain.ingenico.tap.IngenicoCardTappingState;
 import pik.domain.ingenico.transit.IngenicoTransitApp;
+import pik.domain.ingenico.cardread.CardReadSessionManager;
 import pik.domain.ingenico.unlock.UnlockSessionManager;
 import pik.domain.io.IOGeneral;
 import pik.domain.pos.IPosDisplayService;
@@ -76,6 +77,14 @@ public class GuiceModule extends AbstractModule {
         // Session management
         bind(UnlockSessionManager.class).in(Singleton.class);
         // Note: SamUnlockOrchestrator is bound in child injector (IntegratedController)
+        // because it needs ITransitProtMsgOutputter which is only available there
+
+        //********************************
+        //******* Card Read Support ******
+        //********************************
+        // Session management
+        bind(CardReadSessionManager.class).in(Singleton.class);
+        // Note: CardReadOrchestrator is bound in child injector (IntegratedController)
         // because it needs ITransitProtMsgOutputter which is only available there
     }
 

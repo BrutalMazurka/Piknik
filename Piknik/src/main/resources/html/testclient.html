@@ -265,6 +265,17 @@
                 <button id="unlock-sam-btn" onclick="unlockSAM()" disabled>Unlock SAM</button>
             </div>
         </div>
+
+        <div class="form-group">
+            <label>Card Reading:</label>
+            <div class="button-group">
+                <button id="read-card-btn" onclick="readCard()" disabled class="success">Read Card</button>
+            </div>
+            <div id="card-data-display" class="status-panel offline" style="display: none; margin-top: 10px;">
+                <h4>Card Data</h4>
+                <div id="card-data-content"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Combined Actions -->
@@ -544,6 +555,24 @@
                 unlockButton.disabled = false;
             } else {
                 unlockButton.disabled = true;
+            }
+        }
+
+        // Enable/disable Read Card button based on unlock status
+        const readCardButton = document.getElementById('read-card-btn');
+        if (readCardButton) {
+            // Debug logging
+            console.log('Read Card Button - SAM detected:', status.samDukDetected, 'Unlock status:', status.unlockStatus);
+
+            // Only enable if SAM is unlocked (unlockStatus contains "unlock_status=completed")
+            // The unlockStatus field is a formatted string like: "typ=DUK, slot_index=0, unlock_status=completed"
+            const isUnlocked = status.unlockStatus && status.unlockStatus.includes('unlock_status=completed');
+            if (status.samDukDetected && isUnlocked) {
+                console.log('Enabling Read Card button');
+                readCardButton.disabled = false;
+            } else {
+                console.log('Disabling Read Card button - isUnlocked:', isUnlocked);
+                readCardButton.disabled = true;
             }
         }
 
@@ -930,6 +959,147 @@
             logMessage(`❌ SAM unlock error: ${error.message}`, 'error');
             unlockBtn.disabled = false;
         }
+    }
+
+    async function readCard() {
+        const readBtn = document.getElementById('read-card-btn');
+        const cardDataDisplay = document.getElementById('card-data-display');
+        const cardDataContent = document.getElementById('card-data-content');
+
+        readBtn.disabled = true;
+        cardDataDisplay.style.display = 'none';
+
+        try {
+            // Step 1: Start card reading
+            logMessage('💳 Starting card read - please tap card...', 'info');
+
+            const startResponse = await fetch(`${API_BASE}/ingenico/card/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    readSchema: 'FULL',
+                    timeout: 30000
+                })
+            });
+
+            const startResult = await startResponse.json();
+
+            if (!startResponse.ok) {
+                logMessage(`❌ Failed to start card read: ${startResult.message}`, 'error');
+                readBtn.disabled = false;
+                return;
+            }
+
+            const sessionId = startResult.data.sessionId;
+            logMessage(`✓ Card read session started: ${sessionId}`, 'success');
+            logMessage('⏳ Waiting for card tap...', 'info');
+
+            // Step 2: Poll for status
+            let pollCount = 0;
+            const maxPolls = 65; // 32.5 seconds (65 * 500ms)
+
+            const pollInterval = setInterval(async () => {
+                try {
+                    pollCount++;
+
+                    const statusResponse = await fetch(`${API_BASE}/ingenico/card/read/${sessionId}`);
+                    const statusResult = await statusResponse.json();
+
+                    if (!statusResponse.ok) {
+                        clearInterval(pollInterval);
+                        logMessage(`❌ Error checking status: ${statusResult.message}`, 'error');
+                        readBtn.disabled = false;
+                        return;
+                    }
+
+                    const session = statusResult.data;
+
+                    if (session.status === 'COMPLETED') {
+                        clearInterval(pollInterval);
+                        logMessage('✅✅✅ CARD READ SUCCESSFULLY! ✅✅✅', 'success');
+                        displayCardData(session.cardData);
+                        readBtn.disabled = false;
+
+                    } else if (session.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        const errorMsg = session.errorMessage || 'Unknown error';
+                        logMessage(`❌ Card read failed: ${errorMsg}`, 'error');
+                        readBtn.disabled = false;
+
+                    } else if (session.status === 'PROCESSING') {
+                        logMessage('⚙️ Processing card data...', 'info');
+
+                    } else if (pollCount >= maxPolls) {
+                        clearInterval(pollInterval);
+                        logMessage('❌ Card read timeout (30 seconds) - please try again', 'error');
+                        readBtn.disabled = false;
+                    }
+                    // Continue polling for WAITING_FOR_CARD, PENDING
+
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    logMessage(`❌ Status check error: ${error.message}`, 'error');
+                    readBtn.disabled = false;
+                }
+            }, 500); // Poll every 500ms
+
+        } catch (error) {
+            logMessage(`❌ Card read error: ${error.message}`, 'error');
+            readBtn.disabled = false;
+        }
+    }
+
+    function displayCardData(cardData) {
+        const cardDataDisplay = document.getElementById('card-data-display');
+        const cardDataContent = document.getElementById('card-data-content');
+
+        if (!cardData) {
+            cardDataDisplay.style.display = 'none';
+            return;
+        }
+
+        let html = `<strong>Card UID:</strong> ${cardData.cardUid}<br>`;
+        html += `<strong>Card Type:</strong> ${cardData.cardType}<br><br>`;
+
+        if (cardData.cardInfo) {
+            html += `<strong>Card Info:</strong><br>`;
+            html += `<div style="margin-left: 15px;">`;
+            html += `Number: ${cardData.cardInfo.cardNumber || '-'}<br>`;
+            html += `Valid: ${cardData.cardInfo.validFrom || '-'} → ${cardData.cardInfo.validTo || '-'}<br>`;
+            html += `Profile ID: ${cardData.cardInfo.profileId || '-'}<br>`;
+            html += `</div><br>`;
+        }
+
+        if (cardData.cardHolderInfo) {
+            html += `<strong>Card Holder:</strong><br>`;
+            html += `<div style="margin-left: 15px;">`;
+            html += `${cardData.cardHolderInfo.firstName || ''} ${cardData.cardHolderInfo.lastName || ''}<br>`;
+            html += `Birth Date: ${cardData.cardHolderInfo.birthDate || '-'}<br>`;
+            html += `</div><br>`;
+        }
+
+        if (cardData.valueEP) {
+            const balanceKc = (cardData.valueEP.balance / 100).toFixed(2);
+            html += `<strong>Electronic Purse:</strong><br>`;
+            html += `<div style="margin-left: 15px;">`;
+            html += `Balance: ${balanceKc} Kč<br>`;
+            html += `Last Transaction: ${cardData.valueEP.lastTransactionDate || '-'}<br>`;
+            html += `</div><br>`;
+        }
+
+        if (cardData.tickets && cardData.tickets.length > 0) {
+            html += `<strong>Tickets (${cardData.tickets.length}):</strong><br>`;
+            html += `<div style="margin-left: 15px;">`;
+            cardData.tickets.forEach((ticket, index) => {
+                html += `#${index + 1}: ID ${ticket.ticketId}, Zone ${ticket.zoneId}, `;
+                html += `Valid ${ticket.validFrom} → ${ticket.validTo}<br>`;
+            });
+            html += `</div>`;
+        }
+
+        cardDataContent.innerHTML = html;
+        cardDataDisplay.className = 'status-panel success';
+        cardDataDisplay.style.display = 'block';
     }
 
     /**

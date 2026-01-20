@@ -121,6 +121,9 @@ public class IntegratedController {
 
                 // SAM Unlock orchestrator needs ITransitProtMsgOutputter, so bind as singleton in child injector
                 bind(pik.domain.ingenico.unlock.SamUnlockOrchestrator.class).in(javax.inject.Singleton.class);
+
+                // Card Read orchestrator also needs ITransitProtMsgOutputter, so bind as singleton in child injector
+                bind(pik.domain.ingenico.cardread.CardReadOrchestrator.class).in(javax.inject.Singleton.class);
             }
         });
 
