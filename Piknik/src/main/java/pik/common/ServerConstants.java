@@ -16,7 +16,7 @@ public final class ServerConstants {
 
     // SSE Configuration
     public static final long SSE_CLIENT_TIMEOUT_MS = 300_000;        // 5 minutes
-    public static final long SSE_HEARTBEAT_INTERVAL_MS = 30_000;     // 30 seconds
+    public static final long SSE_HEARTBEAT_INTERVAL_MS = 15_000;     // 30 seconds
     public static final long SSE_CLEANUP_INTERVAL_MS = 60_000;       // 1 minute
     public static final int SSE_MAX_CLIENTS = 10;                    // Maximum concurrent SSE clients
 }

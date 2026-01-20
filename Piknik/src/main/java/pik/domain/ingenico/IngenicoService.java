@@ -154,6 +154,12 @@ public class IngenicoService implements IIngenicoService {
             notifyStatusChanged("sam_auth_changed");
         }));
 
+        // Subscribe to SAM DUK unlock status changes to trigger immediate SSE updates
+        subscriptions.add(samDuk.getUnlockStatusChanges().subscribe(ea -> {
+            updateStatusFromDevice();
+            notifyStatusChanged("sa/m_unlock_status_changed");
+        }));
+
         logger.debug("Subscribed to Ingenico device events");
     }
 
