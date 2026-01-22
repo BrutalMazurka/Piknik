@@ -270,6 +270,7 @@
             <label>Card Reading:</label>
             <div class="button-group">
                 <button id="read-card-btn" onclick="readCard()" disabled class="success">Read Card</button>
+                <button id="cancel-card-read-btn" onclick="cancelCardRead()" disabled class="error" style="margin-left: 10px;">Cancel</button>
             </div>
             <div id="card-data-display" class="status-panel offline" style="display: none; margin-top: 10px;">
                 <h4>Card Data</h4>
@@ -308,6 +309,10 @@
     let printerEventSource, vfdEventSource, ingenicoEventSource;
     const textarea = document.getElementById('print-text');
     textarea.value = "Nazdar!\nChceš vytisknout lupeň?\n\n";
+
+    // Card reading session management
+    let activeCardReadSessionId = null;
+    let activeCardReadInterval = null;
 
     // Initialize SSE connections
     function initSSE() {
@@ -963,11 +968,17 @@
 
     async function readCard() {
         const readBtn = document.getElementById('read-card-btn');
+        const cancelBtn = document.getElementById('cancel-card-read-btn');
         const cardDataDisplay = document.getElementById('card-data-display');
         const cardDataContent = document.getElementById('card-data-content');
 
         readBtn.disabled = true;
+        cancelBtn.disabled = true;
         cardDataDisplay.style.display = 'none';
+
+        // Clear any existing session
+        activeCardReadSessionId = null;
+        activeCardReadInterval = null;
 
         try {
             // Step 1: Start card reading
@@ -991,8 +1002,13 @@
             }
 
             const sessionId = startResult.data.sessionId;
+            activeCardReadSessionId = sessionId;
+
             logMessage(`✓ Card read session started: ${sessionId}`, 'success');
             logMessage('⏳ Waiting for card tap...', 'info');
+
+            // Enable cancel button
+            cancelBtn.disabled = false;
 
             // Step 2: Poll for status
             let pollCount = 0;
@@ -1007,8 +1023,11 @@
 
                     if (!statusResponse.ok) {
                         clearInterval(pollInterval);
+                        activeCardReadInterval = null;
+                        activeCardReadSessionId = null;
                         logMessage(`❌ Error checking status: ${statusResult.message}`, 'error');
                         readBtn.disabled = false;
+                        cancelBtn.disabled = true;
                         return;
                     }
 
@@ -1016,35 +1035,105 @@
 
                     if (session.status === 'COMPLETED') {
                         clearInterval(pollInterval);
+                        activeCardReadInterval = null;
+                        activeCardReadSessionId = null;
                         logMessage('✅✅✅ CARD READ SUCCESSFULLY! ✅✅✅', 'success');
                         displayCardData(session.cardData);
                         readBtn.disabled = false;
+                        cancelBtn.disabled = true;
 
                     } else if (session.status === 'FAILED') {
                         clearInterval(pollInterval);
+                        activeCardReadInterval = null;
+                        activeCardReadSessionId = null;
                         const errorMsg = session.errorMessage || 'Unknown error';
                         logMessage(`❌ Card read failed: ${errorMsg}`, 'error');
                         readBtn.disabled = false;
+                        cancelBtn.disabled = true;
 
                     } else if (session.status === 'PROCESSING') {
                         logMessage('⚙️ Processing card data...', 'info');
+                        // Disable cancel button during processing
+                        cancelBtn.disabled = true;
 
                     } else if (pollCount >= maxPolls) {
                         clearInterval(pollInterval);
+                        activeCardReadInterval = null;
+                        activeCardReadSessionId = null;
                         logMessage('❌ Card read timeout (30 seconds) - please try again', 'error');
                         readBtn.disabled = false;
+                        cancelBtn.disabled = true;
                     }
                     // Continue polling for WAITING_FOR_CARD, PENDING
 
                 } catch (error) {
                     clearInterval(pollInterval);
+                    activeCardReadInterval = null;
+                    activeCardReadSessionId = null;
                     logMessage(`❌ Status check error: ${error.message}`, 'error');
                     readBtn.disabled = false;
+                    cancelBtn.disabled = true;
                 }
             }, 500); // Poll every 500ms
 
+            activeCardReadInterval = pollInterval;
+
         } catch (error) {
+            activeCardReadInterval = null;
+            activeCardReadSessionId = null;
             logMessage(`❌ Card read error: ${error.message}`, 'error');
+            readBtn.disabled = false;
+            cancelBtn.disabled = true;
+        }
+    }
+
+    async function cancelCardRead() {
+        const cancelBtn = document.getElementById('cancel-card-read-btn');
+        const readBtn = document.getElementById('read-card-btn');
+
+        if (!activeCardReadSessionId) {
+            logMessage('⚠️ No active card read session to cancel', 'warning');
+            return;
+        }
+
+        cancelBtn.disabled = true;
+
+        try {
+            logMessage(`🚫 Cancelling card read session: ${activeCardReadSessionId}`, 'info');
+
+            const response = await fetch(`${API_BASE}/ingenico/card/read/${activeCardReadSessionId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                logMessage(`✓ Card read session cancelled successfully`, 'success');
+            } else {
+                logMessage(`❌ Failed to cancel session: ${result.message}`, 'error');
+            }
+
+            // Clear polling interval
+            if (activeCardReadInterval) {
+                clearInterval(activeCardReadInterval);
+                activeCardReadInterval = null;
+            }
+
+            // Clear session
+            activeCardReadSessionId = null;
+
+            // Re-enable read button
+            readBtn.disabled = false;
+
+        } catch (error) {
+            logMessage(`❌ Cancel error: ${error.message}`, 'error');
+
+            // Still clean up
+            if (activeCardReadInterval) {
+                clearInterval(activeCardReadInterval);
+                activeCardReadInterval = null;
+            }
+            activeCardReadSessionId = null;
             readBtn.disabled = false;
         }
     }
@@ -1091,8 +1180,26 @@
             html += `<strong>Tickets (${cardData.tickets.length}):</strong><br>`;
             html += `<div style="margin-left: 15px;">`;
             cardData.tickets.forEach((ticket, index) => {
-                html += `#${index + 1}: ID ${ticket.ticketId}, Zone ${ticket.zoneId}, `;
-                html += `Valid ${ticket.validFrom} → ${ticket.validTo}<br>`;
+                html += `<strong>#${index + 1}:</strong> ID ${ticket.ticketId}<br>`;
+                html += `<div style="margin-left: 20px;">`;
+
+                // Display zone information based on zone type
+                if (ticket.zoneType === 'NETWORK_TICKET') {
+                    html += `Zone Type: Network Ticket<br>`;
+                    html += `Contract Net ID: ${ticket.contractNetId || '-'}<br>`;
+                } else if (ticket.zoneType === 'RELATION') {
+                    html += `Zone Type: Relation<br>`;
+                    html += `Start Zone ID: ${ticket.startZoneId || '-'}<br>`;
+                    html += `End Zone ID: ${ticket.endZoneId || '-'}<br>`;
+                } else if (ticket.zoneType === 'ZONE_ENUMERATION') {
+                    html += `Zone Type: List<br>`;
+                    html += `Zone List: ${ticket.zoneList || '-'}<br>`;
+                } else {
+                    html += `Zone ID: ${ticket.zoneId}<br>`;
+                }
+
+                html += `Valid: ${ticket.validFrom} → ${ticket.validTo}<br>`;
+                html += `</div>`;
             });
             html += `</div>`;
         }

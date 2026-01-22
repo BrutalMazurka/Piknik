@@ -16,7 +16,7 @@
     <!-- Project-specific info -->
     <groupId>pik</groupId>
     <artifactId>piknik</artifactId>
-    <version>1.0.7</version>
+    <version>1.0.8</version>
     <packaging>jar</packaging>
     <name>Piknik</name>
     <description>Main Piknik application JAR project</description>

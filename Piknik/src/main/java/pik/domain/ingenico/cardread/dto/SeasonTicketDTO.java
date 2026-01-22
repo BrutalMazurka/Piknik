@@ -1,8 +1,11 @@
 package pik.domain.ingenico.cardread.dto;
 
+import epis5.duk.bck.core.card.files.ContractJourneyType;
 import epis5.duk.bck.core.card.files.SeasonTicket;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
+
+import java.util.List;
 
 /**
  * DTO for season ticket data.
@@ -14,6 +17,7 @@ public class SeasonTicketDTO {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
 
     private int ticketId;
+    private ContractJourneyType zoneType;
     private int zoneId;
     private String validFrom;
     private String validTo;
@@ -21,6 +25,12 @@ public class SeasonTicketDTO {
     private int contractProvider;
     private int couponNumber;
     private int couponType;
+
+    // Zone-specific fields
+    private Integer contractNetId;      // For NETWORK_TICKET
+    private Integer startZoneId;        // For RELATION
+    private Integer endZoneId;          // For RELATION
+    private String zoneList;            // For ZONE_ENUMERATION (comma-separated)
 
     public SeasonTicketDTO() {
     }
@@ -39,8 +49,33 @@ public class SeasonTicketDTO {
         // Set ticketId as contract sale serial number
         dto.ticketId = ticket.getContractSaveSerialNumber();
 
-        // Zone ID - could be from various ticket zone info sources
-        dto.zoneId = 0; // Default, would need specific zone extraction logic
+        // Zone information
+        if (ticket.hasNetworkInfo()) {
+            dto.zoneType = ContractJourneyType.NETWORK_TICKET;
+            dto.contractNetId = ticket.getNetworkInfo().getContractNetworkId();
+
+        } else if (ticket.hasRelationInfo()) {
+            dto.zoneType = ContractJourneyType.RELATION;
+            dto.startZoneId = ticket.getRelationInfo().getStartZoneId();
+            dto.endZoneId = ticket.getRelationInfo().getEndZoneId();
+
+        } else if (ticket.hasZonesInfo()) {
+            dto.zoneType = ContractJourneyType.ZONE_ENUMERATION;
+            List<Integer> contractJourneyZones = ticket.getZonesInfo().getContractJourneyZones();
+            // Convert list of integers to comma-separated string
+            if (contractJourneyZones != null && !contractJourneyZones.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < contractJourneyZones.size(); i++) {
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
+                    sb.append(contractJourneyZones.get(i));
+                }
+                dto.zoneList = sb.toString();
+            }
+        }
+
+        dto.zoneId = 0;
 
         if (ticket.getContractValidity() != null) {
             dto.validFrom = DATE_FORMATTER.print(ticket.getContractValidity().getStart());
@@ -57,6 +92,14 @@ public class SeasonTicketDTO {
 
     public void setTicketId(int ticketId) {
         this.ticketId = ticketId;
+    }
+
+    public ContractJourneyType getZoneType() {
+        return zoneType;
+    }
+
+    public void setZoneType(ContractJourneyType zoneType) {
+        this.zoneType = zoneType;
     }
 
     public int getZoneId() {
@@ -113,5 +156,37 @@ public class SeasonTicketDTO {
 
     public void setCouponType(int couponType) {
         this.couponType = couponType;
+    }
+
+    public Integer getContractNetId() {
+        return contractNetId;
+    }
+
+    public void setContractNetId(Integer contractNetId) {
+        this.contractNetId = contractNetId;
+    }
+
+    public Integer getStartZoneId() {
+        return startZoneId;
+    }
+
+    public void setStartZoneId(Integer startZoneId) {
+        this.startZoneId = startZoneId;
+    }
+
+    public Integer getEndZoneId() {
+        return endZoneId;
+    }
+
+    public void setEndZoneId(Integer endZoneId) {
+        this.endZoneId = endZoneId;
+    }
+
+    public String getZoneList() {
+        return zoneList;
+    }
+
+    public void setZoneList(String zoneList) {
+        this.zoneList = zoneList;
     }
 }

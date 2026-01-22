@@ -176,6 +176,40 @@
             <span class="method get">GET</span> <span class="path">/api/ingenico/events/status</span>
             <p class="description">Server-Sent Events (SSE) for real-time Ingenico reader status updates</p>
         </div>
+
+        <h3>SAM Module Unlock</h3>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/ingenico/unlock/start</span>
+            <p class="description">Start SAM module unlock process (requires unlock card with PIN)</p>
+            <pre>{"pin": "123456"}</pre>
+            <p class="description">Returns HTTP 202 Accepted with sessionId for status polling</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/unlock/status/{sessionId}</span>
+            <p class="description">Get SAM unlock session status (PENDING, WAITING_FOR_CARD, PROCESSING, COMPLETED, FAILED)</p>
+        </div>
+
+        <h3>Card Reading</h3>
+
+        <div class="endpoint">
+            <span class="method post">POST</span> <span class="path">/api/ingenico/card/read</span>
+            <p class="description">Start card reading session for Mifare Standard/DESfire customer cards (requires unlocked SAM)</p>
+            <pre>{"readSchema": "FULL", "timeout": 30000}</pre>
+            <p class="description">Read schemas: FULL (all card data) or BASIC (electronic purse only). Returns HTTP 202 Accepted with sessionId</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method get">GET</span> <span class="path">/api/ingenico/card/read/{sessionId}</span>
+            <p class="description">Get card reading session status and card data</p>
+            <p class="description">Status values: PENDING, WAITING_FOR_CARD, PROCESSING, COMPLETED, FAILED. Returns CardDuk data when COMPLETED</p>
+        </div>
+
+        <div class="endpoint">
+            <span class="method">DELETE</span> <span class="path">/api/ingenico/card/read/{sessionId}</span>
+            <p class="description">Cancel active card reading session</p>
+        </div>
     </div>
 
     <div class="section">
@@ -240,6 +274,55 @@ curl http://localhost:8080/api/ingenico/config
 
 # Check reader health
 curl http://localhost:8080/api/ingenico/health
+        </pre>
+
+        <h3>SAM Module Unlock (Async)</h3>
+        <pre>
+# 1. Start unlock session (tap unlock card with PIN)
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"pin":"123456"}' \
+  http://localhost:8080/api/ingenico/unlock/start
+
+# Response: {"success":true, "data":{"sessionId":"uuid-here"}, ...}
+
+# 2. Poll for unlock status
+SESSION_ID="uuid-from-step-1"
+curl http://localhost:8080/api/ingenico/unlock/status/$SESSION_ID
+
+# Status progression: PENDING → WAITING_FOR_CARD → PROCESSING → COMPLETED
+# Poll every 500ms until status is COMPLETED or FAILED
+        </pre>
+
+        <h3>Card Reading (Async)</h3>
+        <pre>
+# 1. Start card reading session (requires unlocked SAM)
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"readSchema":"FULL","timeout":30000}' \
+  http://localhost:8080/api/ingenico/card/read
+
+# Response: {"success":true, "data":{"sessionId":"uuid-here"}, ...}
+
+# 2. Poll for card data
+SESSION_ID="uuid-from-step-1"
+curl http://localhost:8080/api/ingenico/card/read/$SESSION_ID
+
+# Status progression: PENDING → WAITING_FOR_CARD → PROCESSING → COMPLETED
+# When COMPLETED, response contains full card data:
+# {
+#   "sessionId": "...",
+#   "status": "COMPLETED",
+#   "cardData": {
+#     "cardUid": "1A2B3C4D",
+#     "cardType": "ISO_CARD",
+#     "cardInfo": {"cardNumber": "...", "validFrom": "...", ...},
+#     "cardHolderInfo": {"firstName": "...", "lastName": "...", ...},
+#     "valueEP": {"balance": 50000},
+#     "tickets": [...]
+#   }
+# }
+
+# 3. Cancel session (optional)
+curl -X DELETE http://localhost:8080/api/ingenico/card/read/$SESSION_ID
         </pre>
 
         <h3>Real-time Monitoring (JavaScript)</h3>

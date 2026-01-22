@@ -12,8 +12,7 @@ import pik.domain.ingenico.tap.ICardTapping;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 /**
  * Orchestrates card reading process.
@@ -31,6 +30,8 @@ public class CardReadOrchestrator {
     private final CardReadSessionManager sessionManager;
     private final IngenicoReaderDevice readerDevice;
     private final ExecutorService executor;
+    private final ScheduledExecutorService timeoutScheduler;
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> activeTimeouts;
 
     @Inject
     public CardReadOrchestrator(ICardTapping cardTapping,
@@ -42,6 +43,8 @@ public class CardReadOrchestrator {
         this.sessionManager = sessionManager;
         this.readerDevice = readerDevice;
         this.executor = Executors.newSingleThreadExecutor();
+        this.timeoutScheduler = Executors.newScheduledThreadPool(1);
+        this.activeTimeouts = new ConcurrentHashMap<>();
     }
 
     /**
@@ -89,6 +92,9 @@ public class CardReadOrchestrator {
             cardTapping.start(request);
             session.setStatus(CardReadSession.Status.WAITING_FOR_CARD);
             logger.info("Card tapping started for session {}", session.getSessionId());
+
+            // Schedule timeout to stop card tapping if no card is tapped
+            scheduleTimeout(session.getSessionId(), timeoutMillis);
         } catch (Exception e) {
             logger.error("Failed to start card tapping", e);
             session.setError("Failed to start card tapping: " + e.getMessage());
@@ -99,10 +105,53 @@ public class CardReadOrchestrator {
     }
 
     /**
+     * Schedule timeout for card reading session
+     */
+    private void scheduleTimeout(String sessionId, int timeoutMillis) {
+        ScheduledFuture<?> timeoutTask = timeoutScheduler.schedule(() -> {
+            logger.warn("Card read timeout for session {} after {}ms", sessionId, timeoutMillis);
+
+            CardReadSession session = sessionManager.getSession(sessionId);
+            if (session != null && session.getStatus() == CardReadSession.Status.WAITING_FOR_CARD) {
+                try {
+                    // Stop card tapping
+                    cardTapping.stop(true);
+                    logger.info("Card tapping stopped due to timeout for session {}", sessionId);
+
+                    // Mark session as failed
+                    sessionManager.setError(sessionId, "Timeout waiting for card tap");
+                } catch (Exception e) {
+                    logger.error("Error stopping card tapping on timeout for session " + sessionId, e);
+                }
+            }
+
+            // Remove timeout from active timeouts
+            activeTimeouts.remove(sessionId);
+        }, timeoutMillis, TimeUnit.MILLISECONDS);
+
+        activeTimeouts.put(sessionId, timeoutTask);
+        logger.debug("Scheduled timeout for session {} in {}ms", sessionId, timeoutMillis);
+    }
+
+    /**
+     * Cancel timeout for card reading session
+     */
+    private void cancelTimeout(String sessionId) {
+        ScheduledFuture<?> timeoutTask = activeTimeouts.remove(sessionId);
+        if (timeoutTask != null && !timeoutTask.isDone()) {
+            timeoutTask.cancel(false);
+            logger.debug("Cancelled timeout for session {}", sessionId);
+        }
+    }
+
+    /**
      * Called when card is detected
      * Executes card reading in background thread
      */
     private void processCardTap(String sessionId, CardDetectedData cardData) {
+        // Cancel timeout since card was detected
+        cancelTimeout(sessionId);
+
         executor.submit(() -> {
             logger.info("Processing card tap for session {}", sessionId);
 
@@ -158,6 +207,10 @@ public class CardReadOrchestrator {
      */
     private void handleTapError(String sessionId) {
         logger.error("Card tapping error for session {}", sessionId);
+
+        // Cancel timeout
+        cancelTimeout(sessionId);
+
         CardReadSession session = sessionManager.getSession(sessionId);
         if (session != null) {
             session.setError("Card tapping error");
@@ -179,6 +232,9 @@ public class CardReadOrchestrator {
         if (session == null) {
             return false;
         }
+
+        // Cancel timeout
+        cancelTimeout(sessionId);
 
         try {
             cardTapping.stop(true);
